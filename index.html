@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seyahat Cüzdanı (HTML/JS)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Scrollbar Gizleme Stili */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="app-root" class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative flex flex-col">
+        <!-- Uygulama içeriği buraya JavaScript ile yüklenecek -->
+        <div class="p-8 text-center text-gray-400">Uygulama yükleniyor...</div>
+    </div>
+
+    <script type="module">
+        // --- İkonlar (Lucide-React yerine SVG olarak) ---
+        const ICONS = {
+            MapPin: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+            Plus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+            Trash2: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+            Users: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+            Camera: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+            StickyNote: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2"/><path d="M10 18h6a2 2 0 0 0 2-2v-6"/></svg>`,
+            X: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>`,
+            Wallet: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M17 12V7a2 2 0 0 0-2-2H9.5C8.67 5 8 5.67 8 6.5s.67 1.5 1.5 1.5H15V12"/><path d="M12 17h.01"/></svg>`,
+            TrendingUp: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 7-3-3L2 16"/><path d="M18 6h-6v6"/></svg>`,
+            AlertCircle: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
+            RefreshCw: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9c-1.85 0-3.6.53-5.1 1.43"/><path d="M3 12a9 9 0 0 0 9 9c1.85 0 3.6-.53 5.1-1.43"/><path d="M3 6v3h3"/><path d="M21 18v-3h-3"/></svg>`,
+            Calendar: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>`,
+            ExternalLink: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5"/></svg>`,
+            Loader: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>`,
+            ChevronRight: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>`,
+            ChevronDown: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`,
+            ChevronUp: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>`,
+            Pencil: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`
+        };
+
+        const $ = (selector) => document.querySelector(selector);
+        const $$ = (selector) => document.querySelectorAll(selector);
+        
+        // --- Uygulama Durumu (State) ---
+        let state = {
+            expenses: [],
+            view: 'list', // 'list' veya 'form'
+            selectedExpense: null,
+            errorMsg: null,
+            isProcessing: false,
+            showConfirmClear: false,
+            expandedCities: {} // Hangi şehirlerin açık olduğunu tutar
+        };
+
+        const initialFormState = {
+            id: null, // Yeni kayıt için null, düzenleme için mevcut ID
+            city: '',
+            place: '',
+            category: 'Yeme-İçme',
+            peopleCount: 1,
+            amount: '',
+            currency: 'TRY',
+            notes: '',
+            images: [],
+            date: new Date().toISOString().split('T')[0]
+        };
+        let formData = { ...initialFormState };
+
+
+        // --- Helper Fonksiyonlar (React versiyonundan JS'e aktarıldı) ---
+
+        const compressImage = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_DIMENSION = 800;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+                            const ratio = Math.max(width / MAX_DIMENSION, height / MAX_DIMENSION);
+                            width /= ratio;
+                            height /= ratio;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
+                        resolve(dataUrl);
+                    };
+                    img.onerror = () => {
+                        console.error("Resim yüklenemedi, orijinal DataURL döndürülüyor.");
+                        resolve(event.target.result); 
+                    };
+                };
+                reader.onerror = (e) => {
+                    console.error("Dosya okuma hatası:", e);
+                    resolve(null);
+                };
+            });
+        };
+
+        const normalizeCityName = (city) => {
+            if (typeof city !== 'string' || !city) return 'Diğer';
+            return city.toLocaleLowerCase('tr-TR').split(' ').map(word => 
+                word.charAt(0).toLocaleUpperCase('tr-TR') + word.slice(1)
+            ).join(' ');
+        };
+
+        const getColorForCity = (city) => {
+            const normalizedCity = city.replace(/\s/g, '').toLowerCase();
+            let hash = 0;
+            for (let i = 0; i < normalizedCity.length; i++) {
+                hash = normalizedCity.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const colorPalettes = [
+                { name: 'blue', text: 'text-blue-600', bg: 'bg-blue-100', light: 'bg-blue-50' },
+                { name: 'emerald', text: 'text-emerald-600', bg: 'bg-emerald-100', light: 'bg-emerald-50' },
+                { name: 'indigo', text: 'text-indigo-600', bg: 'bg-indigo-100', light: 'bg-indigo-50' },
+                { name: 'rose', text: 'text-rose-600', bg: 'bg-rose-100', light: 'bg-rose-50' },
+                { name: 'yellow', text: 'text-yellow-600', bg: 'bg-yellow-100', light: 'bg-yellow-50' },
+                { name: 'purple', text: 'text-purple-600', bg: 'bg-purple-100', light: 'bg-purple-50' },
+                { name: 'cyan', text: 'text-cyan-600', bg: 'bg-cyan-100', light: 'bg-cyan-50' },
+                { name: 'fuchsia', text: 'text-fuchsia-600', bg: 'bg-fuchsia-100', light: 'bg-fuchsia-50' },
+            ];
+            const index = Math.abs(hash) % colorPalettes.length;
+            return colorPalettes[index];
+        };
+        
+        // --- Veri İşlemleri (Local Storage) ---
+
+        const loadExpenses = () => {
+            try {
+                const saved = localStorage.getItem('travel_expenses');
+                state.expenses = saved ? JSON.parse(saved) : [];
+            } catch (error) {
+                console.error("Local storage okuma hatası:", error);
+                state.errorMsg = "Hafıza okuma hatası oluştu.";
+            }
+        };
+
+        const saveExpenses = () => {
+            try {
+                localStorage.setItem('travel_expenses', JSON.stringify(state.expenses));
+                state.errorMsg = null;
+            } catch (error) {
+                console.error("Local storage yazma hatası:", error);
+                state.errorMsg = "Hafıza doldu! Lütfen bazı eski kayıtları silin.";
+            }
+        };
+        
+        // --- Durum Güncelleme ve Yeniden Çizim ---
+        const setState = (newState) => {
+            Object.assign(state, newState);
+            saveExpenses(); // Harcamalar değiştiğinde kaydet
+            renderApp();
+        };
+
+        // Bu, input değerlerini hemen global formData'ya yazar.
+        const setFormDataValue = (name, value) => {
+            formData = { ...formData, [name]: value };
+        };
+
+
+        // --- Bileşenler (HTML String'e Dönüştürüldü) ---
+
+        const renderSummaryCard = (expenses) => {
+            const totals = expenses.reduce((acc, curr) => {
+                if (curr && curr.currency && curr.amount) {
+                    const amount = parseFloat(curr.amount) || 0;
+                    acc[curr.currency] = (acc[curr.currency] || 0) + amount;
+                }
+                return acc;
+            }, {});
+
+            const totalHtml = Object.keys(totals).length > 0 ?
+                Object.entries(totals).map(([curr, total]) => `
+                    <div class="bg-white/10 p-3 rounded-xl backdrop-blur-sm min-w-[120px] shadow-inner">
+                        <div class="text-xs text-blue-100 opacity-80 uppercase tracking-wider">Toplam Harcama</div>
+                        <div class="text-2xl font-bold tracking-tight whitespace-nowrap mt-1">
+                            ${(total || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} 
+                            <span class="text-base font-normal ml-1">${curr}</span>
+                        </div>
+                    </div>
+                `).join('')
+                :
+                `<div class="text-blue-100 text-sm italic py-2">Henüz toplam harcama yok.</div>`;
+
+            return `
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-2xl shadow-lg mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold flex items-center gap-2">
+                            ${ICONS.Wallet.replace('width="24" height="24"', 'class="w-6 h-6"')}
+                            Seyahat Cüzdanı Özeti
+                        </h2>
+                        <span class="bg-white/20 px-3 py-1 rounded-full text-sm font-medium">
+                            ${expenses.length} Kayıt
+                        </span>
+                    </div>
+                    <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                        ${totalHtml}
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderExpenseList = (expenses) => {
+            if (expenses.length === 0) {
+                return `
+                    <div class="text-center py-10 text-gray-400">
+                        <div class="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            ${ICONS.TrendingUp.replace('width="24" height="24"', 'class="w-8 h-8 opacity-20"')}
+                        </div>
+                        <p class="text-lg font-medium">Seyahatiniz başlasın!</p>
+                        <p class="text-sm mt-2">Aşağıdaki <span class="font-bold text-blue-600">+</span> butonuna basarak ilk harcamanızı ekleyin.</p>
+                    </div>
+                `;
+            }
+
+            const groupedExpenses = expenses.reduce((groups, expense) => {
+                const normalizedCity = normalizeCityName(expense.city); 
+                
+                if (!groups[normalizedCity]) {
+                    groups[normalizedCity] = { items: [], totalsByCurrency: {} };
+                }
+                groups[normalizedCity].items.push(expense);
+                
+                const amount = parseFloat(expense.amount) || 0;
+                const curr = expense.currency;
+
+                groups[normalizedCity].totalsByCurrency[curr] = (groups[normalizedCity].totalsByCurrency[curr] || 0) + amount;
+                
+                return groups;
+            }, {});
+
+            const sortedCities = Object.keys(groupedExpenses).sort();
+
+            // İlk yüklemede yeni şehirleri otomatik olarak aç
+            sortedCities.forEach(city => {
+                if (state.expandedCities[city] === undefined) {
+                    state.expandedCities[city] = true;
+                }
+            });
+
+            const cityHtml = sortedCities.map(city => {
+                const group = groupedExpenses[city];
+                const isExpanded = state.expandedCities[city];
+                const colors = getColorForCity(city);
+                
+                const totalStr = Object.entries(group.totalsByCurrency)
+                    .map(([curr, val]) => `${(val || 0).toLocaleString('tr-TR', {maximumFractionDigits:0})} ${curr}`) 
+                    .join(' + ');
+
+                // Harcamaları tarihe göre tersten sırala (en yenisi üste)
+                const sortedItems = group.items.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                const itemHtml = sortedItems.map(item => `
+                    <div 
+                        data-id="${item.id}"
+                        class="expense-item p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors group"
+                    >
+                        <div class="flex-1 min-w-0 pr-4">
+                            <h4 class="font-bold text-gray-800 truncate group-hover:text-blue-700 transition-colors">
+                                ${item.place || "İsimsiz Mekan"}
+                            </h4>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100 uppercase tracking-wide">
+                                    ${item.category}
+                                </span>
+                                ${item.notes ? ICONS.StickyNote.replace('width="24" height="24"', 'class="w-3 h-3 text-gray-400"') : ''}
+                                ${item.images && item.images.length > 0 ? ICONS.Camera.replace('width="24" height="24"', 'class="w-3 h-3 text-gray-400"') : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3 shrink-0">
+                            <div class="text-right">
+                                <div class="font-bold text-gray-900 text-lg">
+                                    ${(item.amount || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })} <span class="text-xs text-gray-500 font-normal">${item.currency}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-400">${item.date}</div>
+                            </div>
+                            ${ICONS.ChevronRight.replace('width="24" height="24"', 'class="w-4 h-4 text-gray-300 group-hover:text-blue-400 group-hover:translate-x-1 transition-all"')}
+                        </div>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-2 duration-300" data-city="${city}">
+                        <div 
+                            class="city-header ${colors.light} p-4 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors select-none"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div class="${colors.bg} ${colors.text} p-2 rounded-xl">
+                                    ${ICONS.MapPin.replace('width="24" height="24"', 'class="w-4 h-4"')}
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-gray-800 text-lg leading-none">${city}</h3>
+                                    <span class="text-xs text-gray-500 font-medium">${group.items.length} Harcama</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                <div class="text-right hidden sm:block">
+                                     <span class="text-sm font-bold ${colors.text} ${colors.bg} px-3 py-1 rounded-full block">
+                                        ${totalStr}
+                                     </span>
+                                </div>
+                                ${isExpanded ? ICONS.ChevronUp.replace('width="24" height="24"', 'class="w-4 h-4 text-gray-500"') : ICONS.ChevronDown.replace('width="24" height="24"', 'class="w-4 h-4 text-gray-500"')}
+                            </div>
+                        </div>
+
+                        <div class="city-content ${isExpanded ? '' : 'hidden'} divide-y divide-gray-100 border-t border-gray-100">
+                            ${itemHtml}
+                            <div class="p-2 text-center sm:hidden border-t border-gray-100 ${colors.light}">
+                               <span class="text-xs font-bold ${colors.text}">
+                                  Toplam: ${totalStr}
+                               </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="space-y-4 pb-20">
+                    <h3 class="text-xs font-bold uppercase text-gray-500 ml-2 tracking-wider">Harcamalar Şehirlere Göre Gruplanmıştır</h3>
+                    ${cityHtml}
+                </div>
+            `;
+        };
+
+        const renderForm = (isProcessing) => {
+            const isEditing = formData.id !== null;
+            
+            const imagePreviews = (formData.images || []).map((img, idx) => `
+                <div class="relative w-20 h-20 group shrink-0" data-img-index="${idx}">
+                    <img 
+                        src="${img}" 
+                        alt="Önizleme ${idx + 1}" 
+                        class="w-full h-full object-cover rounded-xl border-2 border-green-400 shadow-md cursor-pointer" 
+                        onclick="window.open('${img}')"
+                    />
+                    <button
+                        type="button"
+                        class="remove-image-btn absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1.5 shadow-md z-10 hover:bg-red-700 transition-colors"
+                        title="Bu fotoğrafı sil"
+                    >
+                        ${ICONS.X.replace('width="24" height="24"', 'class="w-3 h-3" stroke-width="3"')}
+                    </button>
+                </div>
+            `).join('');
+
+            const imageInputHtml = formData.images.length < 3 && !isProcessing ? `
+                <label class="w-20 h-20 border-2 border-dashed border-gray-400 rounded-xl flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all bg-white shrink-0">
+                    ${ICONS.Camera.replace('width="24" height="24"', 'class="w-6 h-6"')}
+                    <span class="text-[10px] mt-1 font-medium">Fotoğraf Ekle</span>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        id="image-upload-input"
+                        class="hidden"
+                        multiple
+                    />
+                </label>
+            ` : (formData.images.length === 3 ? `
+                <div class="w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 bg-gray-100/50 shrink-0 opacity-70">
+                    ${ICONS.AlertCircle.replace('width="24" height="24"', 'class="w-6 h-6"')}
+                    <span class="text-[10px] mt-1 font-medium">Limit Dolu</span>
+                </div>
+            ` : '');
+            
+            const formTitle = isEditing ? 'Harcamayı Düzenle' : 'Yeni Harcama Ekle';
+            const submitText = isEditing ? 'Değişiklikleri Kaydet' : 'Yeni Kayıt Oluştur';
+            const submitIcon = isEditing ? ICONS.Pencil : ICONS.Plus;
+            const submitColor = isEditing ? 'bg-indigo-600 shadow-indigo-300/50 hover:bg-indigo-700' : 'bg-blue-600 shadow-blue-300/50 hover:bg-blue-700';
+
+            return `
+                <div id="expense-form-container" class="bg-white rounded-2xl shadow-xl overflow-hidden h-full flex flex-col">
+                    <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+                        <h2 class="font-bold text-lg text-gray-800">${formTitle}</h2>
+                        <button 
+                            type="button" 
+                            id="close-form-btn"
+                            class="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                        >
+                            ${ICONS.X.replace('width="24" height="24"', 'class="w-5 h-5 text-gray-600"')}
+                        </button>
+                    </div>
+                    
+                    <div class="p-5 overflow-y-auto flex-1">
+                        <form id="expense-form" class="space-y-5">
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label for="city" class="text-xs font-semibold text-gray-500 uppercase">Şehir <span class="text-red-500">*</span></label>
+                                    <div class="relative">
+                                        ${ICONS.MapPin.replace('width="24" height="24"', 'class="w-4 h-4 absolute left-3 top-3.5 text-gray-400"')}
+                                        <input
+                                            id="city"
+                                            type="text"
+                                            name="city"
+                                            placeholder="Örn: Roma"
+                                            value="${formData.city}"
+                                            class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <label for="place" class="text-xs font-semibold text-gray-500 uppercase">Mekan Adı</label>
+                                    <input
+                                        id="place"
+                                        type="text"
+                                        name="place"
+                                        placeholder="Örn: Cafe"
+                                        value="${formData.place}"
+                                        class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-1">
+                                    <label for="category" class="text-xs font-semibold text-gray-500 uppercase">Kategori</label>
+                                    <select
+                                        id="category"
+                                        name="category"
+                                        class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    >
+                                        ${['Yeme-İçme', 'Konaklama', 'Ulaşım', 'Alışveriş', 'Aktivite', 'Diğer'].map(cat => 
+                                            `<option value="${cat}" ${formData.category === cat ? 'selected' : ''}>${cat}</option>`
+                                        ).join('')}
+                                    </select>
+                                </div>
+                                <div class="space-y-1">
+                                    <label for="peopleCount" class="text-xs font-semibold text-gray-500 uppercase">Kişi Sayısı</label>
+                                    <div class="relative">
+                                        ${ICONS.Users.replace('width="24" height="24"', 'class="w-4 h-4 absolute left-3 top-3.5 text-gray-400"')}
+                                        <input
+                                            id="peopleCount"
+                                            type="number"
+                                            name="peopleCount"
+                                            min="1"
+                                            value="${formData.peopleCount}"
+                                            class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                                <label for="amount" class="text-xs font-semibold text-blue-600 uppercase mb-2 block">Harcama Tutarı <span class="text-red-500">*</span></label>
+                                <div class="flex gap-2">
+                                    <div class="relative flex-1">
+                                        <input
+                                            id="amount"
+                                            type="number"
+                                            name="amount"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            value="${formData.amount}"
+                                            class="w-full pl-4 pr-4 py-3 bg-white border border-blue-200 rounded-xl text-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <select
+                                        name="currency"
+                                        class="w-24 px-2 py-3 bg-white border border-blue-200 rounded-xl font-bold text-gray-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                    >
+                                        ${['TRY', 'USD', 'EUR', 'GBP', 'JPY', 'CHF'].map(curr => 
+                                            `<option value="${curr}" ${formData.currency === curr ? 'selected' : ''}>${curr}</option>`
+                                        ).join('')}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label for="date" class="text-xs font-semibold text-gray-500 uppercase">Tarih</label>
+                                <div class="relative">
+                                    ${ICONS.Calendar.replace('width="24" height="24"', 'class="w-4 h-4 absolute left-3 top-3.5 text-gray-400"')}
+                                    <input 
+                                      id="date"
+                                      type="date"
+                                      name="date"
+                                      value="${formData.date}"
+                                      class="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                      max="${new Date().toISOString().split('T')[0]}"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label for="notes" class="text-xs font-semibold text-gray-500 uppercase">Notlar</label>
+                                <textarea
+                                    id="notes"
+                                    name="notes"
+                                    rows="3"
+                                    placeholder="Yemekler harikaydı, bahşiş %10 bırakıldı..."
+                                    class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                                >${formData.notes}</textarea>
+                            </div>
+                            
+                            <!-- Fotoğraf Yükleme Alanı -->
+                            <div class="space-y-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2">
+                                        Fotoğraflar (${formData.images.length}/3)
+                                        ${isProcessing ? `<span class="text-blue-600 flex items-center text-[10px]">${ICONS.Loader.replace('width="24" height="24"', 'class="animate-spin w-3 h-3 mr-1"')} İşleniyor...</span>` : ''}
+                                    </label>
+                                    ${formData.images.length > 0 ? `
+                                       <button 
+                                         type="button" 
+                                         id="clear-all-images-btn"
+                                         class="text-[10px] text-red-400 cursor-pointer hover:underline p-1 -m-1"
+                                       >
+                                         Tümünü Sil
+                                       </button>
+                                    ` : ''}
+                                </div>
+                                
+                                <div id="image-preview-container" class="flex gap-3 items-center flex-wrap min-h-[80px]">
+                                    ${imagePreviews}
+                                    ${imageInputHtml}
+                                </div>
+                            </div>
+                            <!-- Fotoğraf Yükleme Alanı Bitiş -->
+
+                            <button
+                                type="submit"
+                                id="submit-expense-btn"
+                                ${isProcessing ? 'disabled' : ''}
+                                class="w-full font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 mt-4 ${isProcessing ? 'bg-gray-400 cursor-not-allowed' : `text-white ${submitColor} active:scale-[0.98]`}"
+                            >
+                                ${isProcessing ? `
+                                    ${ICONS.Loader.replace('width="24" height="24"', 'class="animate-spin w-5 h-5"')} Fotoğraflar İşleniyor...
+                                ` : `
+                                    ${submitIcon.replace('width="24" height="24"', 'class="w-5 h-5"')} ${submitText}
+                                `}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderDetailModal = (expense) => {
+            if (!expense) return '';
+
+            const searchQuery = encodeURIComponent(`${expense.place || ''} ${expense.city || ''}`);
+            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+            const cityColors = getColorForCity(expense.city);
+
+            const imageHtml = expense.images && expense.images.length > 0 ? `
+                <div>
+                  <h4 class="font-bold text-xs text-gray-500 uppercase mb-2">Fotoğraflar</h4>
+                  <div class="grid grid-cols-3 gap-2">
+                    ${expense.images.map((img, idx) => `
+                        <img 
+                          src="${img}" 
+                          alt="detail" 
+                          class="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer" 
+                          onclick="window.open('${img}')"
+                        />
+                    `).join('')}
+                  </div>
+                </div>
+            ` : '';
+
+            return `
+                <div id="detail-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <!-- Renkli Başlık -->
+                        <div class="p-4 text-white flex justify-between items-start ${cityColors.text.replace('-600', '-700').replace('text-', 'bg-')}">
+                            <div>
+                                <h3 class="text-lg font-bold flex items-center gap-2">
+                                    ${ICONS.MapPin.replace('width="24" height="24"', 'class="w-5 h-5"')} ${normalizeCityName(expense.city)}
+                                </h3>
+                                <p class="text-sm opacity-90">${expense.date}</p>
+                            </div>
+                            <button id="close-detail-modal" class="bg-white/20 p-1.5 rounded-full hover:bg-white/30 transition-colors">
+                                ${ICONS.X.replace('width="24" height="24"', 'class="w-5 h-5"')}
+                            </button>
+                        </div>
+
+                        <div class="p-5 overflow-y-auto flex-1 space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h2 class="text-2xl font-bold text-gray-800">${expense.place || 'İsimsiz Mekan'}</h2>
+                                <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold uppercase">
+                                    ${expense.category}
+                                </span>
+                            </div>
+
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <div class="text-center">
+                                    <span class="text-xs text-gray-500 uppercase font-bold tracking-wider">Tutar</span>
+                                    <div class="text-3xl font-bold ${cityColors.text.replace('-600', '-700')}">
+                                        ${expense.amount.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} <span class="text-lg text-gray-500">${expense.currency}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3 text-gray-600 bg-white border border-gray-100 p-3 rounded-xl">
+                                    ${ICONS.Users.replace('width="24" height="24"', `class="${cityColors.text} w-5 h-5"`)}
+                                    <span class="font-medium">${expense.peopleCount} Kişi</span>
+                                </div>
+
+                                ${expense.notes ? `
+                                    <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-gray-700 relative">
+                                        ${ICONS.StickyNote.replace('width="24" height="24"', 'class="w-6 h-6 absolute top-4 right-4 text-yellow-400 opacity-50"')}
+                                        <h4 class="font-bold text-xs text-yellow-600 uppercase mb-1">Notlar</h4>
+                                        <p class="text-sm italic">${expense.notes}</p>
+                                    </div>
+                                ` : ''}
+
+                                <a 
+                                    href="${mapUrl}" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    class="flex items-center justify-center gap-2 w-full py-3 ${cityColors.light} ${cityColors.text} rounded-xl font-bold hover:opacity-90 transition-colors border border-current"
+                                >
+                                    ${ICONS.ExternalLink.replace('width="24" height="24"', 'class="w-4 h-4"')} Haritada Ara
+                                </a>
+
+                                ${imageHtml}
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-3">
+                            <button 
+                                id="edit-expense-btn"
+                                data-id="${expense.id}"
+                                class="flex-1 flex items-center justify-center gap-2 text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-3 rounded-xl transition-colors font-medium"
+                            >
+                                ${ICONS.Pencil.replace('width="24" height="24"', 'class="w-4 h-4"')} Düzenle
+                            </button>
+                            <button 
+                                id="delete-expense-btn"
+                                data-id="${expense.id}"
+                                class="flex-1 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 p-3 rounded-xl transition-colors font-medium"
+                            >
+                                ${ICONS.Trash2.replace('width="24" height="24"', 'class="w-5 h-5"')} Sil
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderCustomConfirmModal = (message, confirmId, cancelId) => {
+            return `
+                <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div class="bg-white w-full max-w-xs rounded-xl shadow-2xl overflow-hidden">
+                        <div class="p-5">
+                            ${ICONS.AlertCircle.replace('width="24" height="24"', 'class="w-6 h-6 text-red-500 mx-auto mb-3"')}
+                            <p class="text-center font-medium text-gray-700">${message}</p>
+                        </div>
+                        <div class="flex border-t border-gray-100">
+                            <button 
+                                id="${cancelId}"
+                                class="flex-1 py-3 text-gray-500 hover:bg-gray-50 transition-colors border-r"
+                            >
+                                İptal
+                            </button>
+                            <button 
+                                id="${confirmId}"
+                                class="flex-1 py-3 text-red-600 font-semibold hover:bg-red-50 transition-colors"
+                            >
+                                Sil
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // --- Ana Uygulama Çizimi ve Olay İşleyiciler ---
+
+        const renderApp = () => {
+            const appRoot = $('#app-root');
+            if (!appRoot) return; // Kök eleman yoksa dur
+
+            // 1. Header ve Sabit Öğeler
+            const headerHtml = `
+                <header class="bg-white p-4 sticky top-0 z-10 border-b border-gray-100 flex justify-between items-center shrink-0">
+                    <div class="flex items-center gap-2">
+                        <div class="bg-blue-600 p-2 rounded-lg text-white">
+                            ${ICONS.MapPin.replace('width="24" height="24"', 'class="w-5 h-5"')}
+                        </div>
+                        <h1 class="text-xl font-bold tracking-tight text-gray-900">Seyahat Cüzdanı</h1>
+                    </div>
+                    <button id="clear-all-data-btn" class="text-gray-400 hover:text-red-500 p-2 transition-colors group" title="Tüm veriyi temizle">
+                        ${ICONS.RefreshCw.replace('width="24" height="24"', 'class="w-5 h-5 group-hover:rotate-180 transition-transform duration-500"')}
+                    </button>
+                </header>
+            `;
+
+            // 2. Hata Mesajı
+            const errorHtml = state.errorMsg ? `
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded-lg shadow-sm flex items-start z-10">
+                    ${ICONS.AlertCircle.replace('width="24" height="24"', 'class="w-5 h-5 text-red-500 mr-2 shrink-0 mt-0.5"')}
+                    <p class="text-sm text-red-700 font-medium">${state.errorMsg}</p>
+                </div>
+            ` : '';
+
+            // 3. Ana İçerik (Liste veya Form)
+            let mainContentHtml = '';
+            let fabButtonHtml = '';
+            
+            if (state.view === 'list') {
+                mainContentHtml = renderSummaryCard(state.expenses) + renderExpenseList(state.expenses);
+                fabButtonHtml = `
+                    <div class="absolute bottom-6 right-6 z-20">
+                        <button
+                            id="add-expense-fab"
+                            class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl shadow-blue-400/70 transition-all hover:scale-105 active:scale-95 flex items-center justify-center group"
+                            title="Yeni Harcama Ekle"
+                        >
+                            ${ICONS.Plus.replace('width="24" height="24"', 'class="w-8 h-8 group-hover:rotate-90 transition-transform duration-300"')}
+                        </button>
+                    </div>
+                `;
+            } else if (state.view === 'form') {
+                mainContentHtml = renderForm(state.isProcessing);
+            }
+
+            // 4. Modal/Onaylar
+            let modalHtml = '';
+            if (state.selectedExpense) {
+                modalHtml = renderDetailModal(state.selectedExpense);
+            } else if (state.showConfirmClear) {
+                modalHtml = renderCustomConfirmModal(
+                    "UYARI: Tüm harcama kayıtlarını kalıcı olarak silmek istediğinizden emin misiniz?",
+                    'confirm-clear-all-btn',
+                    'cancel-clear-all-btn'
+                );
+            }
+
+            // Tüm bileşenleri birleştir
+            appRoot.innerHTML = `
+                ${headerHtml}
+                ${errorHtml}
+                <main id="main-content" class="flex-1 p-4 overflow-y-auto">
+                    ${mainContentHtml}
+                </main>
+                ${fabButtonHtml}
+                ${modalHtml}
+            `;
+
+            // Olay dinleyicilerini yeniden ata
+            attachEventListeners();
+        };
+
+        const attachEventListeners = () => {
+            // --- Genel Olaylar ---
+            
+            // FAB Butonu (Ekle)
+            const fab = $('#add-expense-fab');
+            if (fab) {
+                fab.onclick = () => {
+                    formData = { ...initialFormState }; // Yeni ekleme için formu sıfırla
+                    setState({ view: 'form' });
+                }
+            }
+
+            // Tüm Veriyi Temizle Butonu
+            const clearBtn = $('#clear-all-data-btn');
+            if (clearBtn) {
+                clearBtn.onclick = () => setState({ showConfirmClear: true });
+            }
+
+            // Tüm Veriyi Temizleme Onayı/İptali
+            const confirmClearBtn = $('#confirm-clear-all-btn');
+            const cancelClearBtn = $('#cancel-clear-all-btn');
+            if (confirmClearBtn) {
+                confirmClearBtn.onclick = confirmClearAll;
+            }
+            if (cancelClearBtn) {
+                cancelClearBtn.onclick = () => setState({ showConfirmClear: false });
+            }
+
+            // --- Form Olayları (Eğer Form Görüntüleniyorsa) ---
+            
+            // Formu Kapat butonu
+            const closeFormBtn = $('#close-form-btn');
+            if (closeFormBtn) {
+                closeFormBtn.onclick = () => {
+                    formData = { ...initialFormState }; // Formu sıfırla
+                    setState({ view: 'list' });
+                };
+            }
+
+            // Form Input Değişiklikleri
+            const form = $('#expense-form');
+            if (form) {
+                // Input değişikliklerini dinle
+                form.onchange = (e) => {
+                    const { name, value, type } = e.target;
+                    // peopleCount hariç diğer number alanları için parse işlemi
+                    const finalValue = type === 'number' && name !== 'peopleCount' && value !== '' ? parseFloat(value) : value;
+                    setFormDataValue(name, finalValue);
+                };
+                // Submit Olayı
+                form.onsubmit = handleSubmit;
+                
+                // Fotoğraf Yükleme Input'u
+                const imageInput = $('#image-upload-input');
+                if(imageInput) {
+                    imageInput.onchange = handleImageUpload;
+                }
+                
+                // Tekil Fotoğraf Silme Butonları
+                $$('.remove-image-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        e.stopPropagation(); // Üst elemana yayılmayı engelle
+                        const index = parseInt(e.currentTarget.parentElement.getAttribute('data-img-index'), 10);
+                        removeImage(index);
+                    };
+                });
+                
+                // Tüm Fotoğrafları Silme Butonu
+                const clearAllImagesBtn = $('#clear-all-images-btn');
+                if (clearAllImagesBtn) {
+                    clearAllImagesBtn.onclick = () => {
+                        // Basit JS onay kutusu kullanıyoruz
+                        if (window.confirm('Tüm fotoğrafları silmek istediğine emin misin?')) {
+                            formData = { ...formData, images: [] };
+                            renderApp(); // State değiştiği için uygulamayı yeniden çiz
+                        }
+                    };
+                }
+            }
+            
+            // --- Liste Olayları (Eğer Liste Görüntüleniyorsa) ---
+            
+            // Şehir Başlığı Tıklaması (Akordeon)
+            $$('.city-header').forEach(header => {
+                header.onclick = (e) => {
+                    const cityElement = e.currentTarget.closest('[data-city]');
+                    const city = cityElement.getAttribute('data-city');
+                    
+                    const isCurrentlyExpanded = state.expandedCities[city];
+                    
+                    // state.expandedCities'i güncelle ve yeniden çiz
+                    state.expandedCities = {
+                        ...state.expandedCities,
+                        [city]: !isCurrentlyExpanded
+                    };
+                    renderApp(); 
+                };
+            });
+            
+            // Harcama Detay Görüntüleme
+            $$('.expense-item').forEach(item => {
+                item.onclick = (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
+                    const expense = state.expenses.find(exp => exp.id === id);
+                    if (expense) {
+                        setState({ selectedExpense: expense });
+                    }
+                };
+            });
+
+            // --- Detay Modal Olayları (Eğer Modal Açık İse) ---
+            
+            // Detay Modalını Kapat
+            const closeDetailBtn = $('#close-detail-modal');
+            if (closeDetailBtn) {
+                closeDetailBtn.onclick = () => setState({ selectedExpense: null });
+            }
+            
+            // Yeni Eklenen: Düzenleme Başlatma Butonu
+            const editExpenseBtn = $('#edit-expense-btn');
+            if (editExpenseBtn) {
+                editExpenseBtn.onclick = (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
+                    handleEditStart(id);
+                };
+            }
+
+            // Detay Modalından Silme
+            const deleteExpenseBtn = $('#delete-expense-btn');
+            if (deleteExpenseBtn) {
+                deleteExpenseBtn.onclick = (e) => {
+                    const id = parseInt(e.currentTarget.getAttribute('data-id'), 10);
+                    if (window.confirm('Bu harcama kaydını kalıcı olarak silmek istediğinizden emin misiniz?')) {
+                        handleDelete(id);
+                    }
+                };
+            }
+        };
+
+        // --- İşlem Fonksiyonları ---
+        
+        // Yeni Fonksiyon: Düzenleme Formunu Hazırla
+        const handleEditStart = (id) => {
+            const expenseToEdit = state.expenses.find(exp => exp.id === id);
+            
+            if (expenseToEdit) {
+                // Mevcut kaydın tüm verilerini formData'ya kopyala
+                formData = { ...expenseToEdit };
+                
+                // ID'yi koruyarak düzenleme moduna geç
+                setState({ 
+                    selectedExpense: null, // Detay modalını kapat
+                    view: 'form' 
+                });
+            }
+        };
+        
+        const handleImageUpload = async (e) => {
+            const files = Array.from(e.target.files);
+            const currentImagesLength = formData.images ? formData.images.length : 0;
+            const remainingSlots = 3 - currentImagesLength;
+
+            if (files.length === 0) return;
+
+            if (files.length > remainingSlots) {
+                setState({ errorMsg: `En fazla ${remainingSlots} fotoğraf daha yükleyebilirsin. Toplam limit 3.` });
+                e.target.value = null; 
+                return;
+            }
+            
+            setState({ errorMsg: null, isProcessing: true });
+
+            try {
+                const compressedImagesPromises = files.map(file => compressImage(file));
+                const compressedImages = await Promise.all(compressedImagesPromises);
+
+                formData = {
+                    ...formData,
+                    images: [...(formData.images || []), ...compressedImages.filter(img => img !== null)]
+                };
+            } catch (err) {
+                console.error("Fotoğraf işleme hatası:", err);
+                setState({ errorMsg: "Fotoğraflar işlenirken beklenmedik bir hata oluştu." });
+            } finally {
+                setState({ isProcessing: false }); // İşleme bittiğinde yeniden çiz
+                e.target.value = null; // Dosya girişini temizle
+            }
+        };
+
+        const removeImage = (index) => {
+            formData = { 
+                ...formData, 
+                images: formData.images.filter((_, i) => i !== index)
+            };
+            renderApp();
+        };
+
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            if (state.isProcessing) return;
+
+            const city = $('#city').value;
+            const amountInput = $('#amount').value;
+
+            if (!city || !amountInput) {
+                setState({ errorMsg: "Lütfen şehir ve tutar alanlarını doldurun." });
+                return;
+            }
+            
+            const amountValue = parseFloat(amountInput);
+            if (isNaN(amountValue) || amountValue <= 0) {
+                setState({ errorMsg: "Geçersiz veya sıfır tutar girdiniz." });
+                return;
+            }
+            
+            // Tüm form değerlerini al
+            const formElements = e.target.elements;
+            const currentFormInputData = {};
+            for (let i = 0; i < formElements.length; i++) {
+                const element = formElements[i];
+                if (element.name) {
+                    currentFormInputData[element.name] = element.value;
+                }
+            }
+            
+            const normalizedCity = normalizeCityName(city);
+
+            // Yeni/Güncel Kayıt Objesini Oluştur
+            const submittedExpense = {
+                // formData'da bulunan ID ve Images (güncellenmiş hali)
+                ...formData, 
+                // En son form input değerleri
+                ...currentFormInputData, 
+                amount: amountValue,
+                peopleCount: parseInt(currentFormInputData.peopleCount, 10) || 1,
+                city: normalizedCity,
+            };
+            
+            let newExpenses;
+
+            if (submittedExpense.id !== null) {
+                // Düzenleme (Update) Modu
+                newExpenses = state.expenses.map(exp => 
+                    exp.id === submittedExpense.id ? submittedExpense : exp
+                );
+                setState({ errorMsg: "Harcama başarıyla güncellendi.", view: 'list', expenses: newExpenses });
+            } else {
+                // Yeni Kayıt (Add) Modu
+                submittedExpense.id = Date.now(); // Yeni bir ID atama
+                newExpenses = [submittedExpense, ...state.expenses];
+                setState({ errorMsg: "Yeni harcama başarıyla eklendi.", view: 'list', expenses: newExpenses });
+            }
+            
+            // Formu sıfırla
+            formData = { ...initialFormState };
+        };
+
+        const handleDelete = (id) => {
+            setState({ 
+                expenses: state.expenses.filter(item => item.id !== id),
+                selectedExpense: null // Modal'ı kapat
+            });
+        };
+        
+        const confirmClearAll = () => {
+            try {
+                localStorage.removeItem('travel_expenses');
+                setState({
+                    expenses: [],
+                    errorMsg: "Tüm veriler temizlendi!",
+                    showConfirmClear: false,
+                    expandedCities: {}
+                });
+            } catch (e) {
+                setState({
+                    errorMsg: "Veri temizlenirken bir hata oluştu.",
+                    showConfirmClear: false
+                });
+            }
+        };
+
+        // --- Uygulamayı Başlat ---
+        window.onload = function () {
+            loadExpenses();
+            renderApp();
+        }
+
+    </script>
+</body>
+</html>
