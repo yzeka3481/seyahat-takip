@@ -21,10 +21,11 @@
             scrollbar-width: none;
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900">
 
-    <div id="app-root" class="max-w-md mx-auto min-h-screen bg-white shadow-2xl relative flex flex-col">
+    <div id="app-root" class="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto min-h-screen md:my-8 bg-white/10 border border-white/10 backdrop-blur-xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] rounded-3xl relative flex flex-col overflow-hidden">
         <!-- Uygulama içeriği buraya JavaScript ile yüklenecek -->
         <div class="p-8 text-center text-gray-400">Uygulama yükleniyor...</div>
     </div>
@@ -63,6 +64,7 @@
             errorMsg: null,
             isProcessing: false,
             showConfirmClear: false,
+            filterCategory: '', // Liste görünümü için kategori filtresi
             expandedCities: {} // Hangi şehirlerin açık olduğunu tutar
         };
 
@@ -182,6 +184,48 @@
             formData = { ...formData, [name]: value };
         };
 
+
+        // --- Liste Filtre Çubuğu (Kategori) ---
+        const renderFilterBar = (allExpenses, visibleExpenses, selectedCategory) => {
+            const uniqueCategories = Array.from(new Set(
+                (allExpenses || [])
+                    .map(e => e && e.category)
+                    .filter(Boolean)
+            ));
+
+            if (uniqueCategories.length === 0) {
+                return '';
+            }
+
+            const optionsHtml = [
+                `<option value="">Tüm Kategoriler</option>`,
+                ...uniqueCategories.map(cat =>
+                    `<option value="${cat}" ${selectedCategory === cat ? 'selected' : ''}>${cat}</option>`
+                )
+            ].join('');
+
+            const visibleCount = (visibleExpenses || []).length;
+
+            return `
+                <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="text-sm text-gray-500">
+                        <span class="font-medium">${visibleCount}</span> kayıt görüntüleniyor
+                        ${selectedCategory ? `<span class="ml-1">(${selectedCategory} filtresi)</span>` : ''}
+                    </div>
+                    <div class="relative w-full sm:w-56">
+                        <select
+                            id="category-filter"
+                            class="w-full appearance-none rounded-2xl border border-gray-200 bg-white/80 px-4 py-2.5 pr-9 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        >
+                            ${optionsHtml}
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                            ${ICONS.ChevronDown.replace('width="24" height="24"', 'class="w-4 h-4 text-gray-400"')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
 
         // --- Bileşenler (HTML String'e Dönüştürüldü) ---
 
@@ -695,9 +739,66 @@
             `;
         };
 
+  
+        // --- Harcama Dağılım Grafiği ---
+        const renderExpenseChart = (expenses) => {
+            const canvas = document.getElementById('expenseChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            const totalsByCategory = {};
+            (expenses || []).forEach(exp => {
+                if (!exp || !exp.category) return;
+                const amount = parseFloat(exp.amount) || 0;
+                if (!totalsByCategory[exp.category]) totalsByCategory[exp.category] = 0;
+                totalsByCategory[exp.category] += amount;
+            });
+
+            const labels = Object.keys(totalsByCategory);
+            const data = Object.values(totalsByCategory);
+
+            if (!labels.length) {
+                if (canvas.parentElement) {
+                    canvas.parentElement.style.display = 'none';
+                }
+                return;
+            } else if (canvas.parentElement) {
+                canvas.parentElement.style.display = '';
+            }
+
+            if (window.expenseChartInstance) {
+                window.expenseChartInstance.destroy();
+            }
+
+            window.expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                boxHeight: 12
+                            }
+                        }
+                    },
+                    cutout: '60%',
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        };
+
         // --- Ana Uygulama Çizimi ve Olay İşleyiciler ---
 
-        const renderApp = () => {
+const renderApp = () => {
             const appRoot = $('#app-root');
             if (!appRoot) return; // Kök eleman yoksa dur
 
@@ -729,7 +830,26 @@
             let fabButtonHtml = '';
             
             if (state.view === 'list') {
-                mainContentHtml = renderSummaryCard(state.expenses) + renderExpenseList(state.expenses);
+                const filteredExpenses = state.filterCategory 
+                    ? state.expenses.filter(exp => exp.category === state.filterCategory)
+                    : state.expenses;
+
+                mainContentHtml = 
+                    renderSummaryCard(filteredExpenses) + 
+                    renderFilterBar(state.expenses, filteredExpenses, state.filterCategory) +
+                    `
+                        <div class="mb-4 bg-white/80 rounded-2xl shadow-sm border border-gray-100 p-4 h-64">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-sm font-semibold text-gray-800">Harcama Dağılımı</h3>
+                                <span class="text-[11px] text-gray-400">Kategori bazlı toplamlar</span>
+                            </div>
+                            <div class="relative h-52">
+                                <canvas id="expenseChart"></canvas>
+                            </div>
+                        </div>
+                    ` +
+                    renderExpenseList(filteredExpenses);
+
                 fabButtonHtml = `
                     <div class="absolute bottom-6 right-6 z-20">
                         <button
@@ -770,11 +890,27 @@
 
             // Olay dinleyicilerini yeniden ata
             attachEventListeners();
+
+            // Liste görünümünde grafiği güncelle
+            if (state.view === 'list') {
+                const filteredExpenses = state.filterCategory 
+                    ? state.expenses.filter(exp => exp.category === state.filterCategory)
+                    : state.expenses;
+                renderExpenseChart(filteredExpenses);
+            }
         };
 
         const attachEventListeners = () => {
             // --- Genel Olaylar ---
             
+            // Kategori Filtresi
+            const categoryFilter = $('#category-filter');
+            if (categoryFilter) {
+                categoryFilter.onchange = (e) => {
+                    setState({ filterCategory: e.target.value });
+                };
+            }
+
             // FAB Butonu (Ekle)
             const fab = $('#add-expense-fab');
             if (fab) {
