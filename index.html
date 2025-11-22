@@ -1,997 +1,1492 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Seyahat Cüzdanı</title>
-    
-    <!-- DIŞ KÜTÜPHANELER -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>Seyahat Cüzdanı - Travel Expense Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- TAILWIND CONFIG & STYLES -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        glass: "rgba(30, 41, 59, 0.7)",
-                        glassBorder: "rgba(255, 255, 255, 0.08)",
-                    },
-                    animation: {
-                        'slide-down': 'slideDown 0.3s ease-out forwards',
-                        'fade-out': 'fadeOut 0.3s ease-in forwards',
-                    },
-                    keyframes: {
-                        slideDown: {
-                            '0%': { transform: 'translateY(-100%)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)', opacity: '1' },
-                        },
-                        fadeOut: {
-                            '0%': { opacity: '1' },
-                            '100%': { opacity: '0' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-        }
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .input-dark {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-        .input-dark:focus {
-            background: rgba(15, 23, 42, 0.8);
-            border-color: rgba(59, 130, 246, 0.6);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-        ::placeholder {
-            color: rgba(148, 163, 184, 0.5) !important;
-        }
-        /* Detail Modal Hero Gradient */
-        .hero-gradient {
-            background: linear-gradient(to bottom, rgba(15,23,42,0) 0%, rgba(15,23,42,0.8) 60%, rgba(15,23,42,1) 100%);
-        }
-    </style>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.7);
+      border-radius: 9999px;
+    }
+  </style>
 </head>
-<body class="bg-[url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2021&auto=format&fit=crop')] bg-cover bg-center bg-fixed min-h-screen text-slate-100 p-4 selection:bg-blue-500 selection:text-white">
-    
-    <div class="fixed inset-0 bg-slate-900/80 pointer-events-none"></div>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
+  <div id="app" class="min-h-screen flex items-center justify-center px-4 py-6 md:px-6 md:py-10">
+    <div id="app-root" class="w-full max-w-2xl md:max-w-3xl"></div>
+  </div>
 
-    <!-- TOAST CONTAINER -->
-    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[70] flex flex-col gap-2 w-full max-w-xs pointer-events-none"></div>
+  <script>
+  (() => {
+    const STORAGE_KEY = 'travel_expenses';
+    let expenseChartInstance = null;
 
-    <!-- ANA UYGULAMA CONTAINER -->
-    <div id="app-container" class="max-w-md md:max-w-2xl mx-auto glass-panel shadow-[0_24px_80px_rgba(0,0,0,0.6)] rounded-[2rem] min-h-[85vh] relative overflow-hidden flex flex-col z-10 transition-all duration-300">
-        <!-- İçerik Javascript ile buraya render edilecek -->
-    </div>
+    const ICONS = {
+      wallet: `
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
+          <path d="M16 10h3"></path>
+          <path d="M8 6V4h8v2"></path>
+        </svg>
+      `,
+      walletMini: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
+          <path d="M16 10h3"></path>
+          <path d="M8 6V4h8v2"></path>
+        </svg>
+      `,
+      trash: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+        </svg>
+      `,
+      info: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+      `,
+      warning: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      `,
+      calendar: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      `,
+      person: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+          <path d="M5 21a7 7 0 0 1 14 0"></path>
+        </svg>
+      `,
+      photo: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+          <circle cx="8.5" cy="10.5" r="1.5"></circle>
+          <path d="M21 15l-3.5-3.5L13 16l-2-2-4 4"></path>
+        </svg>
+      `,
+      plus: `
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      `,
+      chart: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.21 15.89A10 10 0 1 1 12 2"></path>
+          <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+        </svg>
+      `,
+      x: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `,
+      xMini: `
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `,
+      edit: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+        </svg>
+      `,
+      map: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2z"></path>
+          <path d="M9 6v12"></path>
+          <path d="M15 8v12"></path>
+        </svg>
+      `,
+      locationPin: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z"></path>
+          <circle cx="12" cy="11" r="2.5"></circle>
+        </svg>
+      `,
+      chevronUp: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      `,
+      chevronDown: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      `,
+      categoryFood: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 3h2v7a2 2 0 0 1-2 2"></path>
+          <path d="M10 3h2v7a2 2 0 0 1-2 2"></path>
+          <path d="M6 3v7a2 2 0 0 1-2 2"></path>
+          <path d="M18 3v18"></path>
+          <path d="M14 7h8"></path>
+        </svg>
+      `,
+      categoryStay: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11l9-7 9 7"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M10 21v-6h4v6"></path>
+        </svg>
+      `,
+      categoryTransport: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="12" rx="2"></rect>
+          <path d="M3 10h18"></path>
+          <path d="M7 20h0.01"></path>
+          <path d="M17 20h0.01"></path>
+        </svg>
+      `,
+      categoryShopping: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 7l2 12h8l2-12z"></path>
+          <path d="M9 7a3 3 0 0 1 6 0"></path>
+        </svg>
+      `,
+      categoryActivity: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="4" r="2"></circle>
+          <path d="M9 22l1-7 2-3 3-1"></path>
+          <path d="M5 11l4 1 2-2"></path>
+        </svg>
+      `,
+      categoryOther: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5" cy="12" r="2"></circle>
+          <circle cx="12" cy="12" r="2"></circle>
+          <circle cx="19" cy="12" r="2"></circle>
+        </svg>
+      `
+    };
 
-    <script>
-        // --- SABİTLER VE KONFIGURASYON ---
-        const STORAGE_KEY = 'travel_expenses';
-        
-        // Grafik için tahmini kurlar (Sadece görselleştirme amaçlı)
-        const MOCK_RATES = { TRY: 1, USD: 34.5, EUR: 36.2, GBP: 43.8 };
+    const CATEGORY_META = {
+      food: {
+        id: 'food',
+        label: 'Yeme-İçme',
+        icon: ICONS.categoryFood,
+        bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
+        chartColor: 'rgba(244,63,94,0.8)'
+      },
+      stay: {
+        id: 'stay',
+        label: 'Konaklama',
+        icon: ICONS.categoryStay,
+        bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+        chartColor: 'rgba(16,185,129,0.8)'
+      },
+      transport: {
+        id: 'transport',
+        label: 'Ulaşım',
+        icon: ICONS.categoryTransport,
+        bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
+        chartColor: 'rgba(56,189,248,0.8)'
+      },
+      shopping: {
+        id: 'shopping',
+        label: 'Alışveriş',
+        icon: ICONS.categoryShopping,
+        bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
+        chartColor: 'rgba(245,158,11,0.85)'
+      },
+      activity: {
+        id: 'activity',
+        label: 'Müze & Aktivite',
+        icon: ICONS.categoryActivity,
+        bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
+        chartColor: 'rgba(139,92,246,0.85)'
+      },
+      other: {
+        id: 'other',
+        label: 'Diğer',
+        icon: ICONS.categoryOther,
+        bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
+        chartColor: 'rgba(148,163,184,0.9)'
+      }
+    };
 
-        const CATEGORIES = {
-            food: { label: 'Yeme & İçme', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30', icon: '🍔' },
-            transport: { label: 'Ulaşım', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30', icon: '✈️' },
-            stay: { label: 'Konaklama', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30', icon: '🏨' },
-            activity: { label: 'Aktivite', color: 'bg-green-500/20 text-green-300 border-green-500/30', icon: '🎫' },
-            shopping: { label: 'Alışveriş', color: 'bg-pink-500/20 text-pink-300 border-pink-500/30', icon: '🛍️' },
-            other: { label: 'Diğer', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30', icon: '🔧' }
-        };
+    const CITY_GRADIENTS = [
+      'from-sky-500/60 to-sky-700/70',
+      'from-violet-500/60 to-indigo-700/70',
+      'from-emerald-500/60 to-emerald-700/70',
+      'from-amber-500/60 to-orange-600/70',
+      'from-rose-500/60 to-pink-600/70',
+      'from-cyan-500/60 to-blue-600/70'
+    ];
 
-        const CURRENCIES = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
+    function getEmptyForm() {
+      const today = new Date().toISOString().slice(0, 10);
+      return {
+        id: null,
+        city: '',
+        place: '',
+        amount: '',
+        currency: 'TRY',
+        date: today,
+        category: '',
+        description: '',
+        peopleCount: '1',
+        photos: []
+      };
+    }
 
-        // ICONS
-        const ICONS = {
-            wallet: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>`,
-            trash: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`,
-            plus: `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m-8-8h16" /></svg>`,
-            chart: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>`,
-            close: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`,
-            camera: `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
-            image: `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`,
-            back: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>`,
-            user: `<svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`,
-            map: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
-            chip: `<svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-yellow-200/80" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="2" y="4" width="20" height="16" rx="2" stroke-width="1.5"/><path stroke-width="1.5" d="M7 4v16M17 4v16M2 12h20M7 9h10M7 15h10"/></svg>`,
-            check: `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`
-        };
+    let state = {
+      expenses: [],
+      view: 'list',
+      filterCategory: '',
+      selectedExpenseId: null,
+      showDetailModal: false,
+      showConfirmClear: false,
+      showChartModal: false,
+      error: '',
+      form: getEmptyForm(),
+      expandedCities: {}
+    };
 
-        // --- STATE ---
-        let state = {
-            view: 'list',
-            expenses: [],
-            filterCategory: '',
-            selectedExpense: null,
-            showChartModal: false,
-            showConfirmClear: false,
-            showDetailModal: false,
-            formData: {
-                id: null,
-                city: '',
-                title: '',
-                amount: '',
-                currency: 'TRY',
-                pax: 1,
-                date: new Date().toISOString().split('T')[0],
-                category: 'food',
-                description: '',
-                photos: []
-            }
-        };
+    function loadExpenses() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.expenses)) return parsed.expenses;
+      } catch (err) {
+        console.error('localStorage parse error', err);
+      }
+      return [];
+    }
 
-        // --- YARDIMCI FONKSİYONLAR ---
-        const uuid = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+    function saveExpenses() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.expenses));
+      } catch (err) {
+        console.error('localStorage save error', err);
+      }
+    }
 
-        const formatMoney = (amount, currency) => {
-            return new Intl.NumberFormat('tr-TR', { 
-                style: 'currency', 
-                currency: currency,
-                maximumFractionDigits: 0 
-            }).format(amount);
-        };
+    function clearAllExpenses() {
+      state.expenses = [];
+      state.expandedCities = {};
+      state.selectedExpenseId = null;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (err) {
+        console.error('localStorage remove error', err);
+      }
+    }
 
-        const formatDate = (dateStr) => {
-            if(!dateStr) return '';
-            const date = new Date(dateStr);
-            return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-        }
+    function setState(partial) {
+      state = Object.assign({}, state, partial);
+      renderApp();
+      attachEventListeners();
+    }
 
-        // TOAST NOTIFICATION
-        const showToast = (message, type = 'success') => {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const colors = type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white';
-            const icon = type === 'success' ? ICONS.check : ICONS.close;
-            
-            toast.className = `${colors} px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-semibold pointer-events-auto animate-slide-down backdrop-blur-md bg-opacity-90 border border-white/10`;
-            toast.innerHTML = `${icon} <span>${message}</span>`;
-            
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.remove('animate-slide-down');
-                toast.classList.add('animate-fade-out');
-                setTimeout(() => toast.remove(), 300);
-            }, 2500);
-        };
+    function resetForm() {
+      state.form = getEmptyForm();
+    }
 
-        const loadExpenses = () => {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                try { state.expenses = JSON.parse(stored); } 
-                catch (e) { state.expenses = []; }
-            }
-        };
+    function generateId() {
+      return (
+        Date.now().toString(36) +
+        Math.random().toString(36).slice(2, 10)
+      );
+    }
 
-        const saveExpenses = () => {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.expenses));
-        };
+    function toTitleCase(text) {
+      if (!text) return '';
+      return text
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
 
-        const setState = (newState) => {
-            state = { ...state, ...newState };
-            renderApp();
-        };
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
-        const processImage = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const MAX_WIDTH = 1024;
-                        const scaleSize = MAX_WIDTH / img.width;
-                        
-                        if (scaleSize < 1) {
-                            canvas.width = MAX_WIDTH;
-                            canvas.height = img.height * scaleSize;
-                        } else {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                        }
+    function hashString(str) {
+      let hash = 0;
+      const s = String(str || '');
+      for (let i = 0; i < s.length; i++) {
+        hash = (hash << 5) - hash + s.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
 
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.8));
-                    };
-                    img.onerror = reject;
-                };
-                reader.onerror = reject;
-            });
-        };
+    function getCityGradientClass(city) {
+      const idx = CITY_GRADIENTS.length ? hashString(city) % CITY_GRADIENTS.length : 0;
+      return CITY_GRADIENTS[idx] || 'from-sky-500/60 to-sky-700/70';
+    }
 
-        // --- RENDERERS ---
+    function getCategoryMeta(id) {
+      if (CATEGORY_META[id]) return CATEGORY_META[id];
+      return CATEGORY_META.other;
+    }
 
-        // 1. Geliştirilmiş Özet Kartı (Credit Card Look)
-        const renderSummaryCard = () => {
-            const totals = {};
-            state.expenses.forEach(exp => {
-                if (!totals[exp.currency]) totals[exp.currency] = 0;
-                totals[exp.currency] += parseFloat(exp.amount);
-            });
+    function getMapsUrl(city, place) {
+      const query = [city, place].filter(Boolean).join(' ');
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+    }
 
-            const totalHtml = Object.keys(totals).length > 0 
-                ? Object.keys(totals).map(curr => 
-                    `<div class="flex flex-col items-start">
-                        <span class="text-[10px] uppercase tracking-widest text-white/60 font-medium">${curr}</span>
-                        <span class="text-xl font-mono font-bold text-white text-shadow">${formatMoney(totals[curr], curr)}</span>
-                     </div>`
-                  ).join('') 
-                : `<span class="text-white/50 text-sm italic font-light">Yeni macerana başla...</span>`;
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return parts[2] + '.' + parts[1] + '.' + parts[0];
+      }
+      return dateStr;
+    }
 
-            return `
-            <div class="bg-gradient-to-bl from-slate-800 via-slate-900 to-black rounded-2xl p-6 shadow-2xl shadow-black/50 text-white mb-6 relative overflow-hidden border border-white/10 group hover:scale-[1.01] transition-transform duration-500">
-                <!-- Dekoratif Arka Plan -->
-                <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-                <div class="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/20 rounded-full blur-[60px] translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
-                
-                <!-- Kart İçeriği -->
-                <div class="relative z-10 flex flex-col h-full justify-between gap-6">
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            ${ICONS.chip}
-                            <span class="text-xs font-bold tracking-widest text-white/40 ml-1">TRAVEL CARD</span>
-                        </div>
-                        <div class="opacity-80">${ICONS.wallet}</div>
-                    </div>
+    function formatAmount(amount) {
+      const num = Number(amount || 0);
+      return num.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    }
 
-                    <div class="flex flex-wrap gap-x-8 gap-y-4">
-                        ${totalHtml}
-                    </div>
+    function getVisibleExpenses() {
+      if (!state.filterCategory) return state.expenses.slice();
+      return state.expenses.filter(exp => exp.category === state.filterCategory);
+    }
 
-                    <div class="flex justify-between items-end">
-                        <div class="text-[10px] text-white/40">
-                            SEYAHAT CÜZDANI
-                        </div>
-                        <div class="text-xs font-mono text-white/60">
-                            **** **** 2025
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        };
+    function getSelectedExpense() {
+      if (!state.selectedExpenseId) return null;
+      return state.expenses.find(e => e.id === state.selectedExpenseId) || null;
+    }
 
-        const renderFilterBar = (visibleCount) => {
-            const options = Object.keys(CATEGORIES).map(key => 
-                `<option value="${key}" ${state.filterCategory === key ? 'selected' : ''}>${CATEGORIES[key].label}</option>`
-            ).join('');
-
-            return `
-            <div class="flex items-center justify-between mb-4 gap-2 px-1">
-                <div class="text-xs text-slate-400 font-medium">
-                    ${visibleCount} kayıt
-                </div>
-                <div class="flex items-center gap-2">
-                    <select id="category-filter" class="bg-slate-800/80 text-slate-200 text-xs border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 focus:bg-slate-800 transition-all appearance-none cursor-pointer hover:bg-slate-700/50">
-                        <option value="">Tüm Kategoriler</option>
-                        ${options}
-                    </select>
-                    <button id="open-chart-modal-btn" class="bg-slate-800/80 hover:bg-blue-600/80 text-white p-2 rounded-lg transition-all border border-white/10 hover:border-blue-500 shadow-lg active:scale-95" title="Grafik">
-                        ${ICONS.chart}
-                    </button>
-                </div>
-            </div>`;
-        };
-
-        const renderExpenseList = () => {
-            let filtered = state.expenses;
-            if (state.filterCategory) filtered = filtered.filter(e => e.category === state.filterCategory);
-            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            if (filtered.length === 0) {
-                return `
-                <div class="flex flex-col items-center justify-center h-48 text-center p-6 opacity-40 mt-10">
-                    <div class="bg-white/5 p-5 rounded-full mb-4 text-4xl grayscale animate-pulse">🗺️</div>
-                    <p class="text-slate-300 font-light">Henüz bir anı eklenmedi.</p>
-                </div>`;
-            }
-
-            const grouped = {};
-            filtered.forEach(exp => {
-                const city = exp.city || 'Genel';
-                if (!grouped[city]) grouped[city] = [];
-                grouped[city].push(exp);
-            });
-
-            let html = '';
-            Object.keys(grouped).forEach(city => {
-                html += `<div class="flex items-center gap-2 mb-3 mt-6 pl-1 sticky top-0 bg-slate-900/80 py-2 z-10 backdrop-blur-md border-b border-white/5">
-                    <div class="w-1 h-4 bg-blue-500 rounded-full"></div>
-                    <span class="text-slate-200 text-sm font-bold uppercase tracking-wide shadow-black drop-shadow-md">${city}</span>
-                </div>`;
-                grouped[city].forEach(exp => {
-                    const cat = CATEGORIES[exp.category] || CATEGORIES.other;
-                    const hasPhoto = exp.photos && exp.photos.length > 0;
-                    const pax = exp.pax || 1;
-                    
-                    html += `
-                    <div class="expense-card group bg-slate-800/40 border border-white/5 rounded-2xl p-4 mb-3 shadow-lg flex items-center justify-between cursor-pointer hover:bg-slate-700/50 hover:border-white/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl active:scale-[0.98]" data-id="${exp.id}">
-                        <div class="flex items-center gap-4 overflow-hidden">
-                            <div class="w-12 h-12 rounded-2xl ${cat.color} border flex items-center justify-center text-2xl shrink-0 shadow-inner">
-                                ${cat.icon}
-                            </div>
-                            <div class="flex flex-col min-w-0">
-                                <span class="font-semibold text-slate-100 truncate text-[15px] group-hover:text-blue-300 transition-colors">${exp.title}</span>
-                                <div class="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                    <span>${formatDate(exp.date).split(' ').slice(0,2).join(' ')}</span>
-                                    <span class="w-1 h-1 bg-slate-600 rounded-full"></span>
-                                    <span>${cat.label}</span>
-                                    ${hasPhoto ? `<span class="text-blue-400 ml-1">${ICONS.image}</span>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-right pl-2">
-                            <div class="font-bold text-slate-100 text-[15px] whitespace-nowrap tracking-tight">${formatMoney(exp.amount, exp.currency)}</div>
-                            ${pax > 1 ? `<div class="text-[10px] text-emerald-400/80 font-medium flex justify-end items-center gap-0.5 mt-0.5">${ICONS.user} ${pax}</div>` : ''}
-                        </div>
-                    </div>`;
-                });
-            });
-            return `<div class="pb-32">${html}</div>`;
-        };
-
-        const renderForm = () => {
-            const { city, title, amount, currency, pax, date, category, description, photos } = state.formData;
-            
-            const categoryGrid = Object.keys(CATEGORIES).map(key => {
-                const cat = CATEGORIES[key];
-                const isSelected = category === key;
-                return `
-                <div class="category-select-item flex flex-col items-center gap-2 cursor-pointer p-2 rounded-xl transition-all duration-200 ${isSelected ? 'bg-slate-700/60' : 'hover:bg-slate-800/40'}" data-value="${key}">
-                    <div class="w-12 h-12 rounded-full flex items-center justify-center text-2xl transition-all border-2 ${isSelected ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-600/30 scale-110' : 'bg-slate-800 border-slate-600 grayscale opacity-70 hover:opacity-100 hover:grayscale-0'}" title="${cat.label}">
-                        ${cat.icon}
-                    </div>
-                    <span class="text-[10px] font-medium ${isSelected ? 'text-blue-300' : 'text-slate-500'}">${cat.label}</span>
-                </div>`;
-            }).join('');
-
-            const photoPreview = photos.map((p, idx) => `
-                <div class="relative w-20 h-24 rounded-xl overflow-hidden border border-slate-600 group shadow-lg shrink-0">
-                    <img src="${p}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity">
-                    <button class="remove-photo-btn absolute top-1 right-1 bg-black/50 backdrop-blur text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-500 transition-colors" data-idx="${idx}">✕</button>
-                </div>
-            `).join('');
-
-            return `
-            <div class="bg-slate-900 h-full flex flex-col overflow-hidden">
-                <!-- Form Header -->
-                <div class="sticky top-0 z-20 bg-slate-900/80 backdrop-blur-lg border-b border-white/5 px-4 py-4 flex items-center justify-between">
-                    <button id="close-form-btn" class="text-slate-400 hover:text-white flex items-center gap-1 font-medium text-sm px-2 py-1 rounded-lg hover:bg-white/5 transition-colors">
-                        ${ICONS.back} İptal
-                    </button>
-                    <h2 class="font-bold text-white text-lg tracking-wide">${state.formData.id ? 'Düzenle' : 'Yeni Harcama'}</h2>
-                    <div class="w-16"></div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-5 space-y-6 pb-40 custom-scrollbar">
-                    
-                    <!-- Lokasyon & Başlık -->
-                    <div class="space-y-5">
-                        <div class="relative group">
-                            <label class="absolute -top-2.5 left-3 bg-slate-900 px-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider transition-colors group-focus-within:text-blue-300">Şehir / Ülke</label>
-                            <input type="text" id="input-city" value="${city}" placeholder="Örn: Roma" class="w-full input-dark rounded-xl px-4 py-3.5 outline-none transition-all text-sm font-medium placeholder-slate-600">
-                        </div>
-                        <div class="relative group">
-                             <label class="absolute -top-2.5 left-3 bg-slate-900 px-1 text-[10px] font-bold text-blue-400 uppercase tracking-wider transition-colors group-focus-within:text-blue-300">Harcama Adı</label>
-                            <input type="text" id="input-title" value="${title}" placeholder="Örn: Kolezyum Bileti" class="w-full input-dark rounded-xl px-4 py-3.5 outline-none transition-all text-sm font-medium placeholder-slate-600">
-                        </div>
-                    </div>
-
-                    <!-- Tutar, Tarih ve Kişi (Yeni Kompakt Düzen) -->
-                    <div class="flex gap-3 h-28">
-                        <!-- Sol: Tutar (Daha Geniş) -->
-                        <div class="flex-[3] bg-slate-800/30 p-3 rounded-2xl border border-white/5 flex flex-col justify-center relative group focus-within:bg-slate-800/50 transition-colors">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tutar</label>
-                            <div class="flex gap-2 items-center h-full">
-                                <input type="number" id="input-amount" value="${amount}" placeholder="0" class="w-full text-3xl font-bold text-white bg-transparent border-none focus:ring-0 outline-none py-0 placeholder-slate-700 tracking-tight h-full">
-                            </div>
-                            <!-- Para Birimi (Mutlak Konumlandırılmış) -->
-                            <div class="absolute right-3 top-3">
-                                <div class="relative">
-                                    <select id="input-currency" class="bg-slate-700 text-white border border-slate-600 rounded-lg pl-2 pr-6 py-1 font-bold outline-none focus:border-blue-500 focus:bg-slate-600 appearance-none text-xs cursor-pointer hover:bg-slate-600 transition-colors">
-                                        ${Object.keys(CURRENCIES).map(c => `<option value="${c}" ${currency === c ? 'selected' : ''}>${c}</option>`).join('')}
-                                    </select>
-                                    <div class="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sağ: Tarih ve Kişi (Alt Alta) -->
-                        <div class="flex-[2] flex flex-col gap-2">
-                            <!-- Tarih -->
-                            <div class="relative group flex-1">
-                                <label class="absolute -top-2 left-2 bg-slate-900 px-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider z-10 group-focus-within:text-blue-400 transition-colors">Tarih</label>
-                                <input type="date" id="input-date" value="${date}" class="w-full h-full input-dark rounded-xl px-3 pt-2 outline-none transition-all text-xs text-slate-300 font-medium focus:border-blue-500/50">
-                            </div>
-                            <!-- Kişi Sayısı -->
-                            <div class="relative group flex-1">
-                                <label class="absolute -top-2 left-2 bg-slate-900 px-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider z-10 group-focus-within:text-blue-400 transition-colors">Kişi</label>
-                                <div class="relative h-full">
-                                    <input type="number" id="input-pax" value="${pax}" min="1" class="w-full h-full input-dark rounded-xl pl-8 pr-2 pt-1 outline-none transition-all text-xs font-bold text-white focus:border-blue-500/50">
-                                    <div class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-focus-within:text-blue-400 transition-colors scale-75">
-                                        ${ICONS.user}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Kategori -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-3 px-1">Kategori</label>
-                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                            ${categoryGrid}
-                        </div>
-                    </div>
-
-                    <!-- Notlar -->
-                    <div class="relative group">
-                        <label class="absolute -top-2.5 left-3 bg-slate-900 px-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notlar</label>
-                        <textarea id="input-desc" rows="3" placeholder="Detay ekle..." class="w-full input-dark rounded-xl px-4 py-3 outline-none transition-all text-sm resize-none placeholder-slate-600 leading-relaxed">${description}</textarea>
-                    </div>
-
-                    <!-- Fotoğraflar -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-3 px-1 flex justify-between">
-                            <span>Fotoğraflar</span>
-                            <span class="text-blue-400 font-normal normal-case">${photos.length}/3 eklendi</span>
-                        </label>
-                        <div class="flex items-start gap-3 overflow-x-auto pb-2 no-scrollbar">
-                            ${photos.length < 3 ? `
-                            <label for="photo-input" class="w-20 h-24 rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-500 cursor-pointer hover:border-blue-500 hover:text-blue-400 hover:bg-slate-800 transition-all shrink-0 group bg-slate-800/20">
-                                <div class="group-hover:scale-110 transition-transform duration-200">${ICONS.camera}</div>
-                                <span class="text-[10px] mt-2 font-bold uppercase tracking-wide">Ekle</span>
-                                <input type="file" id="photo-input" accept="image/*" class="hidden" multiple>
-                            </label>` : ''}
-                            ${photoPreview}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Alt Sabit Buton -->
-                <div class="absolute bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent z-30">
-                     <button id="save-expense-btn" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-900/40 active:scale-[0.98] transition-all text-lg tracking-wide flex items-center justify-center gap-2">
-                        <span>Kaydet</span> ${ICONS.check}
-                    </button>
-                </div>
+    function renderHeader() {
+      return `
+        <header class="flex items-center justify-between mb-4 md:mb-6">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-blue-500/20 border border-blue-400/60 flex items-center justify-center text-blue-200">
+              ${ICONS.wallet}
             </div>
-            `;
-        };
+            <div>
+              <h1 class="text-lg md:text-xl font-semibold tracking-tight text-slate-50">Seyahat Cüzdanı</h1>
+              <p class="text-xs md:text-sm text-slate-400">Gezilerindeki tüm harcamaları tek yerden takip et</p>
+            </div>
+          </div>
+          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-red-500/10 text-red-300 border border-red-500/40 hover:bg-red-500/20 transition">
+            ${ICONS.trash}
+            <span>Veriyi Temizle</span>
+          </button>
+        </header>
+      `;
+    }
 
-        const renderChartModal = () => {
-            return `
-            <div class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                <div class="bg-slate-900 border border-white/10 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-slide-down relative">
-                    
-                    <div class="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-blue-500/10 to-transparent pointer-events-none"></div>
+    function renderError(errorMsg) {
+      if (!errorMsg) return '';
+      return `
+        <div class="mb-3 md:mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-2.5 text-xs md:text-sm text-amber-100 flex items-start gap-2">
+          <div class="mt-[2px] text-amber-300">
+            ${ICONS.warning}
+          </div>
+          <div>${escapeHtml(errorMsg)}</div>
+        </div>
+      `;
+    }
 
-                    <div class="p-5 border-b border-white/5 flex justify-between items-center relative z-10">
-                        <div class="flex items-center gap-3 text-slate-100 font-bold text-lg">
-                            <div class="p-2 bg-blue-500/20 rounded-xl text-blue-400">${ICONS.chart}</div>
-                            Harcama Analizi
-                        </div>
-                        <button id="close-chart-modal-btn" class="bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full p-2 transition-colors">
-                            ${ICONS.close}
-                        </button>
-                    </div>
-                    
-                    <div class="p-8 flex flex-col items-center justify-center bg-slate-900">
-                        <div class="relative h-64 w-full max-w-[280px]">
-                            <canvas id="expenseChart"></canvas>
-                            <!-- Ortadaki Toplam -->
-                            <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">TOPLAM</span>
-                                <span class="text-xl font-bold text-white" id="chart-total-label">...</span>
-                            </div>
-                        </div>
-                        <p class="text-[10px] text-slate-500 mt-8 text-center max-w-xs leading-relaxed bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                            * Grafikteki veriler farklı para birimlerinden yaklaşık kur değerleri ile <strong>TL</strong>'ye çevrilerek oranlanmıştır.
-                        </p>
-                    </div>
+    function renderSummaryCard(expenses) {
+      if (!expenses || !expenses.length) {
+        return `
+          <section class="mb-4 md:mb-5">
+            <div class="rounded-2xl bg-slate-900/70 border border-white/10 px-4 py-3.5 text-xs md:text-sm text-slate-200 flex items-center gap-2">
+              <div class="text-slate-300">
+                ${ICONS.info}
+              </div>
+              <div>Henüz kayıt yok. Sağ alttaki <span class="font-semibold">+</span> butonuyla ilk harcamanı ekle.</div>
+            </div>
+          </section>
+        `;
+      }
+
+      const totalsByCurrency = {};
+      expenses.forEach(exp => {
+        const cur = exp.currency || 'TRY';
+        const val = Number(exp.amount) || 0;
+        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
+        totalsByCurrency[cur] += val;
+      });
+
+      const currencyChips = Object.entries(totalsByCurrency)
+        .map(([cur, total]) => {
+          const formatted = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+          return `
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-xs text-sky-100/90">${cur}</span>
+              <span class="text-sm md:text-base font-semibold text-slate-50">${formatted}</span>
+            </div>
+          `;
+        })
+        .join('');
+
+      return `
+        <section class="mb-4 md:mb-5">
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600/70 via-indigo-600/70 to-sky-500/70 border border-white/20 shadow">
+            <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/10 blur-3xl"></div>
+            <div class="relative px-4 py-3.5 md:px-5 md:py-4 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-[11px] uppercase tracking-wide text-sky-100/90 font-medium">Özet</p>
+                <p class="text-xs md:text-sm text-sky-50/90">
+                  ${expenses.length} kayıt · ${Object.keys(totalsByCurrency).length} para birimi
+                </p>
+              </div>
+              <div class="flex flex-col items-end text-right gap-0.5">
+                ${currencyChips}
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory) {
+      const total = allExpenses.length;
+      const visible = visibleExpenses.length;
+      const filterText = selectedCategory
+        ? `Kategori filtresi: ${getCategoryMeta(selectedCategory).label}`
+        : 'Kategori filtresi yok';
+      const disableChart = visible === 0;
+      const options = Object.values(CATEGORY_META)
+        .map(cat => `
+          <option value="${cat.id}" ${selectedCategory === cat.id ? 'selected' : ''}>
+            ${cat.label}
+          </option>
+        `)
+        .join('');
+
+      return `
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3 md:mb-4">
+          <div class="text-xs md:text-sm text-slate-200/90">
+            <span class="font-medium">${visible}</span> kayıt görüntüleniyor
+            <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
+            ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600/60 bg-slate-900/70 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+              <option value="">Tüm kategoriler</option>
+              ${options}
+            </select>
+            <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-slate-900/80 border border-blue-500/40 text-blue-300 hover:bg-slate-900/90 disabled:opacity-40 disabled:cursor-not-allowed">
+              ${ICONS.chart}
+              <span>Grafiği Göster</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCategoryToolbox(selectedCategory) {
+      const cats = Object.values(CATEGORY_META);
+      const buttons = cats
+        .map(cat => {
+          const isActive = selectedCategory === cat.id;
+          const baseClasses = 'flex items-center gap-2 px-2.5 py-2 rounded-2xl border text-xs cursor-pointer transition';
+          const activeClasses = 'bg-slate-900 border-blue-500/60 text-blue-200 shadow-[0_0_0_1px_rgba(59,130,246,0.6)]';
+          const inactiveClasses = 'bg-slate-900/90 border-slate-700/90 text-slate-300 hover:bg-slate-900';
+          return `
+            <button type="button" data-category="${cat.id}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses}">
+              <span class="shrink-0 w-6 h-6 inline-flex items-center justify-center rounded-xl bg-slate-800/90">
+                ${cat.icon}
+              </span>
+              <span class="truncate">${cat.label}</span>
+            </button>
+          `;
+        })
+        .join('');
+      return `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          ${buttons}
+        </div>
+      `;
+    }
+
+    function renderPhotoThumbnails(form) {
+      const photos = form.photos || [];
+      if (!photos.length) {
+        return '<p class="text-[11px] text-slate-400 italic">Henüz fotoğraf seçilmedi.</p>';
+      }
+      let html = '<div class="grid grid-cols-3 gap-2">';
+      photos.forEach((src, idx) => {
+        html += `
+          <div class="relative group">
+            <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70" />
+            <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/70 text-slate-100 opacity-0 group-hover:opacity-100 transition">
+              ${ICONS.xMini}
+            </button>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function groupExpensesByCity(expenses) {
+      const groups = {};
+      expenses.forEach(exp => {
+        const city = exp.city || 'Diğer';
+        if (!groups[city]) groups[city] = [];
+        groups[city].push(exp);
+      });
+      return groups;
+    }
+
+    function renderExpenseCard(expense) {
+      const category = getCategoryMeta(expense.category);
+      const dateLabel = formatDate(expense.date);
+      const photosCount = (expense.photos && expense.photos.length) ? expense.photos.length : 0;
+      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
+      const peopleChip = peopleCount
+        ? `
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">
+            ${ICONS.person}
+            <span>x${peopleCount}</span>
+          </span>
+        `
+        : '';
+      const photosChip = photosCount
+        ? `
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">
+            ${ICONS.photo}
+            <span>${photosCount}</span>
+          </span>
+        `
+        : '';
+
+      return `
+        <article class="bg-white/80 rounded-2xl shadow-sm border border-gray-100 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+                ${escapeHtml(expense.city || '')}
+              </div>
+              <div class="text-sm md:text-base font-semibold text-slate-900 truncate">
+                ${expense.place ? escapeHtml(expense.place) : '<span class="text-slate-400">Başlıksız</span>'}
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
+                  <span class="shrink-0">${category.icon}</span>
+                  <span>${category.label}</span>
+                </span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  ${ICONS.calendar}
+                  <span>${dateLabel}</span>
+                </span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <div class="text-sm md:text-base font-semibold text-slate-900">
+                ${formatAmount(expense.amount)} <span class="text-xs text-slate-500 ml-0.5">${escapeHtml(expense.currency || '')}</span>
+              </div>
+              <div class="flex items-center gap-2 mt-1">
+                ${peopleChip}
+                ${photosChip}
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderCityExpenses(expensesInCity) {
+      const sorted = expensesInCity.slice().sort((a, b) => {
+        const da = a.date || '';
+        const db = b.date || '';
+        return db.localeCompare(da);
+      });
+      return sorted.map(exp => renderExpenseCard(exp)).join('');
+    }
+
+    function renderCitySection(city, expensesInCity) {
+      const isExpanded = state.expandedCities[city] !== false;
+      const gradientClass = getCityGradientClass(city);
+
+      const totalsByCurrency = {};
+      expensesInCity.forEach(exp => {
+        const cur = exp.currency || 'TRY';
+        const val = Number(exp.amount) || 0;
+        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
+        totalsByCurrency[cur] += val;
+      });
+      const summaryParts = Object.entries(totalsByCurrency)
+        .map(([cur, total]) => total.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' ' + cur)
+        .join(' · ');
+      const summaryText = summaryParts ? ' · ' + summaryParts : '';
+
+      return `
+        <div class="mb-3 md:mb-4">
+          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left bg-gradient-to-r ${gradientClass} p-[1px] rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-[1px] transition">
+            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/80 rounded-[1rem]">
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-100">
+                  ${escapeHtml(city)}
                 </div>
-            </div>`;
-        };
-
-        // Gelişmiş Detay Modalı (Fotoğraf varsa Hero Header olur)
-        const renderDetailModal = () => {
-            if (!state.selectedExpense) return '';
-            const exp = state.selectedExpense;
-            const cat = CATEGORIES[exp.category] || CATEGORIES.other;
-            const pax = exp.pax || 1;
-            const perPerson = parseFloat(exp.amount) / pax;
-            const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((exp.city || '') + ' ' + exp.title)}`;
-            
-            // İlk fotoğrafı kapak resmi yap
-            const heroImage = (exp.photos && exp.photos.length > 0) ? exp.photos[0] : null;
-            
-            // Diğer fotoğraflar
-            const otherImages = (exp.photos && exp.photos.length > 1) ? exp.photos.slice(1) : [];
-            const hasOtherImages = otherImages.length > 0;
-
-            return `
-            <div class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-end sm:items-center justify-center z-50 sm:p-4 animate-fade-in">
-                <div class="bg-slate-900 border border-white/10 sm:rounded-[2rem] rounded-t-[2rem] shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-slide-down relative">
-                    
-                    <!-- Hero Header (Fotoğraf Varsa) -->
-                    ${heroImage ? `
-                    <div class="relative h-56 w-full shrink-0">
-                        <img src="${heroImage}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 hero-gradient"></div>
-                        <button id="close-detail-modal-btn" class="absolute top-4 right-4 bg-black/40 backdrop-blur hover:bg-black/60 text-white rounded-full p-2 transition-colors z-20 border border-white/10">
-                            ${ICONS.close}
-                        </button>
-                        <div class="absolute bottom-4 left-6 right-6">
-                            <h2 class="text-3xl font-bold text-white leading-tight shadow-black drop-shadow-lg mb-1">${exp.title}</h2>
-                             <div class="flex items-center gap-2 text-sm text-slate-200 shadow-black drop-shadow-md">
-                                <span class="opacity-80">${ICONS.map}</span> ${exp.city || 'Konum Yok'}
-                            </div>
-                        </div>
-                    </div>` : `
-                    <!-- Header (Fotoğraf Yoksa) -->
-                    <div class="p-6 flex justify-between items-start relative bg-gradient-to-b from-slate-800 to-slate-900 border-b border-white/5">
-                        <button id="close-detail-modal-btn" class="absolute top-4 right-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-full p-2 transition-colors z-10">
-                            ${ICONS.close}
-                        </button>
-                        <div class="mt-6 w-full">
-                            <h2 class="text-2xl font-bold text-white leading-tight mb-1">${exp.title}</h2>
-                            <div class="flex items-center gap-2 text-sm text-slate-400">
-                                ${ICONS.map} ${exp.city || 'Konum Yok'}
-                            </div>
-                        </div>
-                    </div>
-                    `}
-                    
-                    <!-- Content -->
-                    <div class="px-6 py-6 overflow-y-auto bg-slate-900 custom-scrollbar flex-1">
-                        
-                        <!-- Tutar Alanı -->
-                        <div class="flex justify-between items-start mb-8">
-                            <div class="flex flex-col">
-                                <span class="text-xs uppercase text-slate-500 font-bold tracking-wider mb-1">Tutar</span>
-                                <span class="text-4xl font-bold text-blue-400 tracking-tight">
-                                    ${formatMoney(exp.amount, exp.currency)}
-                                </span>
-                            </div>
-                            ${pax > 1 ? `
-                            <div class="flex flex-col items-end">
-                                <span class="text-xs uppercase text-slate-500 font-bold tracking-wider mb-1">Kişi Başı</span>
-                                <span class="text-lg font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                                    ${formatMoney(perPerson, exp.currency)}
-                                </span>
-                            </div>` : ''}
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 mb-6">
-                            <div class="bg-slate-800/50 p-3 rounded-2xl border border-white/5 flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-slate-700/50 flex items-center justify-center text-xl">${cat.icon}</div>
-                                <div class="flex flex-col">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Kategori</span>
-                                    <span class="text-sm text-slate-200 font-medium">${cat.label}</span>
-                                </div>
-                            </div>
-                            <div class="bg-slate-800/50 p-3 rounded-2xl border border-white/5 flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-slate-700/50 flex items-center justify-center text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>
-                                <div class="flex flex-col">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Tarih</span>
-                                    <span class="text-sm text-slate-200 font-medium">${formatDate(exp.date)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Harita Linki -->
-                        <a href="${googleMapsUrl}" target="_blank" class="flex items-center justify-between w-full bg-slate-800/30 hover:bg-slate-800 text-blue-300 border border-blue-500/20 p-4 rounded-2xl mb-6 transition-all group cursor-pointer">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-blue-500/20 p-2 rounded-full text-blue-400">${ICONS.map}</div>
-                                <span class="font-medium group-hover:text-white transition-colors">Konumu Haritada Aç</span>
-                            </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-                        </a>
-
-                        ${exp.description ? `
-                        <div class="mb-6">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Notlar</h4>
-                            <p class="text-slate-300 text-sm leading-relaxed bg-slate-800/50 p-5 rounded-2xl border border-white/5 font-light">${exp.description}</p>
-                        </div>` : ''}
-
-                        ${hasOtherImages ? `
-                        <div class="mb-6">
-                             <h4 class="text-xs font-bold text-slate-500 uppercase mb-3 tracking-wider">Diğer Fotoğraflar</h4>
-                             <div class="grid grid-cols-3 gap-3">
-                                ${otherImages.map(p => `<img src="${p}" class="w-full h-24 object-cover rounded-xl border border-white/10 cursor-pointer hover:scale-105 transition-transform shadow-lg" onclick="window.open('${p}')">`).join('')}
-                             </div>
-                        </div>` : ''}
-                    </div>
-
-                    <!-- Footer Actions -->
-                    <div class="p-5 border-t border-white/5 flex gap-4 bg-slate-900/95 backdrop-blur z-10">
-                         <button id="edit-expense-btn" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-white/10 text-white font-medium py-3.5 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            Düzenle
-                        </button>
-                        <button id="delete-expense-btn" class="flex-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-medium py-3.5 rounded-xl transition-all flex justify-center items-center gap-2">
-                            ${ICONS.trash} Sil
-                        </button>
-                    </div>
+                <div class="text-[11px] text-slate-300">
+                  ${expensesInCity.length} kayıt${summaryText}
                 </div>
-            </div>`;
-        };
-
-        const renderConfirmModal = () => {
-            return `
-            <div class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[60] p-6 animate-fade-in">
-                <div class="bg-slate-900 border border-white/10 rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center transform transition-all scale-100">
-                    <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 animate-bounce">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                    </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Emin misin?</h3>
-                    <p class="text-slate-400 text-sm mb-8 leading-relaxed">Tüm seyahat kayıtların ve fotoğrafların kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
-                    <div class="flex gap-3">
-                        <button id="cancel-clear-all-btn" class="flex-1 bg-slate-800 text-slate-300 py-3.5 rounded-xl font-medium hover:bg-slate-700 transition-colors">Vazgeç</button>
-                        <button id="confirm-clear-all-btn" class="flex-1 bg-red-600 text-white py-3.5 rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-900/30 transition-colors">Evet, Sil</button>
-                    </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="hidden md:flex flex-col text-right text-[10px] text-slate-200/90">
+                  <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
                 </div>
-            </div>`;
-        };
+                <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center text-slate-100">
+                  ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
+                </div>
+              </div>
+            </div>
+          </button>
+          ${isExpanded ? `<div class="mt-2 space-y-2.5 md:space-y-3">${renderCityExpenses(expensesInCity)}</div>` : ''}
+        </div>
+      `;
+    }
 
-        const renderApp = () => {
-            const app = document.getElementById('app-container');
-            
-            if (state.view === 'list') {
-                let filteredCount = state.expenses.length;
-                if (state.filterCategory) {
-                    filteredCount = state.expenses.filter(e => e.category === state.filterCategory).length;
+    function renderExpenseList(expenses) {
+      if (!expenses || !expenses.length) {
+        return `
+          <div class="rounded-2xl bg-slate-900/70 border border-slate-700/70 px-4 py-5 text-center text-sm text-slate-300">
+            Henüz hiç harcama eklenmedi.<br/>
+            Sağ alttaki <span class="font-semibold">+</span> butonuna tıklayarak ilk kaydını oluştur.
+          </div>
+        `;
+      }
+
+      const groups = groupExpensesByCity(expenses);
+      const entries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], 'tr'));
+
+      let html = '<div class="space-y-4 md:space-y-5 pb-2">';
+      entries.forEach(([city, exps]) => {
+        html += renderCitySection(city, exps);
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderFormView() {
+      const f = state.form;
+      return `
+        <section class="mt-3 md:mt-4">
+          <div class="mb-3 md:mb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-base md:text-lg font-semibold text-slate-50">Harcama Kaydı</h2>
+              <p class="text-xs md:text-sm text-slate-400">${f.id ? 'Mevcut kaydı düzenliyorsun' : 'Yeni bir harcama ekle'}</p>
+            </div>
+            <button type="button" id="back-to-list-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/70 border border-slate-700 text-xs text-slate-200 hover:bg-slate-900">
+              ${ICONS.x}
+              <span>Listeye Dön</span>
+            </button>
+          </div>
+
+          <form id="expense-form" class="space-y-4 md:space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
+                <input id="city" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
+              </div>
+              <div>
+                <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
+                <input id="place" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Örn. Kahve Molası" value="${escapeHtml(f.place)}" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
+                <input id="amount" type="number" step="0.01" min="0" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="0.00" value="${escapeHtml(f.amount)}" />
+              </div>
+              <div>
+                <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
+                <select id="currency" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+                  ${['TRY','EUR','USD','GBP'].map(cur => `
+                    <option value="${cur}" ${f.currency === cur ? 'selected' : ''}>${cur}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div>
+                <label for="date" class="block text-xs font-medium text-slate-300 mb-1.5">Tarih</label>
+                <input id="date" type="date" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70" value="${escapeHtml(f.date)}" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label for="peopleCount" class="block text-xs font-medium text-slate-300 mb-1.5">Kişi Sayısı</label>
+                <input id="peopleCount" type="number" min="1" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" value="${escapeHtml(f.peopleCount)}" />
+              </div>
+              <div class="md:col-span-2">
+                <span class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</span>
+                ${renderCategoryToolbox(f.category)}
+              </div>
+            </div>
+
+            <div>
+              <label for="description" class="block text-xs font-medium text-slate-300 mb-1.5">Açıklama</label>
+              <textarea id="description" rows="3" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Notlar, detaylar...">${escapeHtml(f.description)}</textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Fotoğraflar (max 3)</label>
+              <div class="flex flex-col md:flex-row md:items-center gap-3">
+                <div>
+                  <input type="file" id="photo-input" accept="image/*" multiple class="block text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-2xl file:border-0 file:text-xs file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
+                  <p class="mt-1 text-[11px] text-slate-400">Fotoğraflar otomatik olarak sıkıştırılıp base64 olarak kaydedilir.</p>
+                </div>
+                <div class="flex-1">
+                  ${renderPhotoThumbnails(f)}
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between gap-3">
+              <button type="button" id="close-form-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900/70 border border-slate-700/70 text-xs md:text-sm text-slate-200 hover:bg-slate-900">
+                İptal
+              </button>
+              <button type="submit" id="save-expense-btn" class="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-blue-600 text-xs md:text-sm font-medium text-white shadow hover:bg-blue-700">
+                ${ICONS.walletMini}
+                <span class="ml-1.5">${f.id ? 'Kaydı Güncelle' : 'Kaydet'}</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      `;
+    }
+
+    function renderDetailModal(expense) {
+      if (!expense) return '';
+      const category = getCategoryMeta(expense.category);
+      const dateLabel = formatDate(expense.date);
+      const amountFormatted = formatAmount(expense.amount);
+      const currency = escapeHtml(expense.currency || '');
+      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
+      const perPerson = peopleCount ? (Number(expense.amount) / peopleCount) : null;
+      const perPersonFormatted = perPerson ? perPerson.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : null;
+      const mapsUrl = getMapsUrl(expense.city, expense.place);
+      const photos = expense.photos || [];
+
+      let photosHtml = '';
+      if (photos.length) {
+        photosHtml = '<div class="mt-3"><h4 class="text-xs font-semibold text-slate-700 mb-2">Fotoğraflar</h4><div class="grid grid-cols-2 gap-2">';
+        photos.forEach((src, idx) => {
+          photosHtml += `
+            <div class="overflow-hidden rounded-2xl border border-slate-200">
+              <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover" />
+            </div>
+          `;
+        });
+        photosHtml += '</div></div>';
+      }
+
+      const peopleInfo = peopleCount ? `
+        <div class="mt-1 flex items-center justify-between text-xs text-slate-600">
+          <div class="inline-flex items-center gap-1">
+            ${ICONS.person}
+            <span>${peopleCount} kişi</span>
+          </div>
+          <div class="inline-flex items-center gap-1">
+            ${ICONS.walletMini}
+            <span>Kişi başı: <span class="font-semibold text-slate-800">${perPersonFormatted} ${currency}</span></span>
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-white rounded-3xl shadow-2xl p-5 md:p-6">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+                  ${escapeHtml(expense.city || '')}
+                </p>
+                <h2 class="text-base md:text-lg font-semibold text-slate-900">
+                  ${expense.place ? escapeHtml(expense.place) : 'Harcama Detayı'}
+                </h2>
+              </div>
+              <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                ${ICONS.x}
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <div class="text-xs text-slate-500 mb-1 inline-flex items-center gap-1">
+                  ${ICONS.calendar}
+                  <span>${dateLabel}</span>
+                </div>
+                <div class="mt-1 inline-flex items-center gap-2">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
+                    <span class="shrink-0">${category.icon}</span>
+                    <span>${category.label}</span>
+                  </span>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-500 mb-0.5">Toplam Tutar</div>
+                <div class="text-lg font-semibold text-slate-900">
+                  ${amountFormatted} <span class="text-xs text-slate-500">${currency}</span>
+                </div>
+              </div>
+            </div>
+
+            ${peopleInfo}
+
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <div class="text-xs text-slate-600 flex-1">
+                <div class="flex items-start gap-2">
+                  <div class="mt-[2px] text-slate-500">
+                    ${ICONS.locationPin}
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-800">${escapeHtml(expense.city || '')}</div>
+                    ${expense.place ? `<div class="text-slate-600">${escapeHtml(expense.place)}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+              <a href="${mapsUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-blue-50 text-xs font-medium text-blue-700 border border-blue-100 hover:bg-blue-100">
+                ${ICONS.map}
+                <span>Haritada Aç</span>
+              </a>
+            </div>
+
+            ${expense.description ? `
+              <div class="mt-3">
+                <h4 class="text-xs font-semibold text-slate-700 mb-1.5">Notlar</h4>
+                <p class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(expense.description)}</p>
+              </div>
+            ` : ''}
+
+            ${photosHtml}
+
+            <div class="mt-5 flex items-center justify-between gap-3">
+              <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                ${ICONS.edit}
+                <span class="ml-1.5">Düzenle</span>
+              </button>
+              <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-red-600/90 text-xs md:text-sm font-medium text-white shadow hover:bg-red-700">
+                ${ICONS.trash}
+                <span class="ml-1.5">Sil</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderConfirmClearModal() {
+      return `
+        <div id="confirm-clear-modal" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div class="w-full max-w-sm bg-slate-950/95 border border-red-500/40 rounded-3xl p-5">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-red-400">
+                ${ICONS.warning}
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-slate-50 mb-1">Tüm verileri silmek istiyor musun?</h3>
+                <p class="text-xs text-slate-300 mb-3">
+                  Bu işlem geri alınamaz. Tüm harcamalar ve fotoğraflar cihazındaki localStorage'dan temizlenecek.
+                </p>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center justify-end gap-2">
+              <button type="button" id="cancel-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-slate-900 text-xs text-slate-200 border border-slate-700 hover:bg-slate-800">
+                Vazgeç
+              </button>
+              <button type="button" id="confirm-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-red-600 text-xs text-white hover:bg-red-700">
+                Evet, sil
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderChartModal() {
+      return `
+        <div id="chart-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div id="chart-modal" class="w-full max-w-md max-h-[80vh] bg-white rounded-3xl shadow-2xl flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  ${ICONS.chart}
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-900">Harcama Dağılımı</h3>
+                  <p class="text-[11px] text-slate-500">Kategorilere göre toplam tutarların dağılımı</p>
+                </div>
+              </div>
+              <button type="button" id="close-chart-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                ${ICONS.x}
+              </button>
+            </div>
+            <div class="px-5 pt-4 pb-5 flex-1 flex flex-col">
+              <div class="relative h-40 md:h-52">
+                <canvas id="expenseChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFab() {
+      return `
+        <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/40 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900">
+          ${ICONS.plus}
+        </button>
+      `;
+    }
+
+    function renderApp() {
+      const root = document.getElementById('app-root');
+      if (!root) return;
+
+      const visibleExpenses = getVisibleExpenses();
+
+      let html = `
+        <div class="relative bg-white/10 border border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] p-4 md:p-6 overflow-hidden">
+          ${renderHeader()}
+          ${renderError(state.error)}
+          ${renderSummaryCard(state.expenses)}
+          ${
+            state.view === 'list'
+              ? `
+                ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory)}
+                ${renderExpenseList(visibleExpenses)}
+              `
+              : `
+                ${renderFormView()}
+              `
+          }
+        </div>
+        ${state.view === 'list' ? renderFab() : ''}
+        ${state.showDetailModal ? renderDetailModal(getSelectedExpense()) : ''}
+        ${state.showConfirmClear ? renderConfirmClearModal() : ''}
+        ${state.showChartModal ? renderChartModal() : ''}
+      `;
+
+      root.innerHTML = html;
+    }
+
+    function resizeImageToDataURL(file) {
+      const maxSize = 1280;
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxSize) {
+                height = Math.round((height * maxSize) / width);
+                width = maxSize;
+              }
+            } else {
+              if (height > maxSize) {
+                width = Math.round((width * maxSize) / height);
+                height = maxSize;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve(dataUrl);
+          };
+          img.onerror = (e) => reject(e);
+          img.src = event.target.result;
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function handlePhotoInputChange(e) {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      const existingPhotos = state.form.photos || [];
+      const remainingSlots = 3 - existingPhotos.length;
+      if (remainingSlots <= 0) {
+        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin.' });
+        e.target.value = '';
+        return;
+      }
+      const filesToUse = files.slice(0, remainingSlots);
+      if (files.length > remainingSlots) {
+        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin. Fazladan seçilenler alınmadı.' });
+      }
+      Promise.all(filesToUse.map(resizeImageToDataURL))
+        .then((newPhotos) => {
+          const nextPhotos = existingPhotos.concat(newPhotos);
+          const newForm = Object.assign({}, state.form, { photos: nextPhotos });
+          state.form = newForm;
+          setState({ form: newForm, error: '' });
+        })
+        .catch((err) => {
+          console.error(err);
+          setState({ error: 'Fotoğraflar işlenirken bir hata oluştu.' });
+        })
+        .finally(() => {
+          e.target.value = '';
+        });
+    }
+
+    function renderExpenseChart() {
+      const canvas = document.getElementById('expenseChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const expenses = getVisibleExpenses();
+      if (!expenses.length) return;
+
+      const totals = {};
+      expenses.forEach(exp => {
+        const catId = exp.category || 'other';
+        const amount = Number(exp.amount) || 0;
+        if (!amount) return;
+        if (!totals[catId]) totals[catId] = 0;
+        totals[catId] += amount;
+      });
+      const catIds = Object.keys(totals);
+      if (!catIds.length) return;
+
+      const labels = catIds.map(id => getCategoryMeta(id).label);
+      const data = catIds.map(id => totals[id]);
+      const colors = catIds.map(id => getCategoryMeta(id).chartColor);
+
+      if (expenseChartInstance) {
+        expenseChartInstance.destroy();
+        expenseChartInstance = null;
+      }
+
+      expenseChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [
+            {
+              data,
+              backgroundColor: colors,
+              borderWidth: 1,
+              borderColor: 'rgba(15,23,42,0.08)'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '60%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#0f172a',
+                font: { size: 11 }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  return label + ': ' + value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
                 }
-
-                app.innerHTML = `
-                    <!-- Header -->
-                    <div class="p-6 flex items-center justify-between bg-gradient-to-b from-slate-900/60 to-transparent">
-                        <div class="flex items-center gap-3 text-white">
-                            <div class="bg-gradient-to-br from-blue-600 to-blue-400 p-2.5 rounded-xl shadow-lg shadow-blue-600/20">${ICONS.wallet}</div>
-                            <div>
-                                <h1 class="text-lg font-bold tracking-tight leading-none">Seyahat</h1>
-                                <span class="text-[10px] font-medium text-blue-200 tracking-widest uppercase">Cüzdanı</span>
-                            </div>
-                        </div>
-                        <button id="clear-all-btn" class="text-white/30 hover:text-red-400 hover:bg-white/5 p-2.5 rounded-xl transition-all active:scale-95" title="Sıfırla">
-                            ${ICONS.trash}
-                        </button>
-                    </div>
-
-                    <!-- Content Scroll Area -->
-                    <div class="flex-1 overflow-y-auto px-4 sm:px-6 custom-scrollbar pb-24">
-                        ${renderSummaryCard()}
-                        ${renderFilterBar(filteredCount)}
-                        ${renderExpenseList()}
-                    </div>
-
-                    <!-- FAB -->
-                    <button id="add-expense-fab" class="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(37,99,235,0.5)] hover:scale-110 hover:rotate-90 active:scale-95 transition-all duration-300 z-30 border border-white/20">
-                        ${ICONS.plus}
-                    </button>
-
-                    <!-- MODALS -->
-                    ${state.showChartModal ? renderChartModal() : ''}
-                    ${state.showDetailModal ? renderDetailModal() : ''}
-                    ${state.showConfirmClear ? renderConfirmModal() : ''}
-                `;
-
-                if (state.showChartModal) {
-                    setTimeout(drawChart, 0);
-                }
-
-            } else if (state.view === 'form') {
-                app.innerHTML = renderForm();
+              }
             }
+          }
+        }
+      });
+    }
 
-            attachEventListeners();
-        };
+    function openNewExpenseForm() {
+      resetForm();
+      setState({
+        view: 'form',
+        selectedExpenseId: null,
+        showDetailModal: false,
+        error: ''
+      });
+    }
 
-        // --- CHART MANTIĞI (Geliştirilmiş) ---
-        const drawChart = () => {
-            const ctx = document.getElementById('expenseChart');
-            if (!ctx) return;
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const f = state.form;
 
-            const categoryTotalsTRY = {};
-            let totalTRY = 0;
+      const trimmedCity = (f.city || '').trim();
+      const trimmedPlace = (f.place || '').trim();
+      const amountNum = parseFloat(f.amount);
+      const peopleNum = parseInt(f.peopleCount || '1', 10) || 1;
 
-            let filtered = state.expenses;
-            if (state.filterCategory) filtered = filtered.filter(e => e.category === state.filterCategory);
-            
-            // Normalize to TRY for chart visualization
-            filtered.forEach(exp => {
-                const rate = MOCK_RATES[exp.currency] || 1;
-                const amountInTRY = parseFloat(exp.amount) * rate;
-                
-                if (!categoryTotalsTRY[exp.category]) categoryTotalsTRY[exp.category] = 0;
-                categoryTotalsTRY[exp.category] += amountInTRY;
-                totalTRY += amountInTRY;
-            });
+      const errors = [];
+      if (!trimmedCity) errors.push('Şehir alanı zorunludur.');
+      if (!trimmedPlace) errors.push('Mekan / başlık alanı zorunludur.');
+      if (!f.date) errors.push('Tarih seçmelisin.');
+      if (!f.currency) errors.push('Para birimi seçmelisin.');
+      if (!f.category) errors.push('Kategori seçmelisin.');
+      if (!amountNum || amountNum <= 0) errors.push('Tutar 0\'dan büyük olmalıdır.');
 
-            const labels = Object.keys(categoryTotalsTRY).map(k => CATEGORIES[k].label);
-            const dataValues = Object.values(categoryTotalsTRY);
-            
-            // Update Chart Center Text
-            document.getElementById('chart-total-label').innerText = `~${formatMoney(totalTRY, 'TRY')}`;
+      if (errors.length) {
+        setState({ error: errors[0] });
+        return;
+      }
 
-            const colors = Object.keys(categoryTotalsTRY).map(k => {
-                const map = {
-                    food: '#f97316', transport: '#3b82f6', stay: '#a855f7',
-                    activity: '#22c55e', shopping: '#ec4899', other: '#64748b'
-                };
-                return map[k] || '#ccc';
-            });
+      const normalizedCity = toTitleCase(trimmedCity);
+      const normalizedPlace = toTitleCase(trimmedPlace);
 
-            if (dataValues.length === 0) {
-                ctx.parentElement.innerHTML = '<p class="text-center text-slate-500 mt-10">Gösterilecek veri yok.</p>';
-                return;
+      const expense = {
+        id: f.id || generateId(),
+        city: normalizedCity,
+        place: normalizedPlace,
+        amount: amountNum,
+        currency: f.currency,
+        date: f.date,
+        category: f.category,
+        description: (f.description || '').trim(),
+        peopleCount: peopleNum,
+        photos: (f.photos || []).slice()
+      };
+
+      let newExpenses;
+      if (f.id) {
+        newExpenses = state.expenses.map(exp => exp.id === f.id ? Object.assign({}, exp, expense) : exp);
+      } else {
+        newExpenses = state.expenses.concat(expense);
+      }
+      state.expenses = newExpenses;
+      const newExpanded = Object.assign({}, state.expandedCities, { [normalizedCity]: true });
+      state.expandedCities = newExpanded;
+
+      saveExpenses();
+      resetForm();
+      setState({
+        view: 'list',
+        error: ''
+      });
+    }
+
+    function handleDeleteExpense() {
+      const exp = getSelectedExpense();
+      if (!exp) return;
+      const filtered = state.expenses.filter(e => e.id !== exp.id);
+      state.expenses = filtered;
+      const remainingForCity = filtered.filter(e => e.city === exp.city);
+      const expanded = Object.assign({}, state.expandedCities);
+      if (!remainingForCity.length && expanded.hasOwnProperty(exp.city)) {
+        delete expanded[exp.city];
+      }
+      state.expandedCities = expanded;
+      saveExpenses();
+      setState({
+        showDetailModal: false,
+        selectedExpenseId: null,
+        error: ''
+      });
+    }
+
+    function attachEventListeners() {
+      const categoryFilter = document.getElementById('category-filter');
+      if (categoryFilter) {
+        categoryFilter.addEventListener('change', (e) => {
+          setState({ filterCategory: e.target.value });
+        });
+      }
+
+      const openChartBtn = document.getElementById('open-chart-modal-btn');
+      if (openChartBtn) {
+        openChartBtn.addEventListener('click', () => {
+          if (getVisibleExpenses().length === 0) return;
+          setState({ showChartModal: true });
+        });
+      }
+
+      const closeChartBtn = document.getElementById('close-chart-modal-btn');
+      if (closeChartBtn) {
+        closeChartBtn.addEventListener('click', () => {
+          if (expenseChartInstance) {
+            expenseChartInstance.destroy();
+            expenseChartInstance = null;
+          }
+          setState({ showChartModal: false });
+        });
+      }
+
+      const chartOverlay = document.getElementById('chart-modal-overlay');
+      if (chartOverlay) {
+        chartOverlay.addEventListener('click', (e) => {
+          if (e.target === chartOverlay) {
+            if (expenseChartInstance) {
+              expenseChartInstance.destroy();
+              expenseChartInstance = null;
             }
+            setState({ showChartModal: false });
+          }
+        });
+      }
 
-            Chart.defaults.color = '#94a3b8';
-            Chart.defaults.font.family = 'Inter';
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: dataValues,
-                        backgroundColor: colors,
-                        borderColor: '#0f172a',
-                        borderWidth: 4,
-                        hoverOffset: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    animation: {
-                        animateScale: true,
-                        animateRotate: true
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                padding: 20,
-                                color: '#cbd5e1',
-                                font: { size: 11, weight: '500' }
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                            padding: 12,
-                            cornerRadius: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) label += ': ';
-                                    label += formatMoney(context.raw, 'TRY');
-                                    return label + ' (Tahmini)';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        };
+      const chartCanvas = document.getElementById('expenseChart');
+      if (chartCanvas && state.showChartModal) {
+        renderExpenseChart();
+      }
 
-        // --- EVENT LISTENERS ---
-        const attachEventListeners = () => {
-            if (state.view === 'list') {
-                document.getElementById('add-expense-fab')?.addEventListener('click', () => {
-                    state.formData = {
-                        id: null,
-                        city: '',
-                        title: '',
-                        amount: '',
-                        currency: 'TRY',
-                        pax: 1,
-                        date: new Date().toISOString().split('T')[0],
-                        category: 'food',
-                        description: '',
-                        photos: []
-                    };
-                    setState({ view: 'form' });
-                });
+      const clearBtn = document.getElementById('clear-all-btn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          setState({ showConfirmClear: true });
+        });
+      }
 
-                document.getElementById('category-filter')?.addEventListener('change', (e) => {
-                    setState({ filterCategory: e.target.value });
-                });
+      const confirmClearBtn = document.getElementById('confirm-clear-all-btn');
+      if (confirmClearBtn) {
+        confirmClearBtn.addEventListener('click', () => {
+          clearAllExpenses();
+          setState({ showConfirmClear: false, error: '' });
+        });
+      }
 
-                document.getElementById('open-chart-modal-btn')?.addEventListener('click', () => {
-                    setState({ showChartModal: true });
-                });
+      const cancelClearBtn = document.getElementById('cancel-clear-all-btn');
+      if (cancelClearBtn) {
+        cancelClearBtn.addEventListener('click', () => {
+          setState({ showConfirmClear: false });
+        });
+      }
 
-                document.getElementById('close-chart-modal-btn')?.addEventListener('click', () => {
-                    setState({ showChartModal: false });
-                });
+      const fab = document.getElementById('add-expense-fab');
+      if (fab) {
+        fab.addEventListener('click', () => {
+          openNewExpenseForm();
+        });
+      }
 
-                document.getElementById('clear-all-btn')?.addEventListener('click', () => {
-                    setState({ showConfirmClear: true });
-                });
-                
-                document.querySelectorAll('.expense-card').forEach(card => {
-                    card.addEventListener('click', () => {
-                        const id = card.dataset.id;
-                        const expense = state.expenses.find(e => e.id === id);
-                        setState({ selectedExpense: expense, showDetailModal: true });
-                    });
-                });
-            }
+      const backBtn = document.getElementById('back-to-list-btn');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          resetForm();
+          setState({ view: 'list', error: '' });
+        });
+      }
 
-            if (state.showDetailModal) {
-                document.getElementById('close-detail-modal-btn')?.addEventListener('click', () => {
-                    setState({ showDetailModal: false, selectedExpense: null });
-                });
+      const closeFormBtn = document.getElementById('close-form-btn');
+      if (closeFormBtn) {
+        closeFormBtn.addEventListener('click', () => {
+          resetForm();
+          setState({ view: 'list', error: '' });
+        });
+      }
 
-                document.getElementById('delete-expense-btn')?.addEventListener('click', () => {
-                    if(confirm("Bu kaydı silmek istediğine emin misin?")) {
-                        const newExpenses = state.expenses.filter(e => e.id !== state.selectedExpense.id);
-                        state.expenses = newExpenses;
-                        saveExpenses();
-                        setState({ showDetailModal: false, selectedExpense: null });
-                        showToast('Kayıt silindi', 'error');
-                    }
-                });
+      const formEl = document.getElementById('expense-form');
+      if (formEl) {
+        formEl.addEventListener('submit', handleFormSubmit);
+      }
 
-                document.getElementById('edit-expense-btn')?.addEventListener('click', () => {
-                    state.formData = { ...state.selectedExpense };
-                    if(!state.formData.pax) state.formData.pax = 1;
-                    setState({ showDetailModal: false, selectedExpense: null, view: 'form' });
-                });
-            }
+      const cityInput = document.getElementById('city');
+      if (cityInput) {
+        cityInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { city: e.target.value });
+        });
+      }
 
-            if (state.showConfirmClear) {
-                document.getElementById('cancel-clear-all-btn')?.addEventListener('click', () => {
-                    setState({ showConfirmClear: false });
-                });
+      const placeInput = document.getElementById('place');
+      if (placeInput) {
+        placeInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { place: e.target.value });
+        });
+      }
 
-                document.getElementById('confirm-clear-all-btn')?.addEventListener('click', () => {
-                    state.expenses = [];
-                    localStorage.removeItem(STORAGE_KEY);
-                    setState({ showConfirmClear: false, filterCategory: '' });
-                    showToast('Tüm veriler temizlendi', 'error');
-                });
-            }
+      const amountInput = document.getElementById('amount');
+      if (amountInput) {
+        amountInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { amount: e.target.value });
+        });
+      }
 
-            if (state.view === 'form') {
-                document.getElementById('close-form-btn')?.addEventListener('click', () => {
-                    setState({ view: 'list' });
-                });
-                
-                const updateFormData = (key, value) => {
-                    state.formData[key] = value;
-                };
+      const currencySelect = document.getElementById('currency');
+      if (currencySelect) {
+        currencySelect.addEventListener('change', (e) => {
+          state.form = Object.assign({}, state.form, { currency: e.target.value });
+        });
+      }
 
-                ['input-title', 'input-city', 'input-amount', 'input-date', 'input-desc', 'input-pax'].forEach(id => {
-                    document.getElementById(id)?.addEventListener('input', (e) => {
-                        const key = id.replace('input-', '');
-                        const map = { 'desc': 'description' };
-                        updateFormData(map[key] || key, e.target.value);
-                    });
-                });
+      const dateInput = document.getElementById('date');
+      if (dateInput) {
+        dateInput.addEventListener('change', (e) => {
+          state.form = Object.assign({}, state.form, { date: e.target.value });
+        });
+      }
 
-                document.getElementById('input-currency')?.addEventListener('change', (e) => {
-                    updateFormData('currency', e.target.value);
-                });
+      const peopleInput = document.getElementById('peopleCount');
+      if (peopleInput) {
+        peopleInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { peopleCount: e.target.value });
+        });
+      }
 
-                document.querySelectorAll('.category-select-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        state.formData.category = item.dataset.value;
-                        renderApp(); 
-                    });
-                });
+      const descInput = document.getElementById('description');
+      if (descInput) {
+        descInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { description: e.target.value });
+        });
+      }
 
-                document.getElementById('photo-input')?.addEventListener('change', async (e) => {
-                    const files = Array.from(e.target.files);
-                    const remaining = 3 - state.formData.photos.length;
-                    
-                    if (remaining <= 0) {
-                        showToast("Maksimum 3 fotoğraf sınırı", 'error');
-                        return;
-                    }
+      const categoryButtons = document.querySelectorAll('[data-category]');
+      categoryButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.getAttribute('data-category');
+          const newForm = Object.assign({}, state.form, { category: catId });
+          state.form = newForm;
+          setState({ form: newForm, error: '' });
+        });
+      });
 
-                    const toProcess = files.slice(0, remaining);
-                    
-                    for (const file of toProcess) {
-                        try {
-                            const base64 = await processImage(file);
-                            state.formData.photos.push(base64);
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    }
-                    renderApp();
-                });
+      const photoInput = document.getElementById('photo-input');
+      if (photoInput) {
+        photoInput.addEventListener('change', handlePhotoInputChange);
+      }
 
-                document.querySelectorAll('.remove-photo-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const idx = parseInt(e.target.dataset.idx);
-                        state.formData.photos.splice(idx, 1);
-                        renderApp();
-                    });
-                });
+      const thumbDeleteBtns = document.querySelectorAll('[data-remove-photo]');
+      thumbDeleteBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-remove-photo'), 10);
+          const photos = (state.form.photos || []).slice();
+          if (idx >= 0 && idx < photos.length) {
+            photos.splice(idx, 1);
+            const newForm = Object.assign({}, state.form, { photos });
+            state.form = newForm;
+            setState({ form: newForm });
+          }
+        });
+      });
 
-                document.getElementById('save-expense-btn')?.addEventListener('click', () => {
-                    const { title, amount, date } = state.formData;
-                    if (!title || !amount || !date) {
-                        showToast("Eksik alanları doldurun", 'error');
-                        return;
-                    }
+      const expenseCards = document.querySelectorAll('[data-expense-id]');
+      expenseCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.getAttribute('data-expense-id');
+          setState({
+            selectedExpenseId: id,
+            showDetailModal: true,
+            error: ''
+          });
+        });
+      });
 
-                    // Title Case Fonksiyonu
-                    const toTitleCase = (str) => {
-                        if (!str) return '';
-                        return str.toLocaleLowerCase('tr').replace(/(?:^|\s)\S/g, function(a) { return a.toLocaleUpperCase('tr'); });
-                    };
+      const cityHeaders = document.querySelectorAll('[data-city-toggle]');
+      cityHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+          const city = header.getAttribute('data-city-toggle');
+          const isExpanded = state.expandedCities[city] !== false;
+          const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
+          state.expandedCities = updated;
+          setState({ expandedCities: updated });
+        });
+      });
 
-                    const expense = {
-                        ...state.formData,
-                        title: toTitleCase(state.formData.title),
-                        city: toTitleCase(state.formData.city),
-                        pax: state.formData.pax ? parseInt(state.formData.pax) : 1,
-                        id: state.formData.id || uuid()
-                    };
+      const closeDetailBtn = document.getElementById('close-detail-modal-btn');
+      if (closeDetailBtn) {
+        closeDetailBtn.addEventListener('click', () => {
+          setState({ showDetailModal: false, selectedExpenseId: null });
+        });
+      }
 
-                    if (state.formData.id) {
-                        const idx = state.expenses.findIndex(e => e.id === expense.id);
-                        if (idx !== -1) state.expenses[idx] = expense;
-                    } else {
-                        state.expenses.push(expense);
-                    }
+      const detailOverlay = document.getElementById('detail-modal-overlay');
+      if (detailOverlay) {
+        detailOverlay.addEventListener('click', (e) => {
+          if (e.target === detailOverlay) {
+            setState({ showDetailModal: false, selectedExpenseId: null });
+          }
+        });
+      }
 
-                    saveExpenses();
-                    setState({ view: 'list' });
-                    showToast('Harcama kaydedildi!');
-                });
-            }
-        };
+      const deleteExpenseBtn = document.getElementById('delete-expense-btn');
+      if (deleteExpenseBtn) {
+        deleteExpenseBtn.addEventListener('click', handleDeleteExpense);
+      }
 
-        // --- BAŞLAT ---
-        (function init() {
-            loadExpenses();
-            renderApp();
-        })();
-    </script>
+      const editExpenseBtn = document.getElementById('edit-expense-btn');
+      if (editExpenseBtn) {
+        editExpenseBtn.addEventListener('click', () => {
+          const expense = getSelectedExpense();
+          if (!expense) return;
+          const form = {
+            id: expense.id,
+            city: expense.city || '',
+            place: expense.place || '',
+            amount: String(expense.amount || ''),
+            currency: expense.currency || 'TRY',
+            date: expense.date || new Date().toISOString().slice(0, 10),
+            category: expense.category || '',
+            description: expense.description || '',
+            peopleCount: String(expense.peopleCount || '1'),
+            photos: (expense.photos || []).slice()
+          };
+          state.form = form;
+          setState({
+            view: 'form',
+            showDetailModal: false,
+            error: '',
+            form
+          });
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const loaded = loadExpenses();
+      state.expenses = loaded;
+      const expanded = {};
+      loaded.forEach(exp => {
+        if (exp.city) expanded[exp.city] = true;
+      });
+      state.expandedCities = expanded;
+      if (!state.form.date) {
+        state.form.date = new Date().toISOString().slice(0, 10);
+      }
+      renderApp();
+      attachEventListeners();
+    });
+  })();
+  </script>
 </body>
 </html>
