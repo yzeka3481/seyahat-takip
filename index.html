@@ -204,7 +204,8 @@
         icon: ICONS.categoryFood,
         bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
         chartColor: 'rgba(244,63,94,0.8)',
-        accent: 'bg-rose-500/15 text-rose-400'
+        accent: 'bg-rose-500/15 text-rose-400',
+        headerGradient: 'from-rose-500 via-rose-500 to-amber-400'
       },
       stay: {
         id: 'stay',
@@ -212,7 +213,8 @@
         icon: ICONS.categoryStay,
         bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
         chartColor: 'rgba(16,185,129,0.8)',
-        accent: 'bg-emerald-500/15 text-emerald-400'
+        accent: 'bg-emerald-500/15 text-emerald-400',
+        headerGradient: 'from-emerald-500 via-emerald-500 to-teal-400'
       },
       transport: {
         id: 'transport',
@@ -220,7 +222,8 @@
         icon: ICONS.categoryTransport,
         bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
         chartColor: 'rgba(56,189,248,0.8)',
-        accent: 'bg-sky-500/15 text-sky-400'
+        accent: 'bg-sky-500/15 text-sky-400',
+        headerGradient: 'from-sky-500 via-sky-500 to-indigo-400'
       },
       shopping: {
         id: 'shopping',
@@ -228,7 +231,8 @@
         icon: ICONS.categoryShopping,
         bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
         chartColor: 'rgba(245,158,11,0.85)',
-        accent: 'bg-amber-500/15 text-amber-400'
+        accent: 'bg-amber-500/15 text-amber-400',
+        headerGradient: 'from-amber-500 via-amber-500 to-rose-400'
       },
       activity: {
         id: 'activity',
@@ -236,7 +240,8 @@
         icon: ICONS.categoryActivity,
         bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
         chartColor: 'rgba(139,92,246,0.85)',
-        accent: 'bg-violet-500/15 text-violet-400'
+        accent: 'bg-violet-500/15 text-violet-400',
+        headerGradient: 'from-violet-500 via-violet-500 to-indigo-400'
       },
       other: {
         id: 'other',
@@ -244,7 +249,8 @@
         icon: ICONS.categoryOther,
         bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
         chartColor: 'rgba(148,163,184,0.9)',
-        accent: 'bg-slate-500/15 text-slate-300'
+        accent: 'bg-slate-500/15 text-slate-300',
+        headerGradient: 'from-slate-500 via-slate-600 to-slate-700'
       }
     };
 
@@ -671,7 +677,7 @@
       return `
         <div class="mb-3 md:mb-4">
           <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left bg-gradient-to-r ${gradientClass} p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition">
-            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
+            <div class="relative flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
               <div>
                 <div class="text-xs font-semibold uppercase tracking-wide text-slate-50">
                   ${escapeHtml(city)}
@@ -680,12 +686,17 @@
                   ${expensesInCity.length} kayıt${summaryText}
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <div class="hidden md:flex flex-col text-right text-[10px] text-slate-100/90">
-                  <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
+              <div class="flex flex-col items-end gap-1">
+                <div class="w-8 h-8 rounded-2xl bg-slate-900/80 border border-sky-400/70 flex items-center justify-center text-sky-300 shadow-sm shadow-sky-500/40">
+                  ${ICONS.locationPin}
                 </div>
-                <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/30 flex items-center justify-center text-slate-50">
-                  ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
+                <div class="flex items-center gap-2">
+                  <div class="hidden md:flex flex-col text-right text-[10px] text-slate-100/90">
+                    <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
+                  </div>
+                  <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/30 flex items-center justify-center text-slate-50">
+                    ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
+                  </div>
                 </div>
               </div>
             </div>
@@ -749,7 +760,7 @@
                 <div class="col-span-2 md:col-span-1">
                   <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
                   <!-- SADECE RAKAM + NOKTA İÇİN TEXT + inputmode -->
-                  <input id="amount" type="text" inputmode="decimal" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="0.00" value="${escapeHtml(f.amount)}" />
+                  <input id="amount" type="text" inputmode="decimal" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="0.00" value="${escapeHtml(f.amount)}" />
                 </div>
                 <div class="col-span-1 md:col-span-1">
                   <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
@@ -807,7 +818,7 @@
       `;
     }
 
-    // GELİŞTİRİLMİŞ DETAY MODALI
+    // GELİŞTİRİLMİŞ DETAY MODALI (Kategoriye göre header rengi)
     function renderDetailModal(expense) {
       if (!expense) return '';
       const category = getCategoryMeta(expense.category);
@@ -819,6 +830,7 @@
       const perPersonFormatted = perPerson ? perPerson.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : null;
       const mapsUrl = getMapsUrl(expense.city, expense.place);
       const photos = expense.photos || [];
+      const headerGradient = category.headerGradient || 'from-sky-500 via-indigo-500 to-emerald-500';
 
       let photosHtml = '';
       if (photos.length) {
@@ -855,7 +867,7 @@
       return `
         <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
           <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/70 p-0">
-            <div class="relative overflow-hidden rounded-t-3xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 px-5 pt-4 pb-5">
+            <div class="relative overflow-hidden rounded-t-3xl bg-gradient-to-r ${headerGradient} px-5 pt-4 pb-5">
               <div class="absolute -right-16 -bottom-20 w-40 h-40 rounded-full bg-white/15 blur-2xl"></div>
               <div class="absolute -left-12 -top-16 w-36 h-36 rounded-full bg-indigo-300/25 blur-2xl"></div>
               <div class="relative flex items-start justify-between gap-3">
