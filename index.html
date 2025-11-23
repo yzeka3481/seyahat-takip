@@ -152,6 +152,7 @@
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
       `,
+      /* eski kategori SVG'leri duruyor ama artık emoji kullanıyoruz */
       categoryFood: `
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 3h2v7a2 2 0 0 1-2 2"></path>
@@ -162,7 +163,7 @@
         </svg>
       `,
       categoryStay: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-line="round">
           <path d="M3 11l9-7 9 7"></path>
           <path d="M5 10v10h14V10"></path>
           <path d="M10 21v-6h4v6"></path>
@@ -198,11 +199,12 @@
       `
     };
 
+    /* Harcama kategorileri – ikonlar emoji tarzında */
     const CATEGORY_META = {
       food: {
         id: 'food',
         label: 'Yeme-İçme',
-        icon: ICONS.categoryFood,
+        icon: '🍽️',
         bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
         chartColor: 'rgba(244,63,94,0.8)',
         accent: 'bg-rose-500/15 text-rose-400',
@@ -211,7 +213,7 @@
       stay: {
         id: 'stay',
         label: 'Konaklama',
-        icon: ICONS.categoryStay,
+        icon: '🛏️',
         bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
         chartColor: 'rgba(16,185,129,0.8)',
         accent: 'bg-emerald-500/15 text-emerald-400',
@@ -220,7 +222,7 @@
       transport: {
         id: 'transport',
         label: 'Ulaşım',
-        icon: ICONS.categoryTransport,
+        icon: '🚕',
         bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
         chartColor: 'rgba(56,189,248,0.8)',
         accent: 'bg-sky-500/15 text-sky-400',
@@ -229,7 +231,7 @@
       shopping: {
         id: 'shopping',
         label: 'Alışveriş',
-        icon: ICONS.categoryShopping,
+        icon: '🛍️',
         bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
         chartColor: 'rgba(245,158,11,0.85)',
         accent: 'bg-amber-500/15 text-amber-400',
@@ -238,7 +240,7 @@
       activity: {
         id: 'activity',
         label: 'Müze & Aktivite',
-        icon: ICONS.categoryActivity,
+        icon: '🎟️',
         bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
         chartColor: 'rgba(139,92,246,0.85)',
         accent: 'bg-violet-500/15 text-violet-400',
@@ -247,7 +249,7 @@
       other: {
         id: 'other',
         label: 'Diğer',
-        icon: ICONS.categoryOther,
+        icon: '📦',
         bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
         chartColor: 'rgba(148,163,184,0.9)',
         accent: 'bg-slate-500/15 text-slate-300',
@@ -264,13 +266,14 @@
       'from-cyan-500/70 to-blue-600/80'
     ];
 
-    const CHECKLIST_META = {
-      documents: { id: 'documents', label: 'Belgeler', icon: '📄' },
-      clothes: { id: 'clothes', label: 'Giyim', icon: '👕' },
-      electronics: { id: 'electronics', label: 'Elektronik', icon: '🔌' },
-      health: { id: 'health', label: 'Sağlık', icon: '💊' },
-      other: { id: 'other', label: 'Diğer', icon: '⭐' }
-    };
+    /* Checklist için varsayılan kategoriler (emoji ikonlu) */
+    const DEFAULT_CHECKLIST_CATEGORIES = [
+      { id: 'documents',  label: 'Belgeler',   icon: '📄' },
+      { id: 'clothes',    label: 'Giyim',      icon: '👕' },
+      { id: 'electronics',label: 'Elektronik', icon: '🔌' },
+      { id: 'health',     label: 'Sağlık',     icon: '💊' },
+      { id: 'other',      label: 'Diğer',      icon: '⭐' }
+    ];
 
     function getEmptyForm() {
       const today = new Date().toISOString().slice(0, 10);
@@ -290,24 +293,24 @@
 
     function getDefaultChecklistItems() {
       return [
-        { id: generateId(), label: 'Pasaport', category: 'documents', done: false },
-        { id: generateId(), label: 'Kimlik / Ehliyet', category: 'documents', done: false },
-        { id: generateId(), label: 'Uçak bileti / Rezervasyon', category: 'documents', done: false },
+        { id: generateId(), label: 'Pasaport',                   category: 'documents',  done: false },
+        { id: generateId(), label: 'Kimlik / Ehliyet',           category: 'documents',  done: false },
+        { id: generateId(), label: 'Uçak bileti / Rezervasyon',  category: 'documents',  done: false },
 
-        { id: generateId(), label: 'İç çamaşırı', category: 'clothes', done: false },
-        { id: generateId(), label: 'Yedek tişört', category: 'clothes', done: false },
-        { id: generateId(), label: 'Hırka / Yağmurluk', category: 'clothes', done: false },
+        { id: generateId(), label: 'İç çamaşırı',                category: 'clothes',    done: false },
+        { id: generateId(), label: 'Yedek tişört',               category: 'clothes',    done: false },
+        { id: generateId(), label: 'Hırka / Yağmurluk',          category: 'clothes',    done: false },
 
-        { id: generateId(), label: 'Telefon şarj aleti', category: 'electronics', done: false },
-        { id: generateId(), label: 'Powerbank', category: 'electronics', done: false },
-        { id: generateId(), label: 'Fotoğraf makinesi / SD kart', category: 'electronics', done: false },
+        { id: generateId(), label: 'Telefon şarj aleti',         category: 'electronics',done: false },
+        { id: generateId(), label: 'Powerbank',                  category: 'electronics',done: false },
+        { id: generateId(), label: 'Fotoğraf makinesi / SD kart',category: 'electronics',done: false },
 
-        { id: generateId(), label: 'Günlük kullanılan ilaçlar', category: 'health', done: false },
-        { id: generateId(), label: 'Ağrı kesici', category: 'health', done: false },
-        { id: generateId(), label: 'Yara bandı / bandaj', category: 'health', done: false },
+        { id: generateId(), label: 'Günlük kullanılan ilaçlar',  category: 'health',     done: false },
+        { id: generateId(), label: 'Ağrı kesici',               category: 'health',     done: false },
+        { id: generateId(), label: 'Yara bandı / bandaj',        category: 'health',     done: false },
 
-        { id: generateId(), label: 'Not defteri / kalem', category: 'other', done: false },
-        { id: generateId(), label: 'Atıştırmalık', category: 'other', done: false }
+        { id: generateId(), label: 'Not defteri / kalem',        category: 'other',      done: false },
+        { id: generateId(), label: 'Atıştırmalık',               category: 'other',      done: false }
       ];
     }
 
@@ -323,8 +326,15 @@
       error: '',
       form: getEmptyForm(),
       expandedCities: {},
-      checklistItems: []
+      checklistItems: [],
+      checklistCategories: []
     };
+
+    function getChecklistCategories() {
+      return (state.checklistCategories && state.checklistCategories.length)
+        ? state.checklistCategories
+        : DEFAULT_CHECKLIST_CATEGORIES;
+    }
 
     function loadExpenses() {
       try {
@@ -358,22 +368,46 @@
       }
     }
 
+    /* Checklist verisini (kategori + maddeler) yükleme */
     function loadChecklist() {
       try {
         const raw = localStorage.getItem(CHECKLIST_STORAGE_KEY);
-        if (!raw) return getDefaultChecklistItems();
+        if (!raw) {
+          return {
+            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+            items: getDefaultChecklistItems()
+          };
+        }
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed && Array.isArray(parsed.items)) return parsed.items;
+        if (Array.isArray(parsed)) {
+          return {
+            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+            items: parsed
+          };
+        }
+        if (parsed && Array.isArray(parsed.items)) {
+          const categories =
+            Array.isArray(parsed.categories) && parsed.categories.length
+              ? parsed.categories
+              : DEFAULT_CHECKLIST_CATEGORIES.slice();
+          return { categories, items: parsed.items };
+        }
       } catch (err) {
         console.error('localStorage checklist parse error', err);
       }
-      return getDefaultChecklistItems();
+      return {
+        categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+        items: getDefaultChecklistItems()
+      };
     }
 
     function saveChecklist() {
       try {
-        localStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(state.checklistItems || []));
+        const payload = {
+          categories: getChecklistCategories(),
+          items: state.checklistItems || []
+        };
+        localStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(payload));
       } catch (err) {
         console.error('localStorage checklist save error', err);
       }
@@ -677,7 +711,7 @@
           return `
             <button type="button" data-category="${cat.id}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses}">
               <span class="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-2xl ${accent}">
-                ${cat.icon}
+                ${escapeHtml(cat.icon)}
               </span>
               <span class="truncate mt-0.5">${cat.label}</span>
             </button>
@@ -745,7 +779,7 @@
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
-                  <span class="shrink-0">${category.icon}</span>
+                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
                   <span>${category.label}</span>
                 </span>
                 <span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
@@ -1005,7 +1039,7 @@
               </div>
               <div class="relative mt-3 flex items-center justify-between gap-3">
                 <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/90 text-slate-800">
-                  <span class="shrink-0 text-sky-500">${category.icon}</span>
+                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
                   <span>${category.label}</span>
                 </div>
                 <div class="text-right">
@@ -1135,47 +1169,62 @@
       const done = itemsInCat.filter(i => i.done).length;
       const hasItems = total > 0;
       const progressText = hasItems ? `${done} / ${total} tamamlandı` : 'Henüz madde yok';
+
       const itemsHtml = hasItems
         ? itemsInCat.map(item => `
-            <label class="flex items-center gap-2 text-xs text-slate-100">
-              <input type="checkbox" data-check-item-id="${item.id}"
-                     class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70"
-                     ${item.done ? 'checked' : ''} />
-              <span class="${item.done ? 'line-through text-slate-500' : ''}">
-                ${escapeHtml(item.label)}
-              </span>
-            </label>
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-2 text-xs text-slate-100 flex-1">
+                <input type="checkbox" data-check-item-id="${item.id}"
+                       class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70"
+                       ${item.done ? 'checked' : ''} />
+                <span class="${item.done ? 'line-through text-slate-500' : ''}">
+                  ${escapeHtml(item.label)}
+                </span>
+              </label>
+              <button type="button" data-remove-check-item="${item.id}"
+                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
+                ${ICONS.trash}
+              </button>
+            </div>
           `).join('')
         : `<p class="text-[11px] text-slate-500 italic">Bu kategoride henüz madde yok.</p>`;
 
       return `
-        <div class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3.5">
-          <div class="flex items-center justify-between mb-2.5">
+        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3" open>
+          <summary class="flex items-center justify-between gap-2 cursor-pointer list-none">
             <div class="flex items-center gap-2">
               <div class="w-7 h-7 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-base">
-                ${cat.icon}
+                ${escapeHtml(cat.icon)}
               </div>
               <div>
-                <div class="text-xs font-semibold text-slate-50">${cat.label}</div>
+                <div class="text-xs font-semibold text-slate-50">${escapeHtml(cat.label)}</div>
                 <div class="text-[11px] text-slate-400">${progressText}</div>
               </div>
             </div>
+            <span class="text-[11px] text-slate-500">▼</span>
+          </summary>
+          <div class="mt-2 flex items-center justify-end gap-2">
+            <button type="button" data-uncheck-all-category="${cat.id}"
+                    class="text-[11px] text-slate-300 px-2 py-1 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 ${hasItems ? '' : 'opacity-40 cursor-default'}"
+                    ${hasItems ? '' : 'disabled'}>
+              Hepsini kaldır
+            </button>
             <button type="button" data-check-all-category="${cat.id}"
-                    class="text-[11px] text-slate-200 px-2 py-1 rounded-xl bg-slate-800/80 border border-slate-600 hover:bg-slate-700/90 ${hasItems ? '' : 'opacity-40 cursor-default'}"
+                    class="text-[11px] text-slate-200 px-2 py-1 rounded-xl bg-slate-800 border border-slate-600 hover:bg-slate-700 ${hasItems ? '' : 'opacity-40 cursor-default'}"
                     ${hasItems ? '' : 'disabled'}>
               Hepsini işaretle
             </button>
           </div>
-          <div class="space-y-1.5">
+          <div class="mt-2 space-y-1.5">
             ${itemsHtml}
           </div>
-        </div>
+        </details>
       `;
     }
 
     function renderChecklistView() {
       const items = state.checklistItems || [];
-      const categories = Object.values(CHECKLIST_META);
+      const categories = getChecklistCategories();
 
       let html = `
         <section class="mt-3 md:mt-4">
@@ -1198,7 +1247,7 @@
                          class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
                   <select id="new-check-category"
                           class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
-                    ${Object.values(CHECKLIST_META).map(cat => `<option value="${cat.id}">${cat.label}</option>`).join('')}
+                    ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
                   </select>
                 </div>
                 <div class="flex justify-end">
@@ -1206,6 +1255,25 @@
                           class="mt-2 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
                     + Madde Ekle
                   </button>
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-slate-800/80 space-y-2">
+                  <div class="text-xs font-medium text-slate-200 mb-1 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span>Yeni kategori ekle</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2">
+                    <input id="new-category-label" type="text" placeholder="Kategori adı"
+                           class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                    <input id="new-category-icon" type="text" placeholder="Örn. 🎒"
+                           class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                  </div>
+                  <div class="flex justify-end">
+                    <button type="button" id="add-category-btn"
+                            class="mt-2 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-[11px] font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500">
+                      + Kategori Ekle
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1500,6 +1568,31 @@
       setState({ checklistItems: newItems, error: '' });
     }
 
+    function addChecklistCategory() {
+      const labelInput = document.getElementById('new-category-label');
+      const iconInput = document.getElementById('new-category-icon');
+      if (!labelInput) return;
+      const label = (labelInput.value || '').trim();
+      let icon = iconInput ? (iconInput.value || '').trim() : '';
+      if (!label) {
+        setState({ error: 'Lütfen kategori adını yaz.' });
+        return;
+      }
+      if (!icon) icon = '⭐';
+      const currentCategories = getChecklistCategories().slice();
+      const newCategory = {
+        id: 'cat_' + generateId(),
+        label,
+        icon
+      };
+      currentCategories.push(newCategory);
+      state.checklistCategories = currentCategories;
+      saveChecklist();
+      labelInput.value = '';
+      if (iconInput) iconInput.value = '';
+      setState({ checklistCategories: currentCategories, error: '' });
+    }
+
     function attachEventListeners() {
       const categoryFilter = document.getElementById('category-filter');
       if (categoryFilter) {
@@ -1773,6 +1866,13 @@
         });
       }
 
+      const addCategoryBtn = document.getElementById('add-category-btn');
+      if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', () => {
+          addChecklistCategory();
+        });
+      }
+
       const checkboxes = document.querySelectorAll('[data-check-item-id]');
       checkboxes.forEach(ch => {
         ch.addEventListener('change', () => {
@@ -1798,17 +1898,45 @@
           setState({ checklistItems: items });
         });
       });
+
+      const uncheckAllButtons = document.querySelectorAll('[data-uncheck-all-category]');
+      uncheckAllButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.getAttribute('data-uncheck-all-category');
+          const items = (state.checklistItems || []).map(item =>
+            item.category === catId ? Object.assign({}, item, { done: false }) : item
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
+
+      const removeItemButtons = document.querySelectorAll('[data-remove-check-item]');
+      removeItemButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-remove-check-item');
+          const items = (state.checklistItems || []).filter(item => item.id !== id);
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const expenses = loadExpenses();
-      const checklist = loadChecklist();
+      const checklistData = loadChecklist();
+      const { categories, items } = checklistData;
+
       const expandedCities = {};
       expenses.forEach(exp => {
         if (exp.city) expandedCities[exp.city] = true;
       });
+
       state.expenses = expenses;
-      state.checklistItems = checklist;
+      state.checklistCategories = categories;
+      state.checklistItems = items;
       state.expandedCities = expandedCities;
 
       renderApp();
