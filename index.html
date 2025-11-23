@@ -38,6 +38,8 @@
   (() => {
     const STORAGE_KEY = 'travel_expenses';
     const CHECKLIST_STORAGE_KEY = 'travel_checklist';
+    const BUDGET_STORAGE_KEY = 'travel_budget';
+
     let expenseChartInstance = null;
 
     const ICONS = {
@@ -211,15 +213,6 @@
       }
     };
 
-    const CITY_GRADIENTS = [
-      'from-sky-500/70 to-sky-700/80',
-      'from-violet-500/70 to-indigo-700/80',
-      'from-emerald-500/70 to-emerald-700/80',
-      'from-amber-500/70 to-orange-600/80',
-      'from-rose-500/70 to-pink-600/80',
-      'from-cyan-500/70 to-blue-600/80'
-    ];
-
     const DEFAULT_CHECKLIST_CATEGORIES = [
       { id: 'documents',  label: 'Belgeler',   icon: '📄' },
       { id: 'clothes',    label: 'Giyim',      icon: '👕' },
@@ -228,10 +221,15 @@
       { id: 'other',      label: 'Diğer',      icon: '⭐' }
     ];
 
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+
     function getEmptyForm() {
       const today = new Date().toISOString().slice(0, 10);
       return {
         id: null,
+        tripName: '',
         city: '',
         place: '',
         amount: '',
@@ -249,21 +247,31 @@
         { id: generateId(), label: 'Pasaport',                   category: 'documents',  done: false },
         { id: generateId(), label: 'Kimlik / Ehliyet',           category: 'documents',  done: false },
         { id: generateId(), label: 'Uçak bileti / Rezervasyon',  category: 'documents',  done: false },
+        { id: generateId(), label: 'Otel / Konaklama Belgeleri', category: 'documents',  done: false },
 
         { id: generateId(), label: 'İç çamaşırı',                category: 'clothes',    done: false },
+        { id: generateId(), label: 'Çorap',                      category: 'clothes',    done: false },
         { id: generateId(), label: 'Yedek tişört',               category: 'clothes',    done: false },
+        { id: generateId(), label: 'Yedek pantolon / şort',      category: 'clothes',    done: false },
+        { id: generateId(), label: 'Pijama',                     category: 'clothes',    done: false },
         { id: generateId(), label: 'Hırka / Yağmurluk',          category: 'clothes',    done: false },
 
         { id: generateId(), label: 'Telefon şarj aleti',         category: 'electronics',done: false },
         { id: generateId(), label: 'Powerbank',                  category: 'electronics',done: false },
+        { id: generateId(), label: 'Kulaklık',                   category: 'electronics',done: false },
         { id: generateId(), label: 'Fotoğraf makinesi / SD kart',category: 'electronics',done: false },
+        { id: generateId(), label: 'Laptop / tablet',            category: 'electronics',done: false },
 
         { id: generateId(), label: 'Günlük kullanılan ilaçlar',  category: 'health',     done: false },
-        { id: generateId(), label: 'Ağrı kesici',               category: 'health',     done: false },
+        { id: generateId(), label: 'Ağrı kesici',                category: 'health',     done: false },
         { id: generateId(), label: 'Yara bandı / bandaj',        category: 'health',     done: false },
+        { id: generateId(), label: 'Güneş kremi',                category: 'health',     done: false },
+        { id: generateId(), label: 'Islak mendil / dezenfektan', category: 'health',     done: false },
 
         { id: generateId(), label: 'Not defteri / kalem',        category: 'other',      done: false },
-        { id: generateId(), label: 'Atıştırmalık',               category: 'other',      done: false }
+        { id: generateId(), label: 'Atıştırmalık',               category: 'other',      done: false },
+        { id: generateId(), label: 'Bozuk para / nakit',         category: 'other',      done: false },
+        { id: generateId(), label: 'Su matarası',                category: 'other',      done: false }
       ];
     }
 
@@ -272,22 +280,99 @@
       view: 'list',
       activeTab: 'expenses',
       filterCategory: '',
+      tripFilter: '',
       searchQuery: '',
       selectedExpenseId: null,
       showDetailModal: false,
       showConfirmClear: false,
       showChartModal: false,
+      showDataModal: false,
+      importJsonText: '',
       error: '',
       form: getEmptyForm(),
       expandedCities: {},
       checklistItems: [],
-      checklistCategories: []
+      checklistCategories: [],
+      openChecklistCategories: {},
+      showOnlyUnchecked: false,
+      budgetCurrency: 'TRY',
+      budgetAmount: '',
+      lightboxPhotoSrc: null,
+      showAddItemPanel: false,
+      showAddCategoryPanel: false
     };
 
-    function getChecklistCategories() {
-      return (state.checklistCategories && state.checklistCategories.length)
-        ? state.checklistCategories
-        : DEFAULT_CHECKLIST_CATEGORIES;
+    function setState(partial) {
+      state = Object.assign({}, state, partial);
+      renderApp();
+      attachEventListeners();
+    }
+
+    function resetForm() {
+      state.form = getEmptyForm();
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function toTitleCase(text) {
+      if (!text) return '';
+      return text
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+
+    function hashString(str) {
+      let hash = 0;
+      const s = String(str || '');
+      for (let i = 0; i < s.length; i++) {
+        hash = (hash << 5) - hash + s.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function getCityGradientStyle(city) {
+      const baseHue = hashString(city || '') % 360;
+      const hue1 = baseHue;
+      const hue2 = (baseHue + 30) % 360;
+      const color1 = `hsl(${hue1}, 85%, 60%)`;
+      const color2 = `hsl(${hue2}, 85%, 45%)`;
+      return `background: linear-gradient(120deg, ${color1}, ${color2});`;
+    }
+
+    function getCategoryMeta(id) {
+      if (CATEGORY_META[id]) return CATEGORY_META[id];
+      return CATEGORY_META.other;
+    }
+
+    function getMapsUrl(city, place) {
+      const query = [city, place].filter(Boolean).join(' ');
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return parts[2] + '.' + parts[1] + '.' + parts[0];
+      }
+      return dateStr;
+    }
+
+    function formatAmount(amount) {
+      const num = Number(amount || 0);
+      return num.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
     }
 
     function loadExpenses() {
@@ -322,9 +407,10 @@
       }
     }
 
-    function clearAllChecklist() {
-      state.checklistItems = [];
-      saveChecklist();
+    function getChecklistCategories() {
+      return (state.checklistCategories && state.checklistCategories.length)
+        ? state.checklistCategories
+        : DEFAULT_CHECKLIST_CATEGORIES;
     }
 
     function loadChecklist() {
@@ -371,6 +457,32 @@
       }
     }
 
+    function loadBudget() {
+      try {
+        const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
+        if (!raw) return { currency: 'TRY', amount: '' };
+        const parsed = JSON.parse(raw);
+        return {
+          currency: parsed.currency || 'TRY',
+          amount: parsed.amount != null ? String(parsed.amount) : ''
+        };
+      } catch (err) {
+        console.error('budget parse error', err);
+        return { currency: 'TRY', amount: '' };
+      }
+    }
+
+    function saveBudget() {
+      try {
+        localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify({
+          currency: state.budgetCurrency || 'TRY',
+          amount: state.budgetAmount || ''
+        }));
+      } catch (err) {
+        console.error('budget save error', err);
+      }
+    }
+
     function deleteChecklistCategory(catId) {
       const categories = getChecklistCategories();
       if (categories.length <= 1) {
@@ -385,90 +497,16 @@
       setState({ checklistCategories: newCategories, checklistItems: newItems, error: '' });
     }
 
-    function setState(partial) {
-      state = Object.assign({}, state, partial);
-      renderApp();
-      attachEventListeners();
-    }
-
-    function resetForm() {
-      state.form = getEmptyForm();
-    }
-
-    function generateId() {
-      return (
-        Date.now().toString(36) +
-        Math.random().toString(36).slice(2, 10)
-      );
-    }
-
-    function toTitleCase(text) {
-      if (!text) return '';
-      return text
-        .toLowerCase()
-        .split(' ')
-        .filter(Boolean)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function hashString(str) {
-      let hash = 0;
-      const s = String(str || '');
-      for (let i = 0; i < s.length; i++) {
-        hash = (hash << 5) - hash + s.charCodeAt(i);
-        hash |= 0;
-      }
-      return Math.abs(hash);
-    }
-
-    function getCityGradientStyle(city) {
-      const baseHue = hashString(city || '') % 360;
-      const hue1 = baseHue;
-      const hue2 = (baseHue + 30) % 360;
-      const color1 = `hsl(${hue1}, 85%, 60%)`;
-      const color2 = `hsl(${hue2}, 85%, 45%)`;
-      return `background: linear-gradient(120deg, ${color1}, ${color2});`;
-    }
-
-    function getCategoryMeta(id) {
-      if (CATEGORY_META[id]) return CATEGORY_META[id];
-      return CATEGORY_META.other;
-    }
-
-    function getMapsUrl(city, place) {
-      const query = [city, place].filter(Boolean).join(' ');
-      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        return parts[2] + '.' + parts[1] + '.' + parts[0];
-      }
-      return dateStr;
-    }
-
-    function formatAmount(amount) {
-      const num = Number(amount || 0);
-      return num.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-    }
-
     function getVisibleExpenses() {
-      let exps = !state.filterCategory
-        ? state.expenses.slice()
-        : state.expenses.filter(exp => exp.category === state.filterCategory);
+      let exps = state.expenses.slice();
+
+      if (state.tripFilter) {
+        exps = exps.filter(exp => (exp.tripName || '') === state.tripFilter);
+      }
+
+      if (state.filterCategory) {
+        exps = exps.filter(exp => exp.category === state.filterCategory);
+      }
 
       const q = (state.searchQuery || '').trim().toLowerCase();
       if (q) {
@@ -478,6 +516,7 @@
           return city.includes(q) || place.includes(q);
         });
       }
+
       return exps;
     }
 
@@ -496,6 +535,14 @@
       return groups;
     }
 
+    function getTripOptionsFromExpenses(expenses) {
+      const set = new Set();
+      expenses.forEach(exp => {
+        if (exp.tripName) set.add(exp.tripName);
+      });
+      return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'));
+    }
+
     function renderHeader() {
       const isChecklist = state.activeTab === 'checklist';
       const buttonHtml = isChecklist
@@ -511,6 +558,7 @@
             <span>Harcamaları Temizle</span>
           </button>
         `;
+
       return `
         <header class="flex items-center justify-between mb-4 md:mb-6 relative z-10">
           <div class="flex items-center gap-3">
@@ -522,7 +570,13 @@
               <p class="text-xs md:text-sm text-slate-300/90">Gezilerindeki tüm harcamaları ve hazırlıkları tek yerden takip et</p>
             </div>
           </div>
-          ${buttonHtml}
+          <div class="flex items-center gap-2">
+            ${buttonHtml}
+            <button type="button" id="open-data-modal-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/80 border border-slate-600 text-slate-200 hover:bg-slate-900">
+              ${ICONS.info}
+              <span>Veri</span>
+            </button>
+          </div>
         </header>
       `;
     }
@@ -539,6 +593,66 @@
       `;
     }
 
+    function renderBudgetSnippet(totalsByCurrency) {
+      const currencyKeys = Object.keys(totalsByCurrency || {});
+      if (!currencyKeys.length) return '';
+
+      let budgetCurrency = state.budgetCurrency || currencyKeys[0];
+      if (!currencyKeys.includes(budgetCurrency)) {
+        budgetCurrency = currencyKeys[0];
+      }
+
+      const allCurrenciesSet = new Set([...currencyKeys, 'TRY', 'EUR', 'USD', 'GBP']);
+      const allCurrencies = Array.from(allCurrenciesSet);
+
+      const budgetAmountNum = parseFloat(state.budgetAmount || '');
+      const spent = totalsByCurrency[budgetCurrency] || 0;
+      const percent = budgetAmountNum > 0
+        ? Math.min(100, Math.round((spent * 100) / budgetAmountNum))
+        : 0;
+
+      const progressText = budgetAmountNum > 0
+        ? `${spent.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} / ${budgetAmountNum.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${budgetCurrency}`
+        : 'Bütçe belirleyerek ilerlemeyi takip edebilirsin.';
+
+      const options = allCurrencies
+        .map(cur => `
+          <option value="${cur}" ${budgetCurrency === cur ? 'selected' : ''}>${cur}</option>
+        `)
+        .join('');
+
+      return `
+        <div class="mt-2 rounded-2xl bg-slate-900/25 px-3 py-2.5 border border-sky-100/20">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-2xl bg-slate-950/80 border border-sky-300/70 flex items-center justify-center text-sky-200">
+                  ${ICONS.walletMini}
+                </div>
+                <div class="flex items-center gap-1.5 text-[11px] text-sky-50/90">
+                  <span class="hidden md:inline">Bütçe</span>
+                  <select id="budget-currency" class="rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-400">
+                    ${options}
+                  </select>
+                  <input id="budget-amount" type="text" inputmode="decimal"
+                    class="w-20 rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 placeholder-sky-200/60 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    placeholder="0.00" value="${escapeHtml(state.budgetAmount || '')}" />
+                </div>
+              </div>
+              <div class="text-[11px] text-sky-50/90 text-right">
+                ${progressText}
+              </div>
+            </div>
+            <div class="h-1.5 rounded-full bg-sky-950/60 overflow-hidden">
+              <div class="h-full bg-sky-300" style="width:${percent}%;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 🔹 ÖZET KARTI – Artık görünür (filtrelenmiş) harcamalar üzerinden çalışıyor
+    // ve kendi içinde seyahat filtresi select'i var
     function renderSummaryCard(expenses) {
       if (!expenses || !expenses.length) {
         return `
@@ -561,6 +675,10 @@
         totalsByCurrency[cur] += val;
       });
 
+      const visibleCount = expenses.length;
+      const totalCount = state.expenses.length;
+      const currencyCount = Object.keys(totalsByCurrency).length;
+
       const currencyChips = Object.entries(totalsByCurrency)
         .map(([cur, total]) => {
           const formatted = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
@@ -573,21 +691,49 @@
         })
         .join('');
 
+      const tripOptions = getTripOptionsFromExpenses(state.expenses);
+      const tripFilter = state.tripFilter || '';
+
+      const tripSelectHtml = `
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <div class="text-[11px] text-sky-50/90">
+            Seyahat filtresi
+          </div>
+          <select id="summary-trip-filter"
+                  class="rounded-xl bg-black/25 border border-sky-200/70 px-2.5 py-1.5 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-200">
+            <option value="">Tüm seyahatler</option>
+            ${tripOptions.map(name => `
+              <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
+                ${escapeHtml(name)}
+              </option>
+            `).join('')}
+          </select>
+        </div>
+      `;
+
+      const totalPart = totalCount > visibleCount
+        ? ` · Toplam ${totalCount} kayıt`
+        : '';
+
       return `
         <section class="mb-4 md:mb-5 relative z-10">
           <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 border border-white/20 shadow-lg shadow-sky-500/40">
             <div class="absolute -right-16 -bottom-16 w-44 h-44 rounded-full bg-white/15 blur-3xl"></div>
             <div class="absolute -left-20 -top-16 w-40 h-40 rounded-full bg-indigo-400/25 blur-3xl"></div>
-            <div class="relative px-4 py-3.5 md:px-5 md:py-4 flex items-center justify-between gap-3">
-              <div>
-                <p class="text-[11px] uppercase tracking-wide text-sky-50/90 font-semibold">Harcamalar Özeti</p>
-                <p class="text-xs md:text-sm text-sky-50/90">
-                  ${expenses.length} kayıt · ${Object.keys(totalsByCurrency).length} para birimi
-                </p>
+            <div class="relative px-4 py-3.5 md:px-5 md:py-4">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-[11px] uppercase tracking-wide text-sky-50/90 font-semibold">Harcamalar Özeti</p>
+                  <p class="text-xs md:text-sm text-sky-50/90">
+                    ${visibleCount} kayıt · ${currencyCount} para birimi${totalPart}
+                  </p>
+                </div>
+                <div class="flex flex-col items-end text-right gap-0.5">
+                  ${currencyChips}
+                </div>
               </div>
-              <div class="flex flex-col items-end text-right gap-0.5">
-                ${currencyChips}
-              </div>
+              ${tripSelectHtml}
+              ${renderBudgetSnippet(totalsByCurrency)}
             </div>
           </div>
         </section>
@@ -658,14 +804,21 @@
       `;
     }
 
-    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory, searchQuery) {
+    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory, searchQuery, tripFilter) {
       const total = allExpenses.length;
       const visible = visibleExpenses.length;
       const filterText = selectedCategory
         ? `Kategori filtresi: ${getCategoryMeta(selectedCategory).label}`
         : 'Kategori filtresi yok';
+
+      const tripOptions = getTripOptionsFromExpenses(allExpenses);
+      const tripFilterText = tripFilter
+        ? `Seyahat filtresi: ${tripFilter}`
+        : 'Seyahat filtresi yok';
+
       const disableChart = visible === 0;
-      const options = Object.values(CATEGORY_META)
+
+      const categoryOptions = Object.values(CATEGORY_META)
         .map(cat => `
           <option value="${cat.id}" ${selectedCategory === cat.id ? 'selected' : ''}>
             ${cat.label}
@@ -673,15 +826,28 @@
         `)
         .join('');
 
+      const tripOptionsHtml = tripOptions
+        .map(name => `
+          <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
+            ${escapeHtml(name)}
+          </option>
+        `)
+        .join('');
+
       return `
-        <div class="mb-3 md:mb-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-3.5 py-2.5 md:px-4 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div class="text-xs md:text-sm text-slate-100/90">
-            <span class="font-semibold text-sky-300">${visible}</span> kayıt görüntüleniyor
-            <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
-            ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
+        <div class="mb-3 md:mb-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-3.5 py-2.5 md:px-4 md:py-3 flex flex-col gap-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="text-xs md:text-sm text-slate-100/90">
+              <span class="font-semibold text-sky-300">${visible}</span> kayıt görüntüleniyor
+              <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
+              ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
+              <div class="text-[11px] text-slate-500 mt-0.5">
+                ${escapeHtml(tripFilterText)}
+              </div>
+            </div>
           </div>
-          <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
-            <div class="w-full md:w-48">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div class="w-full md:w-56">
               <div class="relative">
                 <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">🔍</span>
                 <input
@@ -693,11 +859,17 @@
                 />
               </div>
             </div>
-            <div class="flex items-center gap-2 md:ml-2">
-              <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
-                <option value="">Tüm kategoriler</option>
-                ${options}
-              </select>
+            <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+              <div class="flex items-center gap-2 w-full md:w-auto">
+                <select id="trip-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                  <option value="">Tüm seyahatler</option>
+                  ${tripOptionsHtml}
+                </select>
+                <select id="category-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                  <option value="">Tüm kategoriler</option>
+                  ${categoryOptions}
+                </select>
+              </div>
               <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
                 ${ICONS.chart}
                 <span>Grafiği Göster</span>
@@ -746,7 +918,7 @@
       photos.forEach((src, idx) => {
         html += `
           <div class="relative group">
-            <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70" />
+            <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70 cursor-zoom-in" />
             <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/80 text-slate-100 opacity-0 group-hover:opacity-100 transition">
               ${ICONS.xMini}
             </button>
@@ -778,13 +950,19 @@
           </span>
         `
         : '';
+      const tripPill = expense.tripName
+        ? `<span class="inline-flex items-center gap-1 text-[10px] text-sky-700 bg-sky-100/90 px-1.5 py-0.5 rounded-full">${escapeHtml(expense.tripName)}</span>`
+        : '';
 
       return `
         <article class="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-2xl shadow-sm border border-slate-200/90 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <div class="text-[11px] font-medium uppercase tracking-wide text-sky-500 mb-0.5">
-                ${escapeHtml(expense.city || '')}
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <div class="text-[11px] font-medium uppercase tracking-wide text-sky-500">
+                  ${escapeHtml(expense.city || '')}
+                </div>
+                ${tripPill}
               </div>
               <div class="text-sm md:text-base font-semibold text-slate-900 truncate">
                 ${expense.place ? escapeHtml(expense.place) : '<span class="text-slate-400">Başlıksız</span>'}
@@ -871,7 +1049,7 @@
       `;
     }
 
-    function renderExpenseList(expenses) {
+    function renderCityList(expenses) {
       if (!expenses || !expenses.length) {
         return `
           <div class="rounded-2xl bg-gradient-to-br from-slate-900/85 via-slate-900/90 to-slate-950/95 border border-slate-700/80 px-4 py-5 text-center text-sm text-slate-100">
@@ -892,6 +1070,26 @@
       return html;
     }
 
+    function getCityDatalistHtml() {
+      const set = new Set();
+      state.expenses.forEach(exp => {
+        if (exp.city) set.add(exp.city);
+      });
+      const options = Array.from(set)
+        .sort((a, b) => a.localeCompare(b, 'tr'))
+        .map(city => `<option value="${escapeHtml(city)}"></option>`)
+        .join('');
+      return `<datalist id="city-options">${options}</datalist>`;
+    }
+
+    function getTripDatalistHtml() {
+      const trips = getTripOptionsFromExpenses(state.expenses);
+      const options = trips
+        .map(name => `<option value="${escapeHtml(name)}"></option>`)
+        .join('');
+      return `<datalist id="trip-options">${options}</datalist>`;
+    }
+
     function renderFormView() {
       const f = state.form;
       return `
@@ -909,10 +1107,15 @@
 
           <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
             <form id="expense-form" class="space-y-4 md:space-y-5">
+              <div>
+                <label for="tripName" class="block text-xs font-medium text-slate-300 mb-1.5">Seyahat Adı (opsiyonel)</label>
+                <input id="tripName" type="text" list="trip-options" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Andalucia 2025" value="${escapeHtml(f.tripName)}" />
+              </div>
+
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
-                  <input id="city" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
+                  <input id="city" type="text" autocomplete="off" list="city-options" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
                 </div>
                 <div>
                   <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
@@ -976,6 +1179,8 @@
                 </button>
               </div>
             </form>
+            ${getCityDatalistHtml()}
+            ${getTripDatalistHtml()}
           </div>
         </section>
       `;
@@ -993,6 +1198,16 @@
       const mapsUrl = getMapsUrl(expense.city, expense.place);
       const photos = expense.photos || [];
       const headerGradient = category.headerGradient || 'from-sky-500 via-indigo-500 to-emerald-500';
+      const currentTrip = expense.tripName || '';
+
+      const tripOptions = getTripOptionsFromExpenses(state.expenses);
+      const tripOptionsHtml = tripOptions
+        .map(name => `
+          <option value="${escapeHtml(name)}" ${currentTrip === name ? 'selected' : ''}>
+            ${escapeHtml(name)}
+          </option>
+        `)
+        .join('');
 
       let photosHtml = '';
       if (photos.length) {
@@ -1000,7 +1215,7 @@
         photos.forEach((src, idx) => {
           photosHtml += `
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100/60">
-              <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover" />
+              <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover cursor-zoom-in" />
             </div>
           `;
         });
@@ -1026,6 +1241,14 @@
         </div>
       ` : '';
 
+      const tripPill = expense.tripName
+        ? `
+          <div class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
+            <span>${escapeHtml(expense.tripName)}</span>
+          </div>
+        `
+        : '';
+
       return `
         <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
           <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/70 p-0">
@@ -1044,6 +1267,7 @@
                     ${ICONS.calendar}
                     <span>${dateLabel}</span>
                   </div>
+                  ${tripPill}
                 </div>
                 <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/25 text-slate-50 hover:bg-black/35">
                   ${ICONS.x}
@@ -1084,6 +1308,37 @@
                 </div>
               </div>
 
+              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>Seyahat Değiştir</span>
+                </h4>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <div class="flex-1 space-y-1.5 text-xs">
+                    <label class="block text-[11px] text-slate-500 mb-0.5">Mevcut seyahatler</label>
+                    <select id="detail-trip-select"
+                            class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
+                      <option value="">Seçim yap (opsiyonel)</option>
+                      ${tripOptionsHtml}
+                    </select>
+                  </div>
+                  <div class="flex-1 space-y-1.5 text-xs">
+                    <label class="block text-[11px] text-slate-500 mb-0.5">Veya yeni isim yaz</label>
+                    <input id="detail-trip-input" type="text" list="trip-options"
+                           class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80"
+                           placeholder="Örn. Andalucia 2025" value="${escapeHtml(currentTrip)}" />
+                  </div>
+                </div>
+                <p class="mt-1 text-[11px] text-slate-500">Bu harcamayı ister mevcut seyahatlerden birine, ister yazacağın yeni bir seyahat adına taşıyabilirsin.</p>
+                ${getTripDatalistHtml()}
+                <div class="mt-2 flex justify-end">
+                  <button type="button" id="move-expense-trip-btn"
+                          class="inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                    Seyahate Taşı
+                  </button>
+                </div>
+              </div>
+
               ${expense.description ? `
                 <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
                   <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
@@ -1096,11 +1351,16 @@
 
               ${photosHtml}
 
-              <div class="mt-5 flex items-center justify-between gap-3">
-                <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
-                  ${ICONS.edit}
-                  <span class="ml-1.5">Düzenle</span>
-                </button>
+              <div class="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div class="flex items-center gap-2 flex-1">
+                  <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                    ${ICONS.edit}
+                    <span class="ml-1.5">Düzenle</span>
+                  </button>
+                  <button type="button" id="duplicate-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-100 text-xs md:text-sm font-medium text-slate-800 border border-slate-200 hover:bg-slate-200">
+                    + Kopyala
+                  </button>
+                </div>
                 <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs md:text-sm font-medium text-white shadow-md shadow-rose-500/40 hover:from-rose-500 hover:to-red-600">
                   ${ICONS.trash}
                   <span class="ml-1.5">Sil</span>
@@ -1168,6 +1428,77 @@
       `;
     }
 
+    function renderDataModal() {
+      const data = {
+        expenses: state.expenses,
+        checklistItems: state.checklistItems,
+        checklistCategories: getChecklistCategories(),
+        budget: {
+          currency: state.budgetCurrency,
+          amount: state.budgetAmount
+        }
+      };
+      const json = escapeHtml(JSON.stringify(data, null, 2));
+
+      return `
+        <div id="data-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/70 backdrop-blur-sm">
+          <div id="data-modal" class="w-full max-w-xl max-h-[90vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 class="text-sm md:text-base font-semibold text-slate-900">Veri Yedekleme & Paylaşım</h3>
+                <p class="text-[11px] md:text-xs text-slate-500">Harcamalar ve check list verilerini JSON olarak dışa aktarabilir veya içe alabilirsin.</p>
+              </div>
+              <button type="button" id="close-data-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                ${ICONS.x}
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-4">
+              <section class="space-y-2">
+                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                  <span>Verileri Dışa Aktar</span>
+                </h4>
+                <p class="text-[11px] text-slate-500">Aşağıdaki JSON'u kopyalayıp WhatsApp / e-posta ile paylaşabilirsin. Karşı taraf bu JSON'u "Verileri İçeri Al" kısmından yükleyebilir.</p>
+                <textarea id="export-json" readonly class="w-full h-40 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 whitespace-pre overflow-auto scrollbar-thin">${json}</textarea>
+                <div class="flex justify-end">
+                  <button type="button" id="copy-export-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-900 text-[11px] font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                    Kopyala
+                  </button>
+                </div>
+              </section>
+              <section class="space-y-2">
+                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>Verileri İçeri Al</span>
+                </h4>
+                <p class="text-[11px] text-slate-500">Buraya daha önce dışa aktarılan JSON'u yapıştırıp veriyi bu cihaza yükleyebilirsin. Mevcut verinin üstüne yazılır.</p>
+                <textarea id="import-json-input" class="w-full h-32 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 placeholder-slate-400 whitespace-pre overflow-auto scrollbar-thin" placeholder='{"expenses":[...],"checklistItems":[...],...}'>${escapeHtml(state.importJsonText || '')}</textarea>
+                <div class="flex justify-end gap-2">
+                  <button type="button" id="apply-import-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                    Yükle
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLightboxModal() {
+      if (!state.lightboxPhotoSrc) return '';
+      return `
+        <div id="lightbox-overlay" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4 py-6">
+          <div class="relative max-w-3xl max-h-[90vh]">
+            <button type="button" id="close-lightbox-btn" class="absolute -top-4 -right-4 inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/80 text-slate-100 hover:bg-black">
+              ${ICONS.x}
+            </button>
+            <img src="${state.lightboxPhotoSrc}" alt="Fotoğraf" class="max-w-full max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl" />
+          </div>
+        </div>
+      `;
+    }
+
     function renderFab() {
       return `
         <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-xl shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900">
@@ -1181,6 +1512,7 @@
       const done = itemsInCat.filter(i => i.done).length;
       const hasItems = total > 0;
       const progressText = hasItems ? `${done} / ${total} tamamlandı` : 'Henüz madde yok';
+      const isOpen = state.openChecklistCategories[cat.id] === true;
 
       const itemsHtml = hasItems
         ? itemsInCat.map(item => `
@@ -1202,8 +1534,8 @@
         : `<p class="text-[11px] text-slate-500 italic">Bu kategoride henüz madde yok.</p>`;
 
       return `
-        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3">
-          <summary class="flex items-center justify-between gap-2 cursor-pointer list-none">
+        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3" ${isOpen ? 'open' : ''}>
+          <summary data-checklist-cat-id="${cat.id}" class="flex items-center justify-between gap-2 cursor-pointer list-none">
             <div class="flex items-center gap-2">
               <div class="w-7 h-7 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-base">
                 ${escapeHtml(cat.icon)}
@@ -1218,7 +1550,7 @@
                       class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
                 ${ICONS.trash}
               </button>
-              <span class="text-[11px] text-slate-500">▼</span>
+              <span class="text-[11px] text-slate-500">${isOpen ? '▲' : '▼'}</span>
             </div>
           </summary>
           <div class="mt-2 flex items-center justify-end gap-2">
@@ -1244,35 +1576,48 @@
       const items = state.checklistItems || [];
       const categories = getChecklistCategories();
 
+      const addItemOpenAttr = state.showAddItemPanel ? 'open' : '';
+      const addCatOpenAttr = state.showAddCategoryPanel ? 'open' : '';
+
       let html = `
         <section class="mt-3 md:mt-4">
+          <div class="mb-2 flex items-center justify-end">
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-200">
+              <input id="show-only-unchecked" type="checkbox" class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70" ${state.showOnlyUnchecked ? 'checked' : ''} />
+              <span>Sadece eksikler</span>
+            </label>
+          </div>
           <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
             <div class="space-y-3 md:space-y-4">
       `;
       categories.forEach(cat => {
-        const itemsInCat = items.filter(item => item.category === cat.id);
+        const itemsInCat = items.filter(item =>
+          item.category === cat.id &&
+          (!state.showOnlyUnchecked || !item.done)
+        );
         html += renderChecklistCategorySection(cat, itemsInCat);
       });
 
       html += `
               <div class="mt-2 rounded-2xl bg-slate-950/90 border border-slate-700/80 px-3.5 py-3.5 space-y-3">
-                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3">
-                  <summary class="flex items-center justify-between cursor-pointer list-none">
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addItemOpenAttr}>
+                  <summary id="toggle-add-item-panel" class="flex items-center justify-between cursor-pointer list-none">
                     <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                       <span>Yeni madde ekle</span>
                     </div>
-                    <span class="text-[11px] text-slate-500">▼</span>
+                    <span class="text-[11px] text-slate-500">${state.showAddItemPanel ? '▲' : '▼'}</span>
                   </summary>
                   <div class="mt-2 space-y-2">
                     <div class="grid grid-cols-3 gap-2">
-                      <input id="new-check-label" type="text" placeholder="Örn. Powerbank"
+                      <input id="new-check-label" type="text" placeholder="Örn. Powerbank, Kulaklık"
                              class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
                       <select id="new-check-category"
                               class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
                         ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
                       </select>
                     </div>
+                    <p class="text-[11px] text-slate-500">Virgül kullanarak aynı anda birden fazla madde ekleyebilirsin.</p>
                     <div class="flex justify-end">
                       <button type="button" id="add-check-item-btn"
                               class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
@@ -1282,13 +1627,13 @@
                   </div>
                 </details>
 
-                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3">
-                  <summary class="flex items-center justify-between cursor-pointer list-none">
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addCatOpenAttr}>
+                  <summary id="toggle-add-category-panel" class="flex items-center justify-between cursor-pointer list-none">
                     <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
                       <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
                       <span>Yeni kategori ekle</span>
                     </div>
-                    <span class="text-[11px] text-slate-500">▼</span>
+                    <span class="text-[11px] text-slate-500">${state.showAddCategoryPanel ? '▲' : '▼'}</span>
                   </summary>
                   <div class="mt-2 space-y-2">
                     <div class="grid grid-cols-3 gap-2">
@@ -1328,7 +1673,7 @@
             ${renderError(state.error)}
             ${
               state.activeTab === 'expenses'
-                ? renderSummaryCard(state.expenses)
+                ? renderSummaryCard(visibleExpenses)
                 : renderChecklistSummaryCard()
             }
             ${renderTabs()}
@@ -1337,8 +1682,10 @@
                 ? (
                     state.view === 'list'
                       ? `
-                        ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory, state.searchQuery)}
-                        ${renderExpenseList(visibleExpenses)}
+                        ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory, state.searchQuery, state.tripFilter)}
+                        <div id="expense-list-container">
+                          ${renderCityList(visibleExpenses)}
+                        </div>
                       `
                       : `${renderFormView()}`
                   )
@@ -1350,6 +1697,8 @@
         ${state.showDetailModal ? renderDetailModal(getSelectedExpense()) : ''}
         ${state.showConfirmClear ? renderConfirmClearModal() : ''}
         ${state.showChartModal ? renderChartModal() : ''}
+        ${state.showDataModal ? renderDataModal() : ''}
+        ${state.lightboxPhotoSrc ? renderLightboxModal() : ''}
       `;
 
       root.innerHTML = html;
@@ -1489,6 +1838,11 @@
 
     function openNewExpenseForm() {
       resetForm();
+      const formWithTrip = Object.assign({}, state.form);
+      if (state.tripFilter) {
+        formWithTrip.tripName = state.tripFilter;
+      }
+      state.form = formWithTrip;
       setState({
         view: 'form',
         selectedExpenseId: null,
@@ -1502,6 +1856,7 @@
       e.preventDefault();
       const f = state.form;
 
+      const trimmedTrip = (f.tripName || '').trim() || (state.tripFilter || '').trim();
       const trimmedCity = (f.city || '').trim();
       const trimmedPlace = (f.place || '').trim();
       const amountNum = parseFloat(f.amount);
@@ -1520,11 +1875,13 @@
         return;
       }
 
+      const normalizedTrip = trimmedTrip ? toTitleCase(trimmedTrip) : '';
       const normalizedCity = toTitleCase(trimmedCity);
       const normalizedPlace = toTitleCase(trimmedPlace);
 
       const expense = {
         id: f.id || generateId(),
+        tripName: normalizedTrip,
         city: normalizedCity,
         place: normalizedPlace,
         amount: amountNum,
@@ -1579,23 +1936,27 @@
       const labelInput = document.getElementById('new-check-label');
       const categorySelect = document.getElementById('new-check-category');
       if (!labelInput) return;
-      const label = (labelInput.value || '').trim();
+      const raw = (labelInput.value || '');
+      const labels = raw.split(',').map(s => s.trim()).filter(Boolean);
       const category = categorySelect ? (categorySelect.value || 'other') : 'other';
-      if (!label) {
+
+      if (!labels.length) {
         setState({ error: 'Lütfen eklenecek maddenin adını yaz.' });
         return;
       }
-      const newItem = {
+
+      const itemsToAdd = labels.map(label => ({
         id: generateId(),
         label,
         category,
         done: false
-      };
-      const newItems = (state.checklistItems || []).concat(newItem);
+      }));
+
+      const newItems = (state.checklistItems || []).concat(itemsToAdd);
       state.checklistItems = newItems;
       saveChecklist();
       labelInput.value = '';
-      setState({ checklistItems: newItems, error: '' });
+      setState({ checklistItems: newItems, error: '', showAddItemPanel: true });
     }
 
     function addChecklistCategory() {
@@ -1620,7 +1981,82 @@
       saveChecklist();
       labelInput.value = '';
       if (iconInput) iconInput.value = '';
-      setState({ checklistCategories: currentCategories, error: '' });
+      setState({ checklistCategories: currentCategories, error: '', showAddCategoryPanel: true });
+    }
+
+    function importDataFromJson(jsonText) {
+      let obj;
+      try {
+        obj = JSON.parse(jsonText);
+      } catch (err) {
+        setState({ error: 'JSON parse edilemedi. Formatı kontrol et.', importJsonText: jsonText });
+        return;
+      }
+      const expenses = Array.isArray(obj.expenses) ? obj.expenses : [];
+      const checklistItems = Array.isArray(obj.checklistItems) ? obj.checklistItems : [];
+      const checklistCategories =
+        Array.isArray(obj.checklistCategories) && obj.checklistCategories.length
+          ? obj.checklistCategories
+          : DEFAULT_CHECKLIST_CATEGORIES.slice();
+
+      state.expenses = expenses;
+      state.checklistItems = checklistItems;
+      state.checklistCategories = checklistCategories;
+
+      const expandedCities = {};
+      expenses.forEach(exp => {
+        if (exp.city) expandedCities[exp.city] = false;
+      });
+      state.expandedCities = expandedCities;
+
+      if (obj.budget) {
+        state.budgetCurrency = obj.budget.currency || state.budgetCurrency;
+        state.budgetAmount = obj.budget.amount != null ? String(obj.budget.amount) : state.budgetAmount;
+        saveBudget();
+      }
+
+      saveExpenses();
+      saveChecklist();
+
+      setState({
+        showDataModal: false,
+        importJsonText: '',
+        error: ''
+      });
+    }
+
+    function updateExpenseListOnly() {
+      const container = document.getElementById('expense-list-container');
+      if (!container) return;
+      const visibleExpenses = getVisibleExpenses();
+      container.innerHTML = renderCityList(visibleExpenses);
+      attachExpenseListListeners();
+    }
+
+    function attachExpenseListListeners() {
+      const expenseCards = document.querySelectorAll('[data-expense-id]');
+      expenseCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.getAttribute('data-expense-id');
+          setState({
+            selectedExpenseId: id,
+            showDetailModal: true,
+            error: '',
+            activeTab: 'expenses'
+          });
+        });
+      });
+
+      const cityHeaders = document.querySelectorAll('[data-city-toggle]');
+      cityHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+          const city = header.getAttribute('data-city-toggle');
+          const isExpanded = state.expandedCities[city] === true;
+          const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
+          state.expandedCities = updated;
+          setState({ expandedCities: updated });
+        });
+      });
     }
 
     function attachEventListeners() {
@@ -1631,10 +2067,26 @@
         });
       }
 
+      const tripFilterSelect = document.getElementById('trip-filter');
+      if (tripFilterSelect) {
+        tripFilterSelect.addEventListener('change', (e) => {
+          setState({ tripFilter: e.target.value });
+        });
+      }
+
+      // 🔹 Özet kartındaki seyahat filtresi
+      const summaryTripFilter = document.getElementById('summary-trip-filter');
+      if (summaryTripFilter) {
+        summaryTripFilter.addEventListener('change', (e) => {
+          setState({ tripFilter: e.target.value });
+        });
+      }
+
       const searchInput = document.getElementById('search-input');
       if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-          setState({ searchQuery: e.target.value });
+          state.searchQuery = e.target.value;
+          updateExpenseListOnly();
         });
       }
 
@@ -1737,6 +2189,13 @@
         formEl.addEventListener('submit', handleFormSubmit);
       }
 
+      const tripInput = document.getElementById('tripName');
+      if (tripInput) {
+        tripInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { tripName: e.target.value });
+        });
+      }
+
       const cityInput = document.getElementById('city');
       if (cityInput) {
         cityInput.addEventListener('input', (e) => {
@@ -1824,30 +2283,6 @@
         });
       });
 
-      const expenseCards = document.querySelectorAll('[data-expense-id]');
-      expenseCards.forEach(card => {
-        card.addEventListener('click', () => {
-          const id = card.getAttribute('data-expense-id');
-          setState({
-            selectedExpenseId: id,
-            showDetailModal: true,
-            error: '',
-            activeTab: 'expenses'
-          });
-        });
-      });
-
-      const cityHeaders = document.querySelectorAll('[data-city-toggle]');
-      cityHeaders.forEach(header => {
-        header.addEventListener('click', () => {
-          const city = header.getAttribute('data-city-toggle');
-          const isExpanded = state.expandedCities[city] === true;
-          const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
-          state.expandedCities = updated;
-          setState({ expandedCities: updated });
-        });
-      });
-
       const detailCloseBtn = document.getElementById('close-detail-modal-btn');
       const detailOverlay = document.getElementById('detail-modal-overlay');
       if (detailCloseBtn) {
@@ -1870,6 +2305,7 @@
           if (!exp) return;
           state.form = {
             id: exp.id,
+            tripName: exp.tripName || '',
             city: exp.city || '',
             place: exp.place || '',
             amount: String(exp.amount),
@@ -1889,10 +2325,58 @@
         });
       }
 
+      const duplicateExpenseBtn = document.getElementById('duplicate-expense-btn');
+      if (duplicateExpenseBtn) {
+        duplicateExpenseBtn.addEventListener('click', () => {
+          const exp = getSelectedExpense();
+          if (!exp) return;
+          state.form = {
+            id: null,
+            tripName: exp.tripName || '',
+            city: exp.city || '',
+            place: exp.place || '',
+            amount: String(exp.amount),
+            currency: exp.currency || 'TRY',
+            date: new Date().toISOString().slice(0, 10),
+            category: exp.category || '',
+            description: exp.description || '',
+            peopleCount: exp.peopleCount != null ? String(exp.peopleCount) : '1',
+            photos: (exp.photos || []).slice()
+          };
+          setState({
+            view: 'form',
+            showDetailModal: false,
+            error: '',
+            activeTab: 'expenses'
+          });
+        });
+      }
+
       const deleteExpenseBtn = document.getElementById('delete-expense-btn');
       if (deleteExpenseBtn) {
         deleteExpenseBtn.addEventListener('click', () => {
           handleDeleteExpense();
+        });
+      }
+
+      const moveTripBtn = document.getElementById('move-expense-trip-btn');
+      if (moveTripBtn) {
+        moveTripBtn.addEventListener('click', () => {
+          const exp = getSelectedExpense();
+          if (!exp) return;
+          const select = document.getElementById('detail-trip-select');
+          const input = document.getElementById('detail-trip-input');
+          const rawSelect = select ? (select.value || '').trim() : '';
+          const rawInput = input ? (input.value || '').trim() : '';
+          const raw = rawSelect || rawInput;
+          const newTrip = raw ? toTitleCase(raw) : '';
+
+          const updatedExpenses = state.expenses.map(e =>
+            e.id === exp.id ? Object.assign({}, e, { tripName: newTrip }) : e
+          );
+          state.expenses = updatedExpenses;
+          saveExpenses();
+          setState({ expenses: updatedExpenses, error: '', showDetailModal: true });
         });
       }
 
@@ -1919,6 +2403,22 @@
       if (addCategoryBtn) {
         addCategoryBtn.addEventListener('click', () => {
           addChecklistCategory();
+        });
+      }
+
+      const toggleAddItemPanel = document.getElementById('toggle-add-item-panel');
+      if (toggleAddItemPanel) {
+        toggleAddItemPanel.addEventListener('click', (e) => {
+          e.preventDefault();
+          setState({ showAddItemPanel: !state.showAddItemPanel });
+        });
+      }
+
+      const toggleAddCategoryPanel = document.getElementById('toggle-add-category-panel');
+      if (toggleAddCategoryPanel) {
+        toggleAddCategoryPanel.addEventListener('click', (e) => {
+          e.preventDefault();
+          setState({ showAddCategoryPanel: !state.showAddCategoryPanel });
         });
       }
 
@@ -1982,11 +2482,134 @@
           deleteChecklistCategory(catId);
         });
       });
+
+      const checklistSummaries = document.querySelectorAll('[data-checklist-cat-id]');
+      checklistSummaries.forEach(summary => {
+        summary.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const catId = summary.getAttribute('data-checklist-cat-id');
+          const current = state.openChecklistCategories[catId] === true;
+          const updated = Object.assign({}, state.openChecklistCategories, { [catId]: !current });
+          state.openChecklistCategories = updated;
+          setState({ openChecklistCategories: updated });
+        });
+      });
+
+      const showOnlyUncheckedCb = document.getElementById('show-only-unchecked');
+      if (showOnlyUncheckedCb) {
+        showOnlyUncheckedCb.addEventListener('change', (e) => {
+          setState({ showOnlyUnchecked: e.target.checked });
+        });
+      }
+
+      const openDataModalBtn = document.getElementById('open-data-modal-btn');
+      if (openDataModalBtn) {
+        openDataModalBtn.addEventListener('click', () => {
+          setState({ showDataModal: true, importJsonText: '' });
+        });
+      }
+
+      const closeDataModalBtn = document.getElementById('close-data-modal-btn');
+      const dataOverlay = document.getElementById('data-modal-overlay');
+      if (closeDataModalBtn) {
+        closeDataModalBtn.addEventListener('click', () => {
+          setState({ showDataModal: false });
+        });
+      }
+      if (dataOverlay) {
+        dataOverlay.addEventListener('click', (e) => {
+          if (e.target === dataOverlay) {
+            setState({ showDataModal: false });
+          }
+        });
+      }
+
+      const copyExportBtn = document.getElementById('copy-export-btn');
+      if (copyExportBtn) {
+        copyExportBtn.addEventListener('click', () => {
+          const ta = document.getElementById('export-json');
+          if (!ta) return;
+          const text = ta.value;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {});
+          } else {
+            ta.select();
+            document.execCommand('copy');
+          }
+        });
+      }
+
+      const applyImportBtn = document.getElementById('apply-import-btn');
+      if (applyImportBtn) {
+        applyImportBtn.addEventListener('click', () => {
+          const ta = document.getElementById('import-json-input');
+          if (!ta) return;
+          const text = ta.value || '';
+          state.importJsonText = text;
+          importDataFromJson(text);
+        });
+      }
+
+      const budgetCurrencySelect = document.getElementById('budget-currency');
+      if (budgetCurrencySelect) {
+        budgetCurrencySelect.addEventListener('change', (e) => {
+          state.budgetCurrency = e.target.value;
+          saveBudget();
+          renderApp();
+          attachEventListeners();
+        });
+      }
+
+      const budgetAmountInput = document.getElementById('budget-amount');
+      if (budgetAmountInput) {
+        budgetAmountInput.addEventListener('input', (e) => {
+          let val = e.target.value || '';
+          val = val.replace(',', '.');
+          val = val.replace(/[^0-9.]/g, '');
+          const parts = val.split('.');
+          if (parts.length > 2) {
+            val = parts[0] + '.' + parts.slice(1).join('');
+          }
+          e.target.value = val;
+          state.budgetAmount = val;
+          saveBudget();
+          renderApp();
+          attachEventListeners();
+        });
+      }
+
+      const lightboxThumbs = document.querySelectorAll('[data-lightbox-src]');
+      lightboxThumbs.forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const src = el.getAttribute('data-lightbox-src');
+          setState({ lightboxPhotoSrc: src });
+        });
+      });
+
+      const lightboxOverlay = document.getElementById('lightbox-overlay');
+      const closeLightboxBtn = document.getElementById('close-lightbox-btn');
+      if (closeLightboxBtn) {
+        closeLightboxBtn.addEventListener('click', () => {
+          setState({ lightboxPhotoSrc: null });
+        });
+      }
+      if (lightboxOverlay) {
+        lightboxOverlay.addEventListener('click', (e) => {
+          if (e.target === lightboxOverlay) {
+            setState({ lightboxPhotoSrc: null });
+          }
+        });
+      }
+
+      attachExpenseListListeners();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       const expenses = loadExpenses();
       const checklistData = loadChecklist();
+      const budget = loadBudget();
       const { categories, items } = checklistData;
 
       const expandedCities = {};
@@ -1998,6 +2621,8 @@
       state.checklistCategories = categories;
       state.checklistItems = items;
       state.expandedCities = expandedCities;
+      state.budgetCurrency = budget.currency;
+      state.budgetAmount = budget.amount;
 
       renderApp();
       attachEventListeners();
