@@ -151,55 +151,9 @@
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"></polyline>
         </svg>
-      `,
-      /* eski kategori SVG'leri duruyor ama artık emoji kullanıyoruz */
-      categoryFood: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 3h2v7a2 2 0 0 1-2 2"></path>
-          <path d="M10 3h2v7a2 2 0 0 1-2 2"></path>
-          <path d="M6 3v7a2 2 0 0 1-2 2"></path>
-          <path d="M18 3v18"></path>
-          <path d="M14 7h8"></path>
-        </svg>
-      `,
-      categoryStay: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-line="round">
-          <path d="M3 11l9-7 9 7"></path>
-          <path d="M5 10v10h14V10"></path>
-          <path d="M10 21v-6h4v6"></path>
-        </svg>
-      `,
-      categoryTransport: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="12" rx="2"></rect>
-          <path d="M3 10h18"></path>
-          <path d="M7 20h0.01"></path>
-          <path d="M17 20h0.01"></path>
-        </svg>
-      `,
-      categoryShopping: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 7l2 12h8l2-12z"></path>
-          <path d="M9 7a3 3 0 0 1 6 0"></path>
-        </svg>
-      `,
-      categoryActivity: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="4" r="2"></circle>
-          <path d="M9 22l1-7 2-3 3-1"></path>
-          <path d="M5 11l4 1 2-2"></path>
-        </svg>
-      `,
-      categoryOther: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="5" cy="12" r="2"></circle>
-          <circle cx="12" cy="12" r="2"></circle>
-          <circle cx="19" cy="12" r="2"></circle>
-        </svg>
       `
     };
 
-    /* Harcama kategorileri – ikonlar emoji tarzında */
     const CATEGORY_META = {
       food: {
         id: 'food',
@@ -266,7 +220,6 @@
       'from-cyan-500/70 to-blue-600/80'
     ];
 
-    /* Checklist için varsayılan kategoriler (emoji ikonlu) */
     const DEFAULT_CHECKLIST_CATEGORIES = [
       { id: 'documents',  label: 'Belgeler',   icon: '📄' },
       { id: 'clothes',    label: 'Giyim',      icon: '👕' },
@@ -316,9 +269,10 @@
 
     let state = {
       expenses: [],
-      view: 'list',              // 'list' | 'form'
-      activeTab: 'expenses',     // 'expenses' | 'checklist'
+      view: 'list',
+      activeTab: 'expenses',
       filterCategory: '',
+      searchQuery: '',
       selectedExpenseId: null,
       showDetailModal: false,
       showConfirmClear: false,
@@ -368,7 +322,11 @@
       }
     }
 
-    /* Checklist verisini (kategori + maddeler) yükleme */
+    function clearAllChecklist() {
+      state.checklistItems = [];
+      saveChecklist();
+    }
+
     function loadChecklist() {
       try {
         const raw = localStorage.getItem(CHECKLIST_STORAGE_KEY);
@@ -411,6 +369,20 @@
       } catch (err) {
         console.error('localStorage checklist save error', err);
       }
+    }
+
+    function deleteChecklistCategory(catId) {
+      const categories = getChecklistCategories();
+      if (categories.length <= 1) {
+        setState({ error: 'En az bir kategori kalmalı. Son kategoriyi silemezsin.' });
+        return;
+      }
+      const newCategories = categories.filter(c => c.id !== catId);
+      const newItems = (state.checklistItems || []).filter(item => item.category !== catId);
+      state.checklistCategories = newCategories;
+      state.checklistItems = newItems;
+      saveChecklist();
+      setState({ checklistCategories: newCategories, checklistItems: newItems, error: '' });
     }
 
     function setState(partial) {
@@ -460,9 +432,13 @@
       return Math.abs(hash);
     }
 
-    function getCityGradientClass(city) {
-      const idx = CITY_GRADIENTS.length ? hashString(city) % CITY_GRADIENTS.length : 0;
-      return CITY_GRADIENTS[idx] || 'from-sky-500/70 to-sky-700/80';
+    function getCityGradientStyle(city) {
+      const baseHue = hashString(city || '') % 360;
+      const hue1 = baseHue;
+      const hue2 = (baseHue + 30) % 360;
+      const color1 = `hsl(${hue1}, 85%, 60%)`;
+      const color2 = `hsl(${hue2}, 85%, 45%)`;
+      return `background: linear-gradient(120deg, ${color1}, ${color2});`;
     }
 
     function getCategoryMeta(id) {
@@ -490,8 +466,19 @@
     }
 
     function getVisibleExpenses() {
-      if (!state.filterCategory) return state.expenses.slice();
-      return state.expenses.filter(exp => exp.category === state.filterCategory);
+      let exps = !state.filterCategory
+        ? state.expenses.slice()
+        : state.expenses.filter(exp => exp.category === state.filterCategory);
+
+      const q = (state.searchQuery || '').trim().toLowerCase();
+      if (q) {
+        exps = exps.filter(exp => {
+          const city = (exp.city || '').toLowerCase();
+          const place = (exp.place || '').toLowerCase();
+          return city.includes(q) || place.includes(q);
+        });
+      }
+      return exps;
     }
 
     function getSelectedExpense() {
@@ -510,6 +497,20 @@
     }
 
     function renderHeader() {
+      const isChecklist = state.activeTab === 'checklist';
+      const buttonHtml = isChecklist
+        ? `
+          <button type="button" id="clear-checklist-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-600/90 to-teal-500/90 text-white border border-emerald-300/70 hover:from-emerald-500 hover:to-teal-500 shadow-sm shadow-emerald-500/40 transition">
+            ${ICONS.trash}
+            <span>Tümünü Kaldır</span>
+          </button>
+        `
+        : `
+          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-rose-600/80 to-amber-500/80 text-white border border-rose-300/60 hover:from-rose-600 hover:to-amber-500 shadow-sm shadow-rose-500/40 transition">
+            ${ICONS.trash}
+            <span>Harcamaları Temizle</span>
+          </button>
+        `;
       return `
         <header class="flex items-center justify-between mb-4 md:mb-6 relative z-10">
           <div class="flex items-center gap-3">
@@ -521,10 +522,7 @@
               <p class="text-xs md:text-sm text-slate-300/90">Gezilerindeki tüm harcamaları ve hazırlıkları tek yerden takip et</p>
             </div>
           </div>
-          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-rose-600/80 to-amber-500/80 text-white border border-rose-300/60 hover:from-rose-600 hover:to-amber-500 shadow-sm shadow-rose-500/40 transition">
-            ${ICONS.trash}
-            <span>Harcamaları Temizle</span>
-          </button>
+          ${buttonHtml}
         </header>
       `;
     }
@@ -660,7 +658,7 @@
       `;
     }
 
-    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory) {
+    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory, searchQuery) {
       const total = allExpenses.length;
       const visible = visibleExpenses.length;
       const filterText = selectedCategory
@@ -682,15 +680,29 @@
             <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
             ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
           </div>
-          <div class="flex items-center gap-2">
-            <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
-              <option value="">Tüm kategoriler</option>
-              ${options}
-            </select>
-            <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
-              ${ICONS.chart}
-              <span>Grafiği Göster</span>
-            </button>
+          <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+            <div class="w-full md:w-48">
+              <div class="relative">
+                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">🔍</span>
+                <input
+                  id="search-input"
+                  type="search"
+                  class="w-full rounded-xl border border-slate-600 bg-slate-950/80 pl-7 pr-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80"
+                  placeholder="Şehir veya mekan ara"
+                  value="${escapeHtml(searchQuery || '')}"
+                />
+              </div>
+            </div>
+            <div class="flex items-center gap-2 md:ml-2">
+              <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                <option value="">Tüm kategoriler</option>
+                ${options}
+              </select>
+              <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
+                ${ICONS.chart}
+                <span>Grafiği Göster</span>
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -812,8 +824,8 @@
     }
 
     function renderCitySection(city, expensesInCity) {
-      const isExpanded = state.expandedCities[city] !== false;
-      const gradientClass = getCityGradientClass(city);
+      const isExpanded = state.expandedCities[city] === true;
+      const gradientStyle = getCityGradientStyle(city);
 
       const totalsByCurrency = {};
       expensesInCity.forEach(exp => {
@@ -829,7 +841,7 @@
 
       return `
         <div class="mb-3 md:mb-4">
-          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left bg-gradient-to-r ${gradientClass} p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition">
+          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition" style="${gradientStyle}">
             <div class="relative flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
               <div>
                 <div class="text-xs font-semibold uppercase tracking-wide text-slate-50">
@@ -1190,7 +1202,7 @@
         : `<p class="text-[11px] text-slate-500 italic">Bu kategoride henüz madde yok.</p>`;
 
       return `
-        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3" open>
+        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3">
           <summary class="flex items-center justify-between gap-2 cursor-pointer list-none">
             <div class="flex items-center gap-2">
               <div class="w-7 h-7 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-base">
@@ -1201,7 +1213,13 @@
                 <div class="text-[11px] text-slate-400">${progressText}</div>
               </div>
             </div>
-            <span class="text-[11px] text-slate-500">▼</span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" data-remove-category="${cat.id}"
+                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
+                ${ICONS.trash}
+              </button>
+              <span class="text-[11px] text-slate-500">▼</span>
+            </div>
           </summary>
           <div class="mt-2 flex items-center justify-end gap-2">
             <button type="button" data-uncheck-all-category="${cat.id}"
@@ -1237,44 +1255,56 @@
       });
 
       html += `
-              <div class="mt-2 rounded-2xl bg-slate-950/90 border border-slate-700/80 px-3.5 py-3.5 space-y-2">
-                <div class="text-xs font-medium text-slate-200 mb-1 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>Yeni madde ekle</span>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                  <input id="new-check-label" type="text" placeholder="Örn. Powerbank"
-                         class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
-                  <select id="new-check-category"
-                          class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
-                    ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="flex justify-end">
-                  <button type="button" id="add-check-item-btn"
-                          class="mt-2 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
-                    + Madde Ekle
-                  </button>
-                </div>
+              <div class="mt-2 rounded-2xl bg-slate-950/90 border border-slate-700/80 px-3.5 py-3.5 space-y-3">
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3">
+                  <summary class="flex items-center justify-between cursor-pointer list-none">
+                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span>Yeni madde ekle</span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">▼</span>
+                  </summary>
+                  <div class="mt-2 space-y-2">
+                    <div class="grid grid-cols-3 gap-2">
+                      <input id="new-check-label" type="text" placeholder="Örn. Powerbank"
+                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
+                      <select id="new-check-category"
+                              class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
+                        ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="flex justify-end">
+                      <button type="button" id="add-check-item-btn"
+                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                        + Madde Ekle
+                      </button>
+                    </div>
+                  </div>
+                </details>
 
-                <div class="mt-3 pt-3 border-t border-slate-800/80 space-y-2">
-                  <div class="text-xs font-medium text-slate-200 mb-1 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                    <span>Yeni kategori ekle</span>
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3">
+                  <summary class="flex items-center justify-between cursor-pointer list-none">
+                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                      <span>Yeni kategori ekle</span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">▼</span>
+                  </summary>
+                  <div class="mt-2 space-y-2">
+                    <div class="grid grid-cols-3 gap-2">
+                      <input id="new-category-label" type="text" placeholder="Kategori adı"
+                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                      <input id="new-category-icon" type="text" placeholder="Örn. 🎒"
+                             class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                    </div>
+                    <div class="flex justify-end">
+                      <button type="button" id="add-category-btn"
+                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-[11px] font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500">
+                        + Kategori Ekle
+                      </button>
+                    </div>
                   </div>
-                  <div class="grid grid-cols-3 gap-2">
-                    <input id="new-category-label" type="text" placeholder="Kategori adı"
-                           class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
-                    <input id="new-category-icon" type="text" placeholder="Örn. 🎒"
-                           class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
-                  </div>
-                  <div class="flex justify-end">
-                    <button type="button" id="add-category-btn"
-                            class="mt-2 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-[11px] font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500">
-                      + Kategori Ekle
-                    </button>
-                  </div>
-                </div>
+                </details>
               </div>
             </div>
           </div>
@@ -1307,7 +1337,7 @@
                 ? (
                     state.view === 'list'
                       ? `
-                        ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory)}
+                        ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory, state.searchQuery)}
                         ${renderExpenseList(visibleExpenses)}
                       `
                       : `${renderFormView()}`
@@ -1514,7 +1544,7 @@
       }
       state.expenses = newExpenses;
 
-      const newExpanded = Object.assign({}, state.expandedCities, { [normalizedCity]: true });
+      const newExpanded = Object.assign({}, state.expandedCities, { [normalizedCity]: false });
       state.expandedCities = newExpanded;
 
       saveExpenses();
@@ -1601,6 +1631,13 @@
         });
       }
 
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          setState({ searchQuery: e.target.value });
+        });
+      }
+
       const openChartBtn = document.getElementById('open-chart-modal-btn');
       if (openChartBtn) {
         openChartBtn.addEventListener('click', () => {
@@ -1642,6 +1679,18 @@
       if (clearBtn) {
         clearBtn.addEventListener('click', () => {
           setState({ showConfirmClear: true });
+        });
+      }
+
+      const clearChecklistBtn = document.getElementById('clear-checklist-btn');
+      if (clearChecklistBtn) {
+        clearChecklistBtn.addEventListener('click', () => {
+          const items = (state.checklistItems || []).map(item =>
+            Object.assign({}, item, { done: false })
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items, error: '' });
         });
       }
 
@@ -1792,7 +1841,7 @@
       cityHeaders.forEach(header => {
         header.addEventListener('click', () => {
           const city = header.getAttribute('data-city-toggle');
-          const isExpanded = state.expandedCities[city] !== false;
+          const isExpanded = state.expandedCities[city] === true;
           const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
           state.expandedCities = updated;
           setState({ expandedCities: updated });
@@ -1922,6 +1971,17 @@
           setState({ checklistItems: items });
         });
       });
+
+      const removeCategoryButtons = document.querySelectorAll('[data-remove-category]');
+      removeCategoryButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const catId = btn.getAttribute('data-remove-category');
+          const ok = window.confirm('Bu kategoriyi ve içindeki tüm maddeleri silmek istiyor musun?');
+          if (!ok) return;
+          deleteChecklistCategory(catId);
+        });
+      });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -1931,7 +1991,7 @@
 
       const expandedCities = {};
       expenses.forEach(exp => {
-        if (exp.city) expandedCities[exp.city] = true;
+        if (exp.city) expandedCities[exp.city] = false;
       });
 
       state.expenses = expenses;
