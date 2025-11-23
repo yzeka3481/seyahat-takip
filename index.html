@@ -31,7 +31,7 @@
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
   <div id="app" class="min-h-screen flex items-center justify-center px-4 py-6 md:px-6 md:py-10">
-    <div id="app-root" class="w-full max-w-2xl md:max-w-3xl"></div>
+    <div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
   </div>
 
   <script>
@@ -51,7 +51,7 @@
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="6" width="18" height="13" rx="3"></rect>
           <path d="M16 10h3"></path>
-          <path d="M8 6V4h8v2"></path>
+          <path d="M8 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
         </svg>
       `,
       trash: `
@@ -152,7 +152,7 @@
         </svg>
       `,
       categoryFood: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 3h2v7a2 2 0 0 1-2 2"></path>
           <path d="M10 3h2v7a2 2 0 0 1-2 2"></path>
           <path d="M6 3v7a2 2 0 0 1-2 2"></path>
@@ -161,14 +161,14 @@
         </svg>
       `,
       categoryStay: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 11l9-7 9 7"></path>
           <path d="M5 10v10h14V10"></path>
           <path d="M10 21v-6h4v6"></path>
         </svg>
       `,
       categoryTransport: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="4" width="18" height="12" rx="2"></rect>
           <path d="M3 10h18"></path>
           <path d="M7 20h0.01"></path>
@@ -176,20 +176,20 @@
         </svg>
       `,
       categoryShopping: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 7l2 12h8l2-12z"></path>
           <path d="M9 7a3 3 0 0 1 6 0"></path>
         </svg>
       `,
       categoryActivity: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="4" r="2"></circle>
           <path d="M9 22l1-7 2-3 3-1"></path>
           <path d="M5 11l4 1 2-2"></path>
         </svg>
       `,
       categoryOther: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="5" cy="12" r="2"></circle>
           <circle cx="12" cy="12" r="2"></circle>
           <circle cx="19" cy="12" r="2"></circle>
@@ -203,52 +203,58 @@
         label: 'Yeme-İçme',
         icon: ICONS.categoryFood,
         bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
-        chartColor: 'rgba(244,63,94,0.8)'
+        chartColor: 'rgba(244,63,94,0.8)',
+        accent: 'bg-rose-500/15 text-rose-400'
       },
       stay: {
         id: 'stay',
         label: 'Konaklama',
         icon: ICONS.categoryStay,
         bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
-        chartColor: 'rgba(16,185,129,0.8)'
+        chartColor: 'rgba(16,185,129,0.8)',
+        accent: 'bg-emerald-500/15 text-emerald-400'
       },
       transport: {
         id: 'transport',
         label: 'Ulaşım',
         icon: ICONS.categoryTransport,
         bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
-        chartColor: 'rgba(56,189,248,0.8)'
+        chartColor: 'rgba(56,189,248,0.8)',
+        accent: 'bg-sky-500/15 text-sky-400'
       },
       shopping: {
         id: 'shopping',
         label: 'Alışveriş',
         icon: ICONS.categoryShopping,
         bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
-        chartColor: 'rgba(245,158,11,0.85)'
+        chartColor: 'rgba(245,158,11,0.85)',
+        accent: 'bg-amber-500/15 text-amber-400'
       },
       activity: {
         id: 'activity',
         label: 'Müze & Aktivite',
         icon: ICONS.categoryActivity,
         bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
-        chartColor: 'rgba(139,92,246,0.85)'
+        chartColor: 'rgba(139,92,246,0.85)',
+        accent: 'bg-violet-500/15 text-violet-400'
       },
       other: {
         id: 'other',
         label: 'Diğer',
         icon: ICONS.categoryOther,
         bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
-        chartColor: 'rgba(148,163,184,0.9)'
+        chartColor: 'rgba(148,163,184,0.9)',
+        accent: 'bg-slate-500/15 text-slate-300'
       }
     };
 
     const CITY_GRADIENTS = [
-      'from-sky-500/60 to-sky-700/70',
-      'from-violet-500/60 to-indigo-700/70',
-      'from-emerald-500/60 to-emerald-700/70',
-      'from-amber-500/60 to-orange-600/70',
-      'from-rose-500/60 to-pink-600/70',
-      'from-cyan-500/60 to-blue-600/70'
+      'from-sky-500/70 to-sky-700/80',
+      'from-violet-500/70 to-indigo-700/80',
+      'from-emerald-500/70 to-emerald-700/80',
+      'from-amber-500/70 to-orange-600/80',
+      'from-rose-500/70 to-pink-600/80',
+      'from-cyan-500/70 to-blue-600/80'
     ];
 
     function getEmptyForm() {
@@ -361,7 +367,7 @@
 
     function getCityGradientClass(city) {
       const idx = CITY_GRADIENTS.length ? hashString(city) % CITY_GRADIENTS.length : 0;
-      return CITY_GRADIENTS[idx] || 'from-sky-500/60 to-sky-700/70';
+      return CITY_GRADIENTS[idx] || 'from-sky-500/70 to-sky-700/80';
     }
 
     function getCategoryMeta(id) {
@@ -400,17 +406,17 @@
 
     function renderHeader() {
       return `
-        <header class="flex items-center justify-between mb-4 md:mb-6">
+        <header class="flex items-center justify-between mb-4 md:mb-6 relative z-10">
           <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-2xl bg-blue-500/20 border border-blue-400/60 flex items-center justify-center text-blue-200">
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 border border-sky-300/70 flex items-center justify-center text-white shadow-md shadow-sky-500/40">
               ${ICONS.wallet}
             </div>
             <div>
               <h1 class="text-lg md:text-xl font-semibold tracking-tight text-slate-50">Seyahat Cüzdanı</h1>
-              <p class="text-xs md:text-sm text-slate-400">Gezilerindeki tüm harcamaları tek yerden takip et</p>
+              <p class="text-xs md:text-sm text-slate-300/90">Gezilerindeki tüm harcamaları tek yerden takip et</p>
             </div>
           </div>
-          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-red-500/10 text-red-300 border border-red-500/40 hover:bg-red-500/20 transition">
+          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-rose-600/80 to-amber-500/80 text-white border border-rose-300/60 hover:from-rose-600 hover:to-amber-500 shadow-sm shadow-rose-500/40 transition">
             ${ICONS.trash}
             <span>Veriyi Temizle</span>
           </button>
@@ -421,8 +427,8 @@
     function renderError(errorMsg) {
       if (!errorMsg) return '';
       return `
-        <div class="mb-3 md:mb-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 px-3.5 py-2.5 text-xs md:text-sm text-amber-100 flex items-start gap-2">
-          <div class="mt-[2px] text-amber-300">
+        <div class="mb-3 md:mb-4 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-amber-500/15 to-amber-500/25 px-3.5 py-2.5 text-xs md:text-sm text-amber-100 flex items-start gap-2">
+          <div class="mt-[2px] text-amber-200">
             ${ICONS.warning}
           </div>
           <div>${escapeHtml(errorMsg)}</div>
@@ -434,11 +440,11 @@
       if (!expenses || !expenses.length) {
         return `
           <section class="mb-4 md:mb-5">
-            <div class="rounded-2xl bg-slate-900/70 border border-white/10 px-4 py-3.5 text-xs md:text-sm text-slate-200 flex items-center gap-2">
-              <div class="text-slate-300">
+            <div class="rounded-2xl bg-gradient-to-r from-slate-900/85 via-slate-800/85 to-slate-900/85 border border-slate-600/70 px-4 py-3.5 text-xs md:text-sm text-slate-100 flex items-center gap-2">
+              <div class="text-sky-300">
                 ${ICONS.info}
               </div>
-              <div>Henüz kayıt yok. Sağ alttaki <span class="font-semibold">+</span> butonuyla ilk harcamanı ekle.</div>
+              <div>Henüz kayıt yok. Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuyla ilk harcamanı ekle.</div>
             </div>
           </section>
         `;
@@ -457,20 +463,21 @@
           const formatted = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
           return `
             <div class="flex items-baseline gap-1.5">
-              <span class="text-xs text-sky-100/90">${cur}</span>
-              <span class="text-sm md:text-base font-semibold text-slate-50">${formatted}</span>
+              <span class="text-xs text-sky-50/80">${cur}</span>
+              <span class="text-sm md:text-base font-semibold text-white">${formatted}</span>
             </div>
           `;
         })
         .join('');
 
       return `
-        <section class="mb-4 md:mb-5">
-          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600/70 via-indigo-600/70 to-sky-500/70 border border-white/20 shadow">
-            <div class="absolute -right-10 -bottom-10 w-40 h-40 rounded-full bg-white/10 blur-3xl"></div>
+        <section class="mb-4 md:mb-5 relative z-10">
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 border border-white/20 shadow-lg shadow-sky-500/40">
+            <div class="absolute -right-16 -bottom-16 w-44 h-44 rounded-full bg-white/15 blur-3xl"></div>
+            <div class="absolute -left-20 -top-16 w-40 h-40 rounded-full bg-indigo-400/25 blur-3xl"></div>
             <div class="relative px-4 py-3.5 md:px-5 md:py-4 flex items-center justify-between gap-3">
               <div>
-                <p class="text-[11px] uppercase tracking-wide text-sky-100/90 font-medium">Özet</p>
+                <p class="text-[11px] uppercase tracking-wide text-sky-50/90 font-semibold">Özet</p>
                 <p class="text-xs md:text-sm text-sky-50/90">
                   ${expenses.length} kayıt · ${Object.keys(totalsByCurrency).length} para birimi
                 </p>
@@ -500,18 +507,18 @@
         .join('');
 
       return `
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3 md:mb-4">
-          <div class="text-xs md:text-sm text-slate-200/90">
-            <span class="font-medium">${visible}</span> kayıt görüntüleniyor
+        <div class="mb-3 md:mb-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-3.5 py-2.5 md:px-4 md:py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div class="text-xs md:text-sm text-slate-100/90">
+            <span class="font-semibold text-sky-300">${visible}</span> kayıt görüntüleniyor
             <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
             ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
           </div>
           <div class="flex items-center gap-2">
-            <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600/60 bg-slate-900/70 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/70">
+            <select id="category-filter" class="text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
               <option value="">Tüm kategoriler</option>
               ${options}
             </select>
-            <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-slate-900/80 border border-blue-500/40 text-blue-300 hover:bg-slate-900/90 disabled:opacity-40 disabled:cursor-not-allowed">
+            <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
               ${ICONS.chart}
               <span>Grafiği Göster</span>
             </button>
@@ -525,21 +532,25 @@
       const buttons = cats
         .map(cat => {
           const isActive = selectedCategory === cat.id;
-          const baseClasses = 'flex items-center gap-2 px-2.5 py-2 rounded-2xl border text-xs cursor-pointer transition';
-          const activeClasses = 'bg-slate-900 border-blue-500/60 text-blue-200 shadow-[0_0_0_1px_rgba(59,130,246,0.6)]';
-          const inactiveClasses = 'bg-slate-900/90 border-slate-700/90 text-slate-300 hover:bg-slate-900';
+          const baseClasses =
+            'flex flex-shrink-0 flex-col items-center justify-center gap-1 px-2.5 py-2.5 rounded-2xl border text-[11px] cursor-pointer transition min-w-[88px]';
+          const activeClasses =
+            'bg-gradient-to-r from-sky-600 to-indigo-600 border-sky-300/70 text-sky-50 shadow-sm shadow-sky-500/40';
+          const inactiveClasses =
+            'bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-slate-700 text-slate-200 hover:border-sky-500/60 hover:bg-slate-900';
+          const accent = cat.accent || 'bg-slate-800/90 text-sky-100';
           return `
             <button type="button" data-category="${cat.id}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses}">
-              <span class="shrink-0 w-6 h-6 inline-flex items-center justify-center rounded-xl bg-slate-800/90">
+              <span class="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-2xl ${accent}">
                 ${cat.icon}
               </span>
-              <span class="truncate">${cat.label}</span>
+              <span class="truncate mt-0.5">${cat.label}</span>
             </button>
           `;
         })
         .join('');
       return `
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
           ${buttons}
         </div>
       `;
@@ -555,7 +566,7 @@
         html += `
           <div class="relative group">
             <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70" />
-            <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/70 text-slate-100 opacity-0 group-hover:opacity-100 transition">
+            <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/80 text-slate-100 opacity-0 group-hover:opacity-100 transition">
               ${ICONS.xMini}
             </button>
           </div>
@@ -582,7 +593,7 @@
       const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
       const peopleChip = peopleCount
         ? `
-          <span class="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
             ${ICONS.person}
             <span>x${peopleCount}</span>
           </span>
@@ -590,7 +601,7 @@
         : '';
       const photosChip = photosCount
         ? `
-          <span class="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
             ${ICONS.photo}
             <span>${photosCount}</span>
           </span>
@@ -598,10 +609,10 @@
         : '';
 
       return `
-        <article class="bg-white/80 rounded-2xl shadow-sm border border-gray-100 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
+        <article class="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-2xl shadow-sm border border-slate-200/90 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <div class="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
+              <div class="text-[11px] font-medium uppercase tracking-wide text-sky-500 mb-0.5">
                 ${escapeHtml(expense.city || '')}
               </div>
               <div class="text-sm md:text-base font-semibold text-slate-900 truncate">
@@ -659,21 +670,21 @@
 
       return `
         <div class="mb-3 md:mb-4">
-          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left bg-gradient-to-r ${gradientClass} p-[1px] rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-[1px] transition">
-            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/80 rounded-[1rem]">
+          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left bg-gradient-to-r ${gradientClass} p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition">
+            <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
               <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-100">
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-50">
                   ${escapeHtml(city)}
                 </div>
-                <div class="text-[11px] text-slate-300">
+                <div class="text-[11px] text-slate-200">
                   ${expensesInCity.length} kayıt${summaryText}
                 </div>
               </div>
               <div class="flex items-center gap-3">
-                <div class="hidden md:flex flex-col text-right text-[10px] text-slate-200/90">
+                <div class="hidden md:flex flex-col text-right text-[10px] text-slate-100/90">
                   <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
                 </div>
-                <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/20 flex items-center justify-center text-slate-100">
+                <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/30 flex items-center justify-center text-slate-50">
                   ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
                 </div>
               </div>
@@ -687,9 +698,9 @@
     function renderExpenseList(expenses) {
       if (!expenses || !expenses.length) {
         return `
-          <div class="rounded-2xl bg-slate-900/70 border border-slate-700/70 px-4 py-5 text-center text-sm text-slate-300">
+          <div class="rounded-2xl bg-gradient-to-br from-slate-900/85 via-slate-900/90 to-slate-950/95 border border-slate-700/80 px-4 py-5 text-center text-sm text-slate-100">
             Henüz hiç harcama eklenmedi.<br/>
-            Sağ alttaki <span class="font-semibold">+</span> butonuna tıklayarak ilk kaydını oluştur.
+            Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuna tıklayarak ilk kaydını oluştur.
           </div>
         `;
       }
@@ -714,86 +725,89 @@
               <h2 class="text-base md:text-lg font-semibold text-slate-50">Harcama Kaydı</h2>
               <p class="text-xs md:text-sm text-slate-400">${f.id ? 'Mevcut kaydı düzenliyorsun' : 'Yeni bir harcama ekle'}</p>
             </div>
-            <button type="button" id="back-to-list-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/70 border border-slate-700 text-xs text-slate-200 hover:bg-slate-900">
+            <button type="button" id="back-to-list-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-600 text-xs text-slate-200 hover:bg-slate-900">
               ${ICONS.x}
               <span>Listeye Dön</span>
             </button>
           </div>
 
-          <form id="expense-form" class="space-y-4 md:space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
-                <input id="city" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
+          <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
+            <form id="expense-form" class="space-y-4 md:space-y-5">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
+                  <input id="city" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
+                </div>
+                <div>
+                  <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
+                  <input id="place" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Kahve Molası" value="${escapeHtml(f.place)}" />
+                </div>
               </div>
-              <div>
-                <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
-                <input id="place" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Örn. Kahve Molası" value="${escapeHtml(f.place)}" />
-              </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
-                <input id="amount" type="number" step="0.01" min="0" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="0.00" value="${escapeHtml(f.amount)}" />
+              <!-- Tutar, Para Birimi, Kişi Sayısı, Tarih TEK SATIR -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="col-span-2 md:col-span-1">
+                  <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
+                  <!-- SADECE RAKAM + NOKTA İÇİN TEXT + inputmode -->
+                  <input id="amount" type="text" inputmode="decimal" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="0.00" value="${escapeHtml(f.amount)}" />
+                </div>
+                <div class="col-span-1 md:col-span-1">
+                  <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
+                  <select id="currency" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                    ${['TRY','EUR','USD','GBP'].map(cur => `
+                      <option value="${cur}" ${f.currency === cur ? 'selected' : ''}>${cur}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div class="col-span-1 md:col-span-1">
+                  <label for="peopleCount" class="block text-xs font-medium text-slate-300 mb-1.5">Kişi Sayısı</label>
+                  <input id="peopleCount" type="number" min="1" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.peopleCount)}" />
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                  <label for="date" class="block text-xs font-medium text-slate-300 mb-1.5">Tarih</label>
+                  <input id="date" type="date" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.date)}" />
+                </div>
               </div>
-              <div>
-                <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
-                <select id="currency" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70">
-                  ${['TRY','EUR','USD','GBP'].map(cur => `
-                    <option value="${cur}" ${f.currency === cur ? 'selected' : ''}>${cur}</option>
-                  `).join('')}
-                </select>
-              </div>
-              <div>
-                <label for="date" class="block text-xs font-medium text-slate-300 mb-1.5">Tarih</label>
-                <input id="date" type="date" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/70" value="${escapeHtml(f.date)}" />
-              </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <label for="peopleCount" class="block text-xs font-medium text-slate-300 mb-1.5">Kişi Sayısı</label>
-                <input id="peopleCount" type="number" min="1" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" value="${escapeHtml(f.peopleCount)}" />
-              </div>
-              <div class="md:col-span-2">
                 <span class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</span>
                 ${renderCategoryToolbox(f.category)}
               </div>
-            </div>
 
-            <div>
-              <label for="description" class="block text-xs font-medium text-slate-300 mb-1.5">Açıklama</label>
-              <textarea id="description" rows="3" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/70" placeholder="Notlar, detaylar...">${escapeHtml(f.description)}</textarea>
-            </div>
+              <div>
+                <label for="description" class="block text-xs font-medium text-slate-300 mb-1.5">Açıklama</label>
+                <textarea id="description" rows="3" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Notlar, detaylar...">${escapeHtml(f.description)}</textarea>
+              </div>
 
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Fotoğraflar (max 3)</label>
-              <div class="flex flex-col md:flex-row md:items-center gap-3">
-                <div>
-                  <input type="file" id="photo-input" accept="image/*" multiple class="block text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-2xl file:border-0 file:text-xs file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
-                  <p class="mt-1 text-[11px] text-slate-400">Fotoğraflar otomatik olarak sıkıştırılıp base64 olarak kaydedilir.</p>
-                </div>
-                <div class="flex-1">
-                  ${renderPhotoThumbnails(f)}
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">Fotoğraflar (max 3)</label>
+                <div class="flex flex-col md:flex-row md:items-center gap-3">
+                  <div>
+                    <input type="file" id="photo-input" accept="image/*" multiple class="block text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-2xl file:border-0 file:text-xs file:font-medium file:bg-gradient-to-r file:from-sky-600 file:to-indigo-600 file:text-white hover:file:from-sky-500 hover:file:to-indigo-500 cursor-pointer" />
+                    <p class="mt-1 text-[11px] text-slate-400">Fotoğraflar otomatik olarak sıkıştırılıp base64 olarak kaydedilir.</p>
+                  </div>
+                  <div class="flex-1">
+                    ${renderPhotoThumbnails(f)}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="pt-2 flex items-center justify-between gap-3">
-              <button type="button" id="close-form-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900/70 border border-slate-700/70 text-xs md:text-sm text-slate-200 hover:bg-slate-900">
-                İptal
-              </button>
-              <button type="submit" id="save-expense-btn" class="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-blue-600 text-xs md:text-sm font-medium text-white shadow hover:bg-blue-700">
-                ${ICONS.walletMini}
-                <span class="ml-1.5">${f.id ? 'Kaydı Güncelle' : 'Kaydet'}</span>
-              </button>
-            </div>
-          </form>
+              <div class="pt-2 flex items-center justify-between gap-3">
+                <button type="button" id="close-form-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900/80 border border-slate-600 text-xs md:text-sm text-slate-200 hover:bg-slate-900">
+                  İptal
+                </button>
+                <button type="submit" id="save-expense-btn" class="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-xs md:text-sm font-medium text-white shadow-md shadow-sky-500/40 hover:from-sky-500 hover:to-indigo-500">
+                  ${ICONS.walletMini}
+                  <span class="ml-1.5">${f.id ? 'Kaydı Güncelle' : 'Kaydet'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </section>
       `;
     }
 
+    // GELİŞTİRİLMİŞ DETAY MODALI
     function renderDetailModal(expense) {
       if (!expense) return '';
       const category = getCategoryMeta(expense.category);
@@ -808,10 +822,10 @@
 
       let photosHtml = '';
       if (photos.length) {
-        photosHtml = '<div class="mt-3"><h4 class="text-xs font-semibold text-slate-700 mb-2">Fotoğraflar</h4><div class="grid grid-cols-2 gap-2">';
+        photosHtml = '<div class="mt-4"><h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Fotoğraflar</span></h4><div class="grid grid-cols-2 gap-2">';
         photos.forEach((src, idx) => {
           photosHtml += `
-            <div class="overflow-hidden rounded-2xl border border-slate-200">
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100/60">
               <img src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover" />
             </div>
           `;
@@ -820,94 +834,104 @@
       }
 
       const peopleInfo = peopleCount ? `
-        <div class="mt-1 flex items-center justify-between text-xs text-slate-600">
-          <div class="inline-flex items-center gap-1">
-            ${ICONS.person}
-            <span>${peopleCount} kişi</span>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
+            <span class="inline-flex items-center gap-1">
+              ${ICONS.person}
+              <span>Kişi sayısı</span>
+            </span>
+            <span class="font-semibold text-slate-900">${peopleCount}</span>
           </div>
-          <div class="inline-flex items-center gap-1">
-            ${ICONS.walletMini}
-            <span>Kişi başı: <span class="font-semibold text-slate-800">${perPersonFormatted} ${currency}</span></span>
+          <div class="rounded-2xl bg-gradient-to-r from-sky-50 to-emerald-50 border border-sky-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
+            <span class="inline-flex items-center gap-1">
+              ${ICONS.walletMini}
+              <span>Kişi başı</span>
+            </span>
+            <span class="font-semibold text-slate-900">${perPersonFormatted} <span class="text-[11px] text-slate-500">${currency}</span></span>
           </div>
         </div>
       ` : '';
 
       return `
         <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-white rounded-3xl shadow-2xl p-5 md:p-6">
-            <div class="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 mb-0.5">
-                  ${escapeHtml(expense.city || '')}
-                </p>
-                <h2 class="text-base md:text-lg font-semibold text-slate-900">
-                  ${expense.place ? escapeHtml(expense.place) : 'Harcama Detayı'}
-                </h2>
-              </div>
-              <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-                ${ICONS.x}
-              </button>
-            </div>
-
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <div class="text-xs text-slate-500 mb-1 inline-flex items-center gap-1">
-                  ${ICONS.calendar}
-                  <span>${dateLabel}</span>
-                </div>
-                <div class="mt-1 inline-flex items-center gap-2">
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
-                    <span class="shrink-0">${category.icon}</span>
-                    <span>${category.label}</span>
-                  </span>
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="text-xs text-slate-500 mb-0.5">Toplam Tutar</div>
-                <div class="text-lg font-semibold text-slate-900">
-                  ${amountFormatted} <span class="text-xs text-slate-500">${currency}</span>
-                </div>
-              </div>
-            </div>
-
-            ${peopleInfo}
-
-            <div class="mt-3 flex items-center justify-between gap-3">
-              <div class="text-xs text-slate-600 flex-1">
-                <div class="flex items-start gap-2">
-                  <div class="mt-[2px] text-slate-500">
-                    ${ICONS.locationPin}
+          <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/70 p-0">
+            <div class="relative overflow-hidden rounded-t-3xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 px-5 pt-4 pb-5">
+              <div class="absolute -right-16 -bottom-20 w-40 h-40 rounded-full bg-white/15 blur-2xl"></div>
+              <div class="absolute -left-12 -top-16 w-36 h-36 rounded-full bg-indigo-300/25 blur-2xl"></div>
+              <div class="relative flex items-start justify-between gap-3">
+                <div class="max-w-[70%]">
+                  <p class="text-[11px] font-medium uppercase tracking-wide text-slate-100/90 mb-0.5">
+                    ${escapeHtml(expense.city || '')}
+                  </p>
+                  <h2 class="text-base md:text-lg font-semibold text-white leading-snug">
+                    ${expense.place ? escapeHtml(expense.place) : 'Harcama Detayı'}
+                  </h2>
+                  <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
+                    ${ICONS.calendar}
+                    <span>${dateLabel}</span>
                   </div>
-                  <div>
-                    <div class="font-medium text-slate-800">${escapeHtml(expense.city || '')}</div>
-                    ${expense.place ? `<div class="text-slate-600">${escapeHtml(expense.place)}</div>` : ''}
+                </div>
+                <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/25 text-slate-50 hover:bg-black/35">
+                  ${ICONS.x}
+                </button>
+              </div>
+              <div class="relative mt-3 flex items-center justify-between gap-3">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/90 text-slate-800">
+                  <span class="shrink-0 text-sky-500">${category.icon}</span>
+                  <span>${category.label}</span>
+                </div>
+                <div class="text-right">
+                  <div class="text-[11px] text-slate-100/90">Toplam Tutar</div>
+                  <div class="text-lg font-semibold text-white">
+                    ${amountFormatted} <span class="text-xs text-slate-100/80">${currency}</span>
                   </div>
                 </div>
               </div>
-              <a href="${mapsUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-blue-50 text-xs font-medium text-blue-700 border border-blue-100 hover:bg-blue-100">
-                ${ICONS.map}
-                <span>Haritada Aç</span>
-              </a>
             </div>
 
-            ${expense.description ? `
-              <div class="mt-3">
-                <h4 class="text-xs font-semibold text-slate-700 mb-1.5">Notlar</h4>
-                <p class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(expense.description)}</p>
+            <div class="px-5 pb-5 pt-4">
+              ${peopleInfo}
+
+              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-2">
+                    <div class="mt-[2px] text-slate-500">
+                      ${ICONS.locationPin}
+                    </div>
+                    <div class="text-xs text-slate-700">
+                      <div class="font-semibold text-slate-900">${escapeHtml(expense.city || '')}</div>
+                      ${expense.place ? `<div class="text-slate-600">${escapeHtml(expense.place)}</div>` : ''}
+                    </div>
+                  </div>
+                  <a href="${mapsUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-50 text-[11px] font-medium text-sky-700 border border-sky-200 hover:bg-sky-100">
+                    ${ICONS.map}
+                    <span>Haritada Aç</span>
+                  </a>
+                </div>
               </div>
-            ` : ''}
 
-            ${photosHtml}
+              ${expense.description ? `
+                <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                  <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span>Notlar</span>
+                  </h4>
+                  <p class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(expense.description)}</p>
+                </div>
+              ` : ''}
 
-            <div class="mt-5 flex items-center justify-between gap-3">
-              <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
-                ${ICONS.edit}
-                <span class="ml-1.5">Düzenle</span>
-              </button>
-              <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-red-600/90 text-xs md:text-sm font-medium text-white shadow hover:bg-red-700">
-                ${ICONS.trash}
-                <span class="ml-1.5">Sil</span>
-              </button>
+              ${photosHtml}
+
+              <div class="mt-5 flex items-center justify-between gap-3">
+                <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                  ${ICONS.edit}
+                  <span class="ml-1.5">Düzenle</span>
+                </button>
+                <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs md:text-sm font-medium text-white shadow-md shadow-rose-500/40 hover:from-rose-500 hover:to-red-600">
+                  ${ICONS.trash}
+                  <span class="ml-1.5">Sil</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -917,23 +941,23 @@
     function renderConfirmClearModal() {
       return `
         <div id="confirm-clear-modal" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div class="w-full max-w-sm bg-slate-950/95 border border-red-500/40 rounded-3xl p-5">
+          <div class="w-full max-w-sm bg-gradient-to-br from-slate-950 via-rose-950/90 to-slate-950 border border-rose-500/60 rounded-3xl p-5 shadow-xl shadow-rose-500/30">
             <div class="flex items-start gap-3">
-              <div class="mt-1 text-red-400">
+              <div class="mt-1 text-rose-300">
                 ${ICONS.warning}
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-slate-50 mb-1">Tüm verileri silmek istiyor musun?</h3>
-                <p class="text-xs text-slate-300 mb-3">
+                <h3 class="text-sm font-semibold text-rose-50 mb-1">Tüm verileri silmek istiyor musun?</h3>
+                <p class="text-xs text-rose-100/90 mb-3">
                   Bu işlem geri alınamaz. Tüm harcamalar ve fotoğraflar cihazındaki localStorage'dan temizlenecek.
                 </p>
               </div>
             </div>
             <div class="mt-3 flex items-center justify-end gap-2">
-              <button type="button" id="cancel-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-slate-900 text-xs text-slate-200 border border-slate-700 hover:bg-slate-800">
+              <button type="button" id="cancel-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-slate-900/80 text-xs text-slate-100 border border-slate-600 hover:bg-slate-900">
                 Vazgeç
               </button>
-              <button type="button" id="confirm-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-red-600 text-xs text-white hover:bg-red-700">
+              <button type="button" id="confirm-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs text-white hover:from-rose-500 hover:to-red-600">
                 Evet, sil
               </button>
             </div>
@@ -945,10 +969,10 @@
     function renderChartModal() {
       return `
         <div id="chart-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div id="chart-modal" class="w-full max-w-md max-h-[80vh] bg-white rounded-3xl shadow-2xl flex flex-col">
+          <div id="chart-modal" class="w-full max-w-md max-h-[80vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl flex flex-col border border-slate-200/80">
             <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div class="flex items-center gap-2">
-                <div class="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white flex items-center justify-center shadow-sm shadow-sky-500/40">
                   ${ICONS.chart}
                 </div>
                 <div>
@@ -972,7 +996,7 @@
 
     function renderFab() {
       return `
-        <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-500/40 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-slate-900">
+        <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-xl shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900">
           ${ICONS.plus}
         </button>
       `;
@@ -985,20 +1009,24 @@
       const visibleExpenses = getVisibleExpenses();
 
       let html = `
-        <div class="relative bg-white/10 border border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] p-4 md:p-6 overflow-hidden">
-          ${renderHeader()}
-          ${renderError(state.error)}
-          ${renderSummaryCard(state.expenses)}
-          ${
-            state.view === 'list'
-              ? `
-                ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory)}
-                ${renderExpenseList(visibleExpenses)}
-              `
-              : `
-                ${renderFormView()}
-              `
-          }
+        <div class="relative bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] p-4 md:p-5 overflow-hidden">
+          <div class="pointer-events-none absolute -top-24 -right-10 w-56 h-56 rounded-full bg-sky-500/20 blur-3xl"></div>
+          <div class="pointer-events-none absolute -bottom-24 -left-10 w-60 h-60 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <div class="relative z-10">
+            ${renderHeader()}
+            ${renderError(state.error)}
+            ${renderSummaryCard(state.expenses)}
+            ${
+              state.view === 'list'
+                ? `
+                  ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory)}
+                  ${renderExpenseList(visibleExpenses)}
+                `
+                : `
+                  ${renderFormView()}
+                `
+            }
+          </div>
         </div>
         ${state.view === 'list' ? renderFab() : ''}
         ${state.showDetailModal ? renderDetailModal(getSelectedExpense()) : ''}
@@ -1338,7 +1366,16 @@
       const amountInput = document.getElementById('amount');
       if (amountInput) {
         amountInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { amount: e.target.value });
+          // SADECE RAKAM + TEK NOKTA KALSIN, VİRGÜL NOKTAYA ÇEVRİLİR
+          let val = e.target.value || '';
+          val = val.replace(',', '.');
+          val = val.replace(/[^0-9.]/g, '');
+          const parts = val.split('.');
+          if (parts.length > 2) {
+            val = parts[0] + '.' + parts.slice(1).join('');
+          }
+          e.target.value = val;
+          state.form = Object.assign({}, state.form, { amount: val });
         });
       }
 
