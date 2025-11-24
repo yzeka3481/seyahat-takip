@@ -15,13 +15,15 @@ body{font-family:'Inter',sans-serif}
 .custom-checkbox:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e"); border-color: transparent; background-color: #10b981; }
 .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
 
-/* Harcama Detayı Modalında Yumuşak Geçiş için Maske */
-.soft-fade-gradient-mask {
-    /* Başlıkta görseldeki yumuşak gradient ve altta saydamlaşan maske */
-    background: linear-gradient(135deg, rgba(244,114,182,0.9) 0%, rgba(251,191,36,0.9) 100%); /* Pembe/Sarı/Turuncu */
-    -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+/* HARCAMA DETAYI MODAL BAŞLIĞI: Keskin geçiş kaldırıldı, sabit gradient bırakıldı. */
+.fixed-gradient-header {
+    background: linear-gradient(135deg, #4A00E0 0%, #8E2DE2 50%, #FF0099 100%);
+    position: relative;
+    overflow: hidden;
+    /* Gövdeye yumuşak bir ayrım sağlamak için hafif bir gölge */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 }
+
 </style>
 </head>
 <body class="min-h-screen bg-[#0F111A] text-slate-200 flex items-center justify-center p-4 selection:bg-blue-500/30">
@@ -171,8 +173,7 @@ body{font-family:'Inter',sans-serif}
     });
 
     return `
-      <!-- TOPLAM TAHMİNİ BAKİYE ALANI (GÖZE ÇARPAN GRADIENT) -->
-      <div class="bg-gradient-to-r from-violet-700 to-indigo-800 border border-indigo-700/50 rounded-2xl p-5 mb-5 shadow-2xl relative overflow-hidden group">
+      <!-- TOPLAM TAHMİNİ BAKİYE ALANI (GÖZE ÇARPAN GRADIENT) --><div class="bg-gradient-to-r from-violet-700 to-indigo-800 border border-indigo-700/50 rounded-2xl p-5 mb-5 shadow-2xl relative overflow-hidden group">
          <div class="absolute -right-10 -top-10 w-64 h-64 bg-violet-400/20 rounded-full blur-3xl group-hover:bg-violet-400/30 transition duration-1000"></div>
          
          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -252,13 +253,11 @@ body{font-family:'Inter',sans-serif}
               <div class="text-[11px] text-slate-500 mt-0.5">${lst.length} harcama · ${sumTxt||'0.00'}</div>
             </div>
             
-            <!-- Silme butonu (Daha iyi konumlandırıldı) -->
-            <button data-act="del-city" data-val="${esc(city)}" class="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-red-400 hover:bg-slate-700 rounded-full transition z-20 opacity-0 group-hover:opacity-100">
+            <!-- Silme butonu (Daha iyi konumlandırıldı) --><button data-act="del-city" data-val="${esc(city)}" class="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-red-400 hover:bg-slate-700 rounded-full transition z-20 opacity-0 group-hover:opacity-100">
                 ${ICONS.trash}
             </button>
             
-            <!-- Açma/Kapama oku (Konumu düzeltildi) -->
-            <div class="w-6 text-slate-600 transform transition ${expd?'rotate-180':''} z-10">
+            <!-- Açma/Kapama oku (Konumu düzeltildi) --><div class="w-6 text-slate-600 transform transition ${expd?'rotate-180':''} z-10">
                 ${ICONS.down}
             </div>
           </button>
@@ -387,7 +386,7 @@ body{font-family:'Inter',sans-serif}
              <div class="col-span-1 relative">
                 <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
                 <select id="i-cur" class="absolute right-1 top-1 bottom-1 bg-slate-700 text-slate-200 rounded-lg text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
-                   ${['TRY','EUR','USD','GBP'].map(c=>`<option ${f.cur===c?'selected':''}>${c}</option>`).join('')}
+                   ${['TRY','EUR','USD','GBP'].map(c=>`<option value="${c}" ${f.cur===c?'selected':''}>${c}</option>`).join('')}
                 </select>
              </div>
              <div class="col-span-1 flex items-center bg-slate-800 border border-slate-700 rounded-xl px-3">
@@ -430,10 +429,8 @@ body{font-family:'Inter',sans-serif}
       const cat=CATS[x.cat]||CATS.other;
       const ppl = parseInt(x.ppl)||1;
       const perP = x.amt/ppl;
-      const cityColor = getCityColor(x.city);
       const allTrips = [...new Set(state.exp.map(z=>z.trip).filter(Boolean))].sort();
       
-      // Google Maps Linki oluşturma
       const mapQuery = encodeURIComponent(`${x.place}, ${x.city}`);
       const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
       
@@ -451,8 +448,8 @@ body{font-family:'Inter',sans-serif}
         <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 animate-[fadeIn_0.2s]" data-act="close-mod" data-val="overlay">
           <div class="bg-slate-900 w-full max-w-md md:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl relative border border-slate-800">
              
-             <!-- Dinamik Renkli Header (Yumuşak Geçişli Maske Uygulandı) -->
-             <div class="relative p-6 pb-12 overflow-hidden soft-fade-gradient-mask">
+             <!-- SABİT GRADIENT BAŞLIK (GEÇİŞSİZ) -->
+             <div class="relative p-6 pb-12 overflow-hidden fixed-gradient-header">
                 <div class="absolute inset-0 backdrop-blur-[2px]"></div>
                 
                 <div class="relative z-10 flex justify-between items-start mb-4">
@@ -501,8 +498,7 @@ body{font-family:'Inter',sans-serif}
                  </div>
                </div>
                
-               <!-- Google Maps Linki (data-act ile fixlendi) -->
-               <button data-act="open-map" data-val="${mapUrl}" class="flex items-center justify-center gap-2 bg-slate-800/30 hover:bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 transition cursor-pointer w-full">
+               <!-- Google Maps Linki (data-act ile fixlendi) --><button data-act="open-map" data-val="${mapUrl}" class="flex items-center justify-center gap-2 bg-slate-800/30 hover:bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 transition cursor-pointer w-full">
                   ${ICONS.globe}
                   <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Haritada Göster: ${esc(x.place)}</span>
                </button>
