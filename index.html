@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Inter Font -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 body{font-family:'Inter',sans-serif}
@@ -35,7 +36,8 @@ body{font-family:'Inter',sans-serif}
   const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget',PREF:'travel_pref'};
   let chartInst=null, state={};
   
-  // GÜNCEL KURLAR (Kasım 2025 Verileri)
+  // GÜNCEL KURLAR (Kasım 2025 Verileri - Sabit)
+  // TRY baz alınarak diğer kurlar hesaplanmıştır.
   const RATES = { TRY:1, USD:42.42, EUR:48.91, GBP:55.61 };
   
   const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -51,6 +53,7 @@ body{font-family:'Inter',sans-serif}
     return `hsl(${Math.abs(hash)%360}, 70%, 55%)`; 
   };
 
+  // SVG İkonları
   const mkSvg=(d,s=4)=>`<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const ICONS={
     wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',6),
@@ -68,9 +71,11 @@ body{font-family:'Inter',sans-serif}
     briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
     broom: mkSvg('<path d="M18 7c0-2.8-2.2-5-5-5S8 4.2 8 7c0 1.2.4 2.3 1 3.2l-6 10.6a1 1 0 0 0 1.8 1l2.4-4.4 2.4 4.4a1 1 0 0 0 1.8-1l-6-10.6C12.4 9.4 13 8.3 13 7z"/>'),
     refresh: mkSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'),
-    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5)
+    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
+    currency: mkSvg('<path d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22zM12 18V6m-3 6h6"/>') // Para Birimi
   };
 
+  // Harcama Kategorileri
   const CATS={
     food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
     stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
@@ -80,6 +85,7 @@ body{font-family:'Inter',sans-serif}
     other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
   };
   
+  // Varsayılan Check List Kategorileri ve Maddeleri
   const DEF_CATS=[{id:'docs',l:'Belgeler',i:'📄'},{id:'clth',l:'Giyim',i:'👕'},{id:'elec',l:'Elektronik',i:'🔌'},{id:'hlth',l:'Sağlık',i:'💊'},{id:'otr',l:'Diğer',i:'⭐'}];
   
   const DEF_ITEMS = [
@@ -108,12 +114,38 @@ body{font-family:'Inter',sans-serif}
     if(!c.items || c.items.length === 0) {
         c.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
     }
-
-    state={exp:e,chk:c,prefCur:p,view:'list',tab:'exp',tripFilter:'',catFilter:'',search:'',selExp:null,modals:{detail:false,chart:false,data:false},form:getEmptyForm(),expandedCities:{},lightbox:null,err:''};
     
-    // YENİ İSTEK: Kapatma mantığı
+    // Yeni state: Döviz Hesaplayıcı başlangıç değerleri
+    const initialFrom = p;
+    const initialTo = (p === 'USD' ? 'EUR' : 'USD');
+    const initialAmount = 100;
+
+    state={
+        exp:e,
+        chk:c,
+        prefCur:p,
+        view:'list',
+        tab:'exp',
+        tripFilter:'',
+        catFilter:'',
+        search:'',
+        selExp:null,
+        modals:{detail:false,chart:false,data:false},
+        form:getEmptyForm(),
+        expandedCities:{},
+        lightbox:null,
+        err:'',
+        converter: {
+            amount: initialAmount,
+            from: initialFrom,
+            to: initialTo,
+            result: convert(initialAmount, initialFrom, initialTo)
+        }
+    };
+    
+    // Check List Kategorileri: Açık/Kapalı Durumu
     state.openChkCats={}; 
-    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); // Defaultta kapalı gelsin
+    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); 
   }
 
   function setState(p){state={...state,...p}; renderApp();}
@@ -125,25 +157,29 @@ body{font-family:'Inter',sans-serif}
   
   // Para Birimi Dönüştürücü
   const convert = (amt, from, to) => {
-    if(from === to) return amt;
-    const inTry = amt * (RATES[from] || 1);
-    return inTry / (RATES[to] || 1);
+    // Kur oranları sadece TRY'ye göre belirlenmiştir.
+    const rateFrom = RATES[from] || 1;
+    const rateTo = RATES[to] || 1;
+    
+    // Önce TRY'ye çevir, sonra hedef kura çevir
+    const inTry = amt * rateFrom;
+    return inTry / rateTo;
   };
-
+  
   // --- Render Functions ---
 
   function renderHeader(){
     return `
-      <div class="glass-panel rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between shadow-lg gap-4 bg-gradient-to-r from-slate-900/80 to-slate-800/80">
-        <div class="flex items-center gap-4 w-full md:w-auto">
-           <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
-              <div class="absolute inset-0 bg-gradient-to-br from-blue-700 to-purple-600 rounded-xl rotate-6 opacity-30"></div>
-              <div class="absolute inset-0 bg-gradient-to-tl from-blue-500 to-purple-400 rounded-xl -rotate-3 opacity-80 shadow-xl"></div>
+      <div class="glass-panel rounded-xl p-3 mb-4 flex flex-col md:flex-row items-center justify-between shadow-lg gap-3 bg-slate-900/80">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+           <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+              <div class="absolute inset-0 bg-gradient-to-br from-blue-700 to-purple-600 rounded-lg rotate-6 opacity-30"></div>
+              <div class="absolute inset-0 bg-gradient-to-tl from-blue-500 to-purple-400 rounded-lg -rotate-3 opacity-80 shadow-xl"></div>
               <div class="relative text-white drop-shadow-md">${ICONS.wallet}</div>
            </div>
            <div>
-              <h1 class="text-xl font-bold text-white tracking-tight">Seyahat Cüzdanı</h1>
-              <div class="flex items-center gap-2 text-xs text-slate-400">
+              <h1 class="text-lg font-bold text-white tracking-tight">Seyahat Cüzdanı</h1>
+              <div class="flex items-center gap-1 text-xs text-slate-400">
                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Takip & Planlama
               </div>
            </div>
@@ -151,16 +187,16 @@ body{font-family:'Inter',sans-serif}
         
         <div class="flex items-center gap-2 w-full md:w-auto justify-end">
            ${state.tab==='exp' ? `
-             <div class="flex items-center bg-slate-800/80 rounded-xl p-1 border border-slate-700">
-                <select data-act="set-pref-cur" class="bg-transparent text-xs font-bold text-slate-300 outline-none px-2 py-1.5 cursor-pointer">
+             <div class="flex items-center bg-slate-800/80 rounded-lg p-1 border border-slate-700">
+                <select data-act="set-pref-cur" class="bg-transparent text-xs font-bold text-slate-300 outline-none px-2 py-1 cursor-pointer">
                    ${['TRY','USD','EUR','GBP'].map(c=>`<option value="${c}" ${state.prefCur===c?'selected':''}>${c}</option>`).join('')}
                 </select>
              </div>
-             <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shadow-lg shadow-rose-900/20">
-               ${ICONS.trash} <span class="hidden sm:inline">Tümünü Sil</span>
+             <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
+               ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} <span class="hidden sm:inline">Tümünü Sil</span>
              </button>
            ` : ''}
-           <button data-act="data" class="bg-slate-700/50 hover:bg-slate-700 text-slate-300 border border-slate-600/50 px-3 py-2 rounded-xl transition">${ICONS.info}</button>
+           <button data-act="data" class="bg-slate-700/50 hover:bg-slate-700 text-slate-300 border border-slate-600/50 px-2 py-1.5 rounded-lg transition">${ICONS.info.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
         </div>
       </div>
     `;
@@ -171,73 +207,112 @@ body{font-family:'Inter',sans-serif}
     visibleExp.forEach(x => {
         total += convert(Number(x.amt), x.cur, state.prefCur);
     });
+    
+    const converter = state.converter;
+    const cur_options = Object.keys(RATES).map(c=>`<option value="${c}" ${converter.from===c?'selected':''}>${c}</option>`).join('');
+    const cur_options_to = Object.keys(RATES).map(c=>`<option value="${c}" ${converter.to===c?'selected':''}>${c}</option>`).join('');
+
 
     return `
-      <!-- TOPLAM TAHMİNİ BAKİYE ALANI (GÖZE ÇARPAN GRADIENT) --><div class="bg-gradient-to-r from-violet-700 to-indigo-800 border border-indigo-700/50 rounded-2xl p-5 mb-5 shadow-2xl relative overflow-hidden group">
-         <div class="absolute -right-10 -top-10 w-64 h-64 bg-violet-400/20 rounded-full blur-3xl group-hover:bg-violet-400/30 transition duration-1000"></div>
+      <!-- TOPLAM HARCAMA ALANI -->
+      <div class="bg-gradient-to-r from-violet-700 to-indigo-800 border border-indigo-700/50 rounded-xl p-4 mb-3 shadow-xl relative overflow-hidden group">
+         <div class="absolute -right-8 -top-8 w-60 h-60 bg-violet-400/20 rounded-full blur-3xl group-hover:bg-violet-400/30 transition duration-1000"></div>
          
-         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-               <div class="text-[10px] uppercase tracking-widest text-indigo-300 font-bold mb-2">Toplam Tahmini Bakiye</div>
-               <div class="text-3xl font-bold text-white flex items-end gap-2 leading-none">
-                  ${fmtNum(total)} <span class="text-lg opacity-60 mb-1">${state.prefCur}</span>
+               <div class="text-[10px] uppercase tracking-widest text-indigo-300 font-bold mb-1">Toplam Harcama</div>
+               <div class="text-2xl font-bold text-white flex items-end gap-1 leading-none">
+                  ${fmtNum(total)} <span class="text-base opacity-60 mb-0.5">${state.prefCur}</span>
                </div>
-               <div class="text-xs text-indigo-200/60 mt-2 font-medium">${visibleExp.length} işlem</div>
+               <div class="text-xs text-indigo-200/60 mt-1 font-medium">${visibleExp.length} işlem</div>
             </div>
             
-            <div class="flex flex-col gap-1 min-w-[180px]">
+            <div class="flex flex-col gap-1 min-w-[150px]">
                <label class="text-[10px] text-indigo-300 font-bold uppercase ml-1">Seyahat Seçimi</label>
                <div class="relative">
-                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-indigo-500/30 rounded-xl py-2.5 px-3 pr-8 text-sm text-white outline-none focus:border-indigo-400 appearance-none cursor-pointer backdrop-blur-sm">
+                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-indigo-500/30 rounded-lg py-2 px-3 pr-8 text-sm text-white outline-none focus:border-indigo-400 appearance-none cursor-pointer backdrop-blur-sm">
                    <option value="">Tüm Seyahatler</option>
                    ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${state.tripFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
                  </select>
-                 <div class="absolute right-3 top-3 text-indigo-300 pointer-events-none">${ICONS.down}</div>
+                 <div class="absolute right-3 top-2.5 text-indigo-300 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
                </div>
             </div>
          </div>
       </div>
+      
+      <!-- DÖVİZ HESAPLAYICISI -->
+      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 mb-3 shadow-lg">
+          <h3 class="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1">${ICONS.currency.replace('w-4 h-4', 'w-3.5 h-3.5')} Hızlı Kur Hesaplama</h3>
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
+              
+              <input 
+                id="conv-amount" 
+                type="text" 
+                inputmode="decimal" 
+                data-act="conv-amt" 
+                value="${converter.amount || ''}" 
+                placeholder="Miktar"
+                class="col-span-1 md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 outline-none font-mono text-center"
+              >
+              
+              <select id="conv-from" data-act="conv-from" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-sm text-slate-200 outline-none cursor-pointer">
+                ${cur_options}
+              </select>
+
+              <div class="text-center text-slate-400 font-bold hidden md:block">${ICONS.map.replace('w-4 h-4', 'w-3.5 h-3.5 rotate-90 md:rotate-0')}</div>
+
+              <select id="conv-to" data-act="conv-to" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-sm text-slate-200 outline-none cursor-pointer">
+                ${cur_options_to}
+              </select>
+          </div>
+          <div class="mt-2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-center">
+             <div class="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Dönüşüm Sonucu</div>
+             <div class="text-lg font-bold text-white">${fmtNum(converter.result)} <span class="text-xs opacity-70">${converter.to}</span></div>
+          </div>
+      </div>
+      
     `;
   }
 
   function renderTabs(){
     const t = state.tab;
-    const btnCls = "flex-1 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 border";
+    const btnCls = "flex-1 py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 border";
     const active = "bg-slate-700 text-white border-slate-600 shadow-lg";
     const passive = "bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300";
     
+    // Rota Planlayıcı sekmesi kaldırıldı.
     return `
-      <div class="glass-panel p-1 rounded-2xl mb-5 flex gap-1">
-        <button data-act="tab" data-val="exp" class="${btnCls} ${t==='exp'?active:passive}">${ICONS.wallet} Harcamalar</button>
-        <button data-act="tab" data-val="chk" class="${btnCls} ${t==='chk'?active:passive}">${ICONS.briefcase} Check List</button>
+      <div class="glass-panel p-1 rounded-xl mb-4 flex gap-1">
+        <button data-act="tab" data-val="exp" class="${btnCls} ${t==='exp'?active:passive}">${ICONS.wallet.replace('w-6 h-6', 'w-4 h-4')} Harcamalar</button>
+        <button data-act="tab" data-val="chk" class="${btnCls} ${t==='chk'?active:passive}">${ICONS.briefcase.replace('w-6 h-6', 'w-4 h-4')} Check List</button>
       </div>
     `;
   }
 
   function renderFilters(){
     return `
-      <div class="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+      <div class="flex gap-2 mb-3 overflow-x-auto pb-1 scrl">
          <div class="relative flex-1 min-w-[150px]">
             <span class="absolute left-3 top-2.5 text-slate-500 w-4 h-4">${ICONS.search}</span>
-            <input data-act="search" value="${esc(state.search)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Ara...">
+            <input data-act="search" value="${esc(state.search)}" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pl-9 pr-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Ara...">
          </div>
-         <div class="relative w-40 flex-shrink-0">
-            <select data-act="flt-cat" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
+         <div class="relative w-32 flex-shrink-0">
+            <select data-act="flt-cat" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
               <option value="">Tüm Kategoriler</option>
               ${Object.values(CATS).map(c=>`<option value="${c.id}" ${state.catFilter===c.id?'selected':''}>${c.l}</option>`).join('')}
             </select>
          </div>
-         <button data-act="open-chart" class="bg-slate-800 border border-slate-700 text-slate-300 px-3 rounded-xl hover:text-white transition">${ICONS.chart}</button>
+         <button data-act="open-chart" class="bg-slate-800 border border-slate-700 text-slate-300 px-3 rounded-lg hover:text-white transition">${ICONS.chart}</button>
       </div>
     `;
   }
 
   function renderExpenseList(exp){
-    if(!exp.length) return `<div class="text-center py-12 text-slate-500 text-sm border border-dashed border-slate-800 rounded-3xl">Kayıt bulunamadı.</div>`;
+    if(!exp.length) return `<div class="text-center py-8 text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">Kayıt bulunamadı.</div>`;
 
     const grp={}; exp.forEach(x=>{const c=x.city||'Genel'; if(!grp[c])grp[c]=[]; grp[c].push(x)});
     
-    return `<div class="space-y-3 pb-24">${Object.keys(grp).sort().map(city=>{
+    return `<div class="space-y-2 pb-24">${Object.keys(grp).sort().map(city=>{
       const lst=grp[city].sort((a,b)=>(b.date||'').localeCompare(a.date));
       const expd=state.expandedCities[city];
       const sum={}; lst.forEach(x=>sum[x.cur]=(sum[x.cur]||0)+Number(x.amt));
@@ -245,19 +320,19 @@ body{font-family:'Inter',sans-serif}
       const cityColor = getCityColor(city);
       
       return `
-        <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl overflow-hidden relative group">
-          <button data-act="tog-city" data-val="${esc(city)}" data-city-name="${esc(city)}" class="w-full flex items-center p-4 hover:bg-slate-800 transition relative">
+        <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden relative group">
+          <button data-act="tog-city" data-val="${esc(city)}" data-city-name="${esc(city)}" class="w-full flex items-center p-3 hover:bg-slate-800 transition relative">
             <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color:${cityColor}"></div>
             <div class="pl-3 text-left flex-1 pointer-events-none">
               <div class="font-bold text-sm text-slate-200" style="color:${cityColor}">${esc(city)}</div>
-              <div class="text-[11px] text-slate-500 mt-0.5">${lst.length} harcama · ${sumTxt||'0.00'}</div>
+              <div class="text-[10px] text-slate-500 mt-0.5">${lst.length} harcama · ${sumTxt||'0.00'}</div>
             </div>
             
-            <!-- Silme butonu (Daha iyi konumlandırıldı) --><button data-act="del-city" data-val="${esc(city)}" class="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-red-400 hover:bg-slate-700 rounded-full transition z-20 opacity-0 group-hover:opacity-100">
-                ${ICONS.trash}
+            <!-- Silme butonu --><button data-act="del-city" data-val="${esc(city)}" class="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-slate-600 hover:text-red-400 hover:bg-slate-700 rounded-full transition z-20 opacity-0 group-hover:opacity-100">
+                ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
             </button>
             
-            <!-- Açma/Kapama oku (Konumu düzeltildi) --><div class="w-6 text-slate-600 transform transition ${expd?'rotate-180':''} z-10">
+            <!-- Açma/Kapama oku --><div class="w-6 text-slate-600 transform transition ${expd?'rotate-180':''} z-10">
                 ${ICONS.down}
             </div>
           </button>
@@ -294,39 +369,39 @@ body{font-family:'Inter',sans-serif}
     });
 
     return `
-      <div class="flex justify-end mb-4 gap-2">
+      <div class="flex justify-end mb-3 gap-2">
          <button data-act="reset-chk" class="text-xs text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20 transition flex items-center gap-1">
-            ${ICONS.refresh} Listeyi Sıfırla (Varsayılan)
+            ${ICONS.refresh.replace('w-4 h-4', 'w-3.5 h-3.5')} Listeyi Sıfırla (Varsayılan)
          </button>
       </div>
 
-      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-2xl p-5 mb-6">
-        <div class="flex justify-between items-end mb-3">
-          <div><div class="text-[10px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
-          <div class="text-2xl font-bold text-white">${pct}%</div>
+      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
+        <div class="flex justify-between items-end mb-2">
+          <div><div class="text-[9px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
+          <div class="text-xl font-bold text-white">${pct}%</div>
         </div>
         <div class="h-2 bg-slate-900/50 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-700" style="width:${pct}%"></div></div>
       </div>
 
-      <div class="pb-24 space-y-4">
+      <div class="pb-24 space-y-3">
         ${sortedCats.map(c => {
           const its = state.chk.items.filter(i => i.cat === c.id);
           const isOpen = state.openChkCats[c.id];
           return `
-            <div class="bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
-              <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-800/50 transition">
+            <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+              <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-800/50 transition">
                 <div class="flex items-center gap-3">
                    <div class="bg-slate-800 w-8 h-8 rounded flex items-center justify-center">${c.i}</div>
                    <div><div class="text-sm font-bold text-slate-200">${esc(c.l)}</div><div class="text-xs text-slate-500">${its.filter(i=>i.done).length}/${its.length}</div></div>
                 </div>
                 <div class="flex items-center gap-2">
                     <!-- Sadece varsayılan kategoriler silinemez, özel eklenenler silinebilir (id'si "c" ile başlayanlar) -->
-                    ${c.id.startsWith('c') ? `<button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-red-400 transition p-1 rounded-md hover:bg-slate-800">${ICONS.trash}</button>` : ''}
+                    ${c.id.startsWith('c') ? `<button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-red-400 transition p-1 rounded-md hover:bg-slate-800">${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>` : ''}
                     <div class="text-slate-600 transform ${isOpen?'rotate-180':''}">${ICONS.down}</div>
                 </div>
               </div>
               ${isOpen ? `<div class="bg-slate-900/30 border-t border-slate-700/50 p-2">
-                 ${its.map(i=>`<div class="flex items-center gap-3 p-2 hover:bg-slate-800/30 rounded-lg group"><input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done?'checked':''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-800"><span class="flex-1 text-sm text-slate-300 ${i.done?'line-through opacity-50':''}">${esc(i.val)}</span><button data-act="del-chk" data-id="${i.id}" class="text-slate-600 hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1">${ICONS.x}</button></div>`).join('')}
+                 ${its.map(i=>`<div class="flex items-center gap-3 p-2 hover:bg-slate-800/30 rounded-lg group"><input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done?'checked':''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-800"><span class="flex-1 text-sm text-slate-300 ${i.done?'line-through opacity-50':''}">${esc(i.val)}</span><button data-act="del-chk" data-id="${i.id}" class="text-slate-600 hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button></div>`).join('')}
                  <div class="mt-2 flex gap-2"><input id="new-chk-${c.id}" placeholder="Madde 1, Madde 2..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs w-full outline-none text-slate-200"><button data-act="add-chk" data-val="${c.id}" class="bg-slate-700 text-emerald-400 border border-slate-600 px-3 rounded-lg hover:bg-emerald-500 hover:text-white transition">+</button></div>
               </div>` : ''}
             </div>`;
@@ -334,16 +409,16 @@ body{font-family:'Inter',sans-serif}
       </div>
 
       <!-- Yeni Kategori Ekleme Paneli -->
-      <div class="mt-6 border-t border-slate-800 pt-4">
-        <details class="group bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
-          <summary class="flex items-center justify-between p-4 cursor-pointer list-none hover:bg-slate-800/50 transition">
+      <div class="mt-4 border-t border-slate-800 pt-3">
+        <details class="group bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+          <summary class="flex items-center justify-between p-3 cursor-pointer list-none hover:bg-slate-800/50 transition">
             <span class="text-sm font-medium text-slate-400 flex items-center gap-2">${ICONS.plus} Yeni Kategori Ekle</span>
             <span class="text-slate-600 group-open:rotate-180 transition">${ICONS.down}</span>
           </summary>
-          <div class="p-4 pt-0 flex flex-col gap-3">
-            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
-            <input id="new-cat-icon" placeholder="Emoji İkonu (Örn: 🏖️)" class="w-24 bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200 text-center">
-            <button data-act="add-cat" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-500 transition">Kategori Ekle</button>
+          <div class="p-3 pt-0 flex flex-col gap-3">
+            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
+            <input id="new-cat-icon" placeholder="Emoji İkonu (Örn: 🏖️)" class="w-24 bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200 text-center">
+            <button data-act="add-cat" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-blue-500 transition">Kategori Ekle</button>
           </div>
         </details>
       </div>
@@ -355,70 +430,70 @@ body{font-family:'Inter',sans-serif}
     const trips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
 
     return `
-      <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 mt-2 shadow-2xl animate-[fadeIn_0.3s]">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="font-bold text-lg text-white">Yeni Kayıt</h2>
+      <div class="bg-slate-900 rounded-xl p-4 border border-slate-800 mt-2 shadow-2xl animate-[fadeIn_0.3s]">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-lg text-white">${f.id ? 'Harcamayı Düzenle' : 'Yeni Kayıt'}</h2>
           <button data-act="cancel" class="text-slate-400 hover:text-white transition">${ICONS.x}</button>
         </div>
         
-        <div class="space-y-4">
+        <div class="space-y-3">
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Seyahat</label>
+            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat</label>
             <div class="relative">
-               <input id="i-trip" list="dl-trip" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
+               <input id="i-trip" list="dl-trip" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
                <datalist id="dl-trip">${trips.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
              <div>
-               <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Şehir</label>
-               <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
+               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Şehir</label>
+               <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
                <datalist id="dl-city">${[...new Set(state.exp.map(x=>x.city))].sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
              </div>
              <div>
-               <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Mekan</label>
-               <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Mekan" value="${esc(f.place)}">
+               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Mekan</label>
+               <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Mekan" value="${esc(f.place)}">
              </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
              <div class="col-span-1 relative">
-                <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
-                <select id="i-cur" class="absolute right-1 top-1 bottom-1 bg-slate-700 text-slate-200 rounded-lg text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
+                <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
+                <select id="i-cur" class="absolute right-1 top-1 bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
                    ${['TRY','EUR','USD','GBP'].map(c=>`<option value="${c}" ${f.cur===c?'selected':''}>${c}</option>`).join('')}
                 </select>
              </div>
-             <div class="col-span-1 flex items-center bg-slate-800 border border-slate-700 rounded-xl px-3">
+             <div class="col-span-1 flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3">
                 <span class="text-slate-500 text-xs mr-2">Kişi:</span>
                 <input id="i-ppl" type="number" min="1" class="w-full bg-transparent text-sm text-slate-200 outline-none text-center" value="${f.ppl}">
              </div>
           </div>
           
           <div>
-             <input id="i-date" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none" value="${f.date}">
+             <input id="i-date" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none" value="${f.date}">
           </div>
 
           <div>
              <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Kategori</label>
-             <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+             <div class="flex gap-2 overflow-x-auto pb-2 scrl">
                ${Object.values(CATS).map(c=>`
-                 <button type="button" data-act="set-cat" data-val="${c.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border transition ${f.cat===c.id ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'}">
+                 <button type="button" data-act="set-cat" data-val="${c.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-lg border transition ${f.cat===c.id ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'}">
                    <span class="text-xl mb-1">${c.i}</span><span class="text-[9px] font-bold">${c.l}</span>
                  </button>`).join('')}
              </div>
           </div>
 
-          <textarea id="i-desc" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
+          <textarea id="i-desc" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
 
           <div class="flex items-center gap-3">
-            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-3 rounded-xl transition flex-1 text-center">
+            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-3 rounded-lg transition flex-1 text-center">
               + Fotoğraf Ekle <input type="file" id="i-img" hidden accept="image/*" multiple>
             </label>
             ${f.imgs.length ? `<div class="flex gap-2">${f.imgs.map((s,i)=>`<div class="relative w-10 h-10 rounded-lg overflow-hidden group"><img src="${s}" class="w-full h-full object-cover"><button type="button" data-act="del-img" data-val="${i}" class="absolute inset-0 bg-black/50 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100">x</button></div>`).join('')}</div>` : ''}
           </div>
 
-          <button type="button" data-act="save" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
+          <button type="button" data-act="save" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
         </div>
       </div>`;
   }
@@ -435,10 +510,10 @@ body{font-family:'Inter',sans-serif}
       const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
       
       const pplBadge = `
-        <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700 shadow-sm">
-           <div class="flex -space-x-1.5 overflow-hidden">
-              ${Array(Math.min(ppl, 3)).fill(0).map(()=>`<div class="w-5 h-5 rounded-full bg-slate-600 border border-slate-800 flex items-center justify-center text-[10px] text-white">${ICONS.person}</div>`).join('')}
-              ${ppl>3 ? `<div class="w-5 h-5 rounded-full bg-slate-700 border border-slate-800 flex items-center justify-center text-[8px] text-white font-bold">+${ppl-3}</div>` : ''}
+        <div class="flex items-center gap-1.5 bg-slate-800/80 px-2 py-1 rounded-full border border-slate-700 shadow-sm">
+           <div class="flex -space-x-1 overflow-hidden">
+              ${Array(Math.min(ppl, 3)).fill(0).map(()=>`<div class="w-4 h-4 rounded-full bg-slate-600 border border-slate-800 flex items-center justify-center text-[8px] text-white">${ICONS.person.replace('w-4 h-4', 'w-3 h-3')}</div>`).join('')}
+              ${ppl>3 ? `<div class="w-4 h-4 rounded-full bg-slate-700 border border-slate-800 flex items-center justify-center text-[7px] text-white font-bold">+${ppl-3}</div>` : ''}
            </div>
            <span class="text-xs font-bold text-slate-300 ml-1">${ppl} Kişi</span>
         </div>
@@ -446,65 +521,65 @@ body{font-family:'Inter',sans-serif}
 
       return `
         <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 animate-[fadeIn_0.2s]" data-act="close-mod" data-val="overlay">
-          <div class="bg-slate-900 w-full max-w-md md:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl relative border border-slate-800">
+          <div class="bg-slate-900 w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border border-slate-800">
              
              <!-- SABİT GRADIENT BAŞLIK (GEÇİŞSİZ) -->
-             <div class="relative p-6 pb-12 overflow-hidden fixed-gradient-header">
+             <div class="relative p-4 pb-10 overflow-hidden fixed-gradient-header">
                 <div class="absolute inset-0 backdrop-blur-[2px]"></div>
                 
-                <div class="relative z-10 flex justify-between items-start mb-4">
-                  <div class="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md text-white">
+                <div class="relative z-10 flex justify-between items-start mb-3">
+                  <div class="flex items-center gap-2 bg-black/20 px-2 py-0.5 rounded-full border border-white/10 backdrop-blur-md text-white">
                      <span>${cat.i}</span><span class="text-xs font-bold uppercase">${cat.l}</span>
                   </div>
-                  <button data-act="close-mod" class="bg-black/20 hover:bg-black/40 text-white rounded-full p-2 transition backdrop-blur-md">${ICONS.x}</button>
+                  <button data-act="close-mod" class="bg-black/20 hover:bg-black/40 text-white rounded-full p-1.5 transition backdrop-blur-md">${ICONS.x}</button>
                 </div>
 
-                <div class="relative z-10 mt-2">
-                   <h2 class="text-2xl font-bold text-white mb-1 leading-tight drop-shadow-md">${esc(x.place)}</h2>
+                <div class="relative z-10 mt-1">
+                   <h2 class="text-xl font-bold text-white mb-1 leading-tight drop-shadow-md">${esc(x.place)}</h2>
                    
-                   <div class="flex items-center gap-2 text-white/80 text-sm font-medium">
-                      <span class="bg-black/20 px-2 py-0.5 rounded-full text-[11px]">${esc(x.city)}</span>
+                   <div class="flex items-center gap-2 text-white/80 text-xs font-medium">
+                      <span class="bg-black/20 px-2 py-0.5 rounded-full text-[10px]">${esc(x.city)}</span>
                       <span class="w-1 h-1 rounded-full bg-white/60"></span>
                       <span>${fmtDate(x.date)}</span>
                    </div>
                    
-                   <div class="relative z-10 mt-6 flex justify-between items-end">
+                   <div class="relative z-10 mt-4 flex justify-between items-end">
                        <div class="inline-block">
-                           <div class="text-[11px] text-white/80 font-medium">Seyahat</div>
+                           <div class="text-[10px] text-white/80 font-medium">Seyahat</div>
                            <div class="text-sm font-bold text-white">${esc(x.trip||'Genel')}</div>
                        </div>
                        <div class="text-right inline-block">
-                           <div class="text-[11px] text-white/80">Toplam Tutar</div>
-                           <div class="text-3xl font-bold text-white tracking-tight text-center">${fmtNum(x.amt)} <span class="text-lg font-medium opacity-70">${x.cur}</span></div>
+                           <div class="text-[10px] text-white/80">Toplam Tutar</div>
+                           <div class="text-2xl font-bold text-white tracking-tight text-center">${fmtNum(x.amt)} <span class="text-sm font-medium opacity-70">${x.cur}</span></div>
                        </div>
                    </div>
                 </div>
              </div>
 
              <!-- Body -->
-             <div class="bg-slate-900 p-5 space-y-4">
-               <div class="flex justify-center -mt-8 relative z-20 mb-2">
+             <div class="bg-slate-900 p-4 space-y-3">
+               <div class="flex justify-center -mt-7 relative z-20 mb-1">
                   ${pplBadge}
                </div>
 
                <div class="grid grid-cols-2 gap-3">
-                 <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Kategori</div>
+                 <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                    <div class="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Kategori</div>
                     <div class="text-sm font-medium text-slate-200 truncate">${cat.l}</div>
                  </div>
-                 <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Kişi Başı</div>
+                 <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                    <div class="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Kişi Başı</div>
                     <div class="text-sm font-medium text-slate-200">${fmtNum(perP)} ${x.cur}</div>
                  </div>
                </div>
                
-               <!-- Google Maps Linki (data-act ile fixlendi) --><button data-act="open-map" data-val="${mapUrl}" class="flex items-center justify-center gap-2 bg-slate-800/30 hover:bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 transition cursor-pointer w-full">
-                  ${ICONS.globe}
+               <!-- Google Maps Linki --><button data-act="open-map" data-val="${mapUrl}" class="flex items-center justify-center gap-2 bg-slate-800/30 hover:bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 transition cursor-pointer w-full">
+                  ${ICONS.globe.replace('w-5 h-5', 'w-4 h-4')}
                   <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Haritada Göster: ${esc(x.place)}</span>
                </button>
 
                <!-- Seyahat Taşıma -->
-               <div class="bg-slate-800/30 rounded-xl p-3 border border-slate-700/50">
+               <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
                  <div class="flex items-center gap-2 mb-2">
                    <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
                    <span class="text-xs font-bold text-slate-400">Seyahate Taşı</span>
@@ -515,14 +590,14 @@ body{font-family:'Inter',sans-serif}
                         <option value="">Mevcut Seyahat Seç...</option>
                         ${allTrips.map(t=>`<option>${esc(t)}</option>`).join('')}
                       </select>
-                      <div class="absolute right-2 top-2.5 text-slate-500 pointer-events-none">${ICONS.down}</div>
+                      <div class="absolute right-2 top-2.5 text-slate-500 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
                    </div>
                    <input id="move-trip-inp" placeholder="Veya yeni ad gir..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2 outline-none text-slate-300 placeholder-slate-600">
                    <button data-act="move-trip" class="bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 rounded-lg text-xs font-bold hover:bg-blue-600 hover:text-white transition">Taşı</button>
                  </div>
                </div>
 
-               <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 min-h-[60px]">
+               <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50 min-h-[50px]">
                  <div class="text-xs font-bold text-slate-500 mb-1 uppercase">Notlar</div>
                  <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(x.desc) || '<span class="italic text-slate-600">Not eklenmemiş.</span>'}</p>
                </div>
@@ -531,16 +606,16 @@ body{font-family:'Inter',sans-serif}
                <div>
                   <div class="text-xs font-bold text-slate-500 mb-2 uppercase">Fotoğraflar</div>
                   <div class="grid grid-cols-3 gap-2">
-                    ${x.imgs.map(img => `<div class="aspect-square rounded-xl overflow-hidden border border-slate-700 bg-slate-800"><img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300"></div>`).join('')}
+                    ${x.imgs.map(img => `<div class="aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-800"><img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300"></div>`).join('')}
                   </div>
                </div>` : ''}
 
                <div class="flex gap-3 pt-2">
-                 <button data-act="del-exp-detail" class="flex-1 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-2">
-                   ${ICONS.trash} Sil
+                 <button data-act="del-exp-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                   ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
                  </button>
-                 <button data-act="edit" class="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-2">
-                   ${ICONS.edit} Düzenle
+                 <button data-act="edit" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
+                   ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
                  </button>
                </div>
              </div>
@@ -549,10 +624,10 @@ body{font-family:'Inter',sans-serif}
     }
     
     if(type==='chart'){
-       return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 p-6 shadow-2xl relative"><button data-act="close-mod" class="absolute top-4 right-4 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-2 text-center">Harcama Dağılımı (${state.prefCur})</h3><div class="h-64"><canvas id="chartCv"></canvas></div><div class="text-center text-xs text-slate-500 mt-2">Dönüşümler tahmini kur ile yapılmıştır.</div></div></div>`;
+       return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-sm rounded-xl border border-slate-800 p-5 shadow-2xl relative"><button data-act="close-mod" class="absolute top-3 right-3 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-2 text-center">Harcama Dağılımı (${state.prefCur})</h3><div class="h-64"><canvas id="chartCv"></canvas></div><div class="text-center text-xs text-slate-500 mt-2">Dönüşümler tahmini kur ile yapılmıştır.</div></div></div>`;
     }
     if(type==='data'){
-      return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-6 shadow-2xl relative"><button data-act="close-mod" class="absolute top-4 right-4 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-400 mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,bud:state.bud})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-xl font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold">Yükle</button></div></div></div>`;
+      return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-lg rounded-xl border border-slate-800 p-5 shadow-2xl relative"><button data-act="close-mod" class="absolute top-3 right-3 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-black/50 border border-slate-700 rounded-lg p-3 text-xs font-mono text-slate-400 mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-lg font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold">Yükle</button></div></div></div>`;
     }
     return '';
   }
@@ -568,7 +643,7 @@ body{font-family:'Inter',sans-serif}
         });
 
         let h = renderHeader();
-        if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-xl mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
+        if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
 
         if(state.view==='list'){
           h += renderTabs();
@@ -576,10 +651,10 @@ body{font-family:'Inter',sans-serif}
             h+= renderDashboardHeader(exp);
             h+= renderFilters(exp.length);
             h+= renderExpenseList(exp);
-            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus}</button>`;
-          } else {
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+          } else if (state.tab==='chk'){
             h+= renderChecklist();
-          }
+          } 
         } else {
           h+= renderForm();
         }
@@ -601,6 +676,7 @@ body{font-family:'Inter',sans-serif}
            });
            chartInst=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(d).map(k=>(CATS[k]||CATS.other).l),datasets:[{data:Object.values(d),backgroundColor:Object.keys(d).map(k=>(CATS[k]||CATS.other).c),borderWidth:0}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{family:'Inter',size:11}}}},cutout:'70%'}});
         }
+
     } catch(e) { console.error(e); }
   }
 
@@ -609,11 +685,11 @@ body{font-family:'Inter',sans-serif}
     if(!t) {if(e.target.closest('[data-id]') && !e.target.closest('[data-act]')) return; else return;}
     const act=t.dataset.act, val=t.dataset.val, id=t.dataset.id;
     
-    // Haritada Aç butonunun çalışması için varsayılan engellemeyi sadece bu aksiyonlar için devre dışı bırak.
-    if(!['set-cat','save','chk', 'open-map'].includes(act)) e.preventDefault();
-    
     // Navigation
-    if(act==='tab'){state.tab=val; renderApp();}
+    if(act==='tab'){
+        if(val === 'exp' || val === 'chk') state.tab=val; 
+        renderApp();
+    }
     if(act==='new'){state.form=getEmptyForm(); if(state.tripFilter)state.form.trip=state.tripFilter; state.view='form'; renderApp();}
     if(act==='cancel'){state.view='list'; state.err=''; renderApp();}
     
@@ -675,6 +751,7 @@ body{font-family:'Inter',sans-serif}
             iconInput.value = '';
             save(); renderApp();
         } else {
+            // alert yerine özel modal kullanılmalıdır, ancak bu kodda alert bırakılmıştır.
             alert('Lütfen bir kategori adı girin.');
         }
     }
@@ -690,7 +767,7 @@ body{font-family:'Inter',sans-serif}
          }
      }
     
-    // Form
+    // Form 
     if(act==='set-cat'){state.form.cat=val; renderApp();}
     if(act==='del-img'){state.form.imgs.splice(val,1); renderApp();}
     if(act==='save'){
@@ -741,17 +818,27 @@ body{font-family:'Inter',sans-serif}
          state.modals.detail = false; // Modalı kapat
          renderApp();
        } else {
+           // alert yerine özel modal kullanılmalıdır, ancak bu kodda alert bırakılmıştır.
            alert('Lütfen geçerli bir seyahat seçin veya adını girin.');
        }
     }
     
-    // Diğer
+    // Diğer 
     if(act==='lb'){state.lightbox=e.target.src; renderApp();}
     if(act==='close-lb'){state.lightbox=null; renderApp();}
     if(act==='open-chart'){state.modals.chart=true; renderApp();}
     if(act==='data'){state.modals.data=true; renderApp();}
     if(act==='imp'){try{const d=JSON.parse(document.getElementById('io-txt').value);state.exp=d.exp||[];state.chk=d.chk||state.chk;state.prefCur=d.prefCur||'TRY';save();state.modals.data=false;renderApp();}catch{alert('JSON Hatalı')}}
-    if(act==='copy-json'){navigator.clipboard.writeText(document.getElementById('io-txt').value);}
+    if(act==='copy-json'){
+      // document.execCommand('copy') tarayıcı uyumluluğu nedeniyle önerilir
+      const textarea = document.getElementById('io-txt');
+      textarea.select();
+      document.execCommand('copy');
+      // Kullanıcıya kopyalandı mesajı vermek için bir sonraki mesaj döngüsünde uyarıyı kaldırın
+      const originalText = textarea.value;
+      textarea.value = "JSON kopyalandı!";
+      setTimeout(() => textarea.value = originalText, 1000);
+    }
   });
 
   document.addEventListener('change',e=>{
@@ -763,16 +850,93 @@ body{font-family:'Inter',sans-serif}
     if(t.dataset.act==='flt-trip'){state.tripFilter=t.value; renderApp();}
     if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
     if(t.dataset.act==='set-pref-cur'){state.prefCur=t.value; save(); renderApp();}
+    
+    // Döviz Hesaplayıcı birimlerini değiştir
+    if(t.dataset.act === 'conv-from' || t.dataset.act === 'conv-to'){
+        state.converter[t.dataset.act.replace('conv-', '')] = t.value;
+        const result = convert(state.converter.amount, state.converter.from, state.converter.to);
+        state.converter.result = result;
+        renderApp();
+    }
   });
 
   document.addEventListener('input',e=>{
     if(e.target.dataset.act==='search'){state.search=e.target.value; renderApp();}
-    const f=state.form; const m={'i-trip':v=>f.trip=v,'i-city':v=>f.city=v,'i-place':v=>f.place=v,'i-amt':v=>f.amt=v.replace(',','.').replace(/[^0-9.]/g,''),'i-cur':v=>f.cur=v,'i-ppl':v=>f.ppl=v,'i-date':v=>f.date=v,'i-desc':v=>f.desc=v};
-    if(m[e.target.id]) m[e.target.id](e.target.value);
+    const f=state.form; 
+    
+    // Harcama Formu alanları
+    const updateForm = (id, value) => {
+        const cleanValue = id === 'i-amt' ? value.replace(',','.').replace(/[^0-9.]/g,'') : value;
+        
+        switch(id) {
+            case 'i-trip': f.trip = cleanValue; break;
+            case 'i-city': f.city = cleanValue; break;
+            case 'i-place': f.place = cleanValue; break;
+            case 'i-amt': 
+                // ÖNEMLİ DÜZELTME: Sadece form state'ini ve input değerini güncelle, renderApp'i çağırma
+                const inputElement = document.getElementById('i-amt');
+                const start = inputElement.selectionStart;
+                const end = inputElement.selectionEnd;
+                
+                f.amt = cleanValue;
+                inputElement.value = cleanValue; // Klavyede gösterilen değeri temizlenmiş haliyle tut
+                
+                // İmleç pozisyonunu koru
+                inputElement.setSelectionRange(start, end);
+                
+                // DOM'u yeniden çizmediğimiz için renderApp'i burada çağırmıyoruz.
+                // Diğer alanlar için DOM yeniden çizimi gerekiyorsa, onların input event'i renderApp'i çağırır.
+                break;
+            case 'i-cur': f.cur = cleanValue; renderApp(); break;
+            case 'i-ppl': f.ppl = cleanValue; renderApp(); break;
+            case 'i-date': f.date = cleanValue; renderApp(); break;
+            case 'i-desc': f.desc = cleanValue; break;
+        }
+    };
+
+    if(e.target.id && e.target.id.startsWith('i-')) {
+        // Miktar alanı dışındaki form alanları için renderApp() çağrılabilir
+        if (e.target.id !== 'i-amt') {
+            updateForm(e.target.id, e.target.value);
+        } else {
+            // Miktar alanı için sadece state'i güncelle ve imleci koru
+            updateForm(e.target.id, e.target.value);
+        }
+    }
+    
+    // Döviz Hesaplayıcı tutarını değiştir
+    if(e.target.dataset.act === 'conv-amt'){
+        const cleanVal = e.target.value.replace(',','.').replace(/[^0-9.]/g,'');
+        state.converter.amount = parseFloat(cleanVal) || 0;
+        const result = convert(state.converter.amount, state.converter.from, state.converter.to);
+        state.converter.result = result;
+        renderApp();
+    }
+
+    // Resim Yükleme (Base64'e dönüştürme ve boyutlandırma)
     if(e.target.id==='i-img'){
        const fl=[...e.target.files].slice(0,3-f.imgs.length);
-       Promise.all(fl.map(file=>new Promise(r=>{const rd=new FileReader();rd.onload=ev=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas'),mx=800,sc=Math.min(mx/i.width,mx/i.height,1);c.width=i.width*sc;c.height=i.height*sc;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',0.7))};i.src=ev.target.result};rd.readAsDataURL(file)})))
-       .then(res=>{f.imgs=[...f.imgs,...res]; renderApp();});
+       Promise.all(fl.map(file=>new Promise(r=>{
+           const rd=new FileReader();
+           rd.onload=ev=>{
+               const i=new Image();
+               i.onload=()=>{
+                   const c=document.createElement('canvas'), mx=800;
+                   const sc=Math.min(mx/i.width,mx/i.height,1); // Boyutlandırma faktörü
+                   c.width=i.width*sc;
+                   c.height=i.height*sc;
+                   c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+                   // Kaliteyi düşürerek JPEG olarak kaydet
+                   r(c.toDataURL('image/jpeg',0.7))
+               };
+               i.src=ev.target.result
+            };
+            rd.readAsDataURL(file)
+        })))
+       .then(res=>{
+           f.imgs=[...f.imgs,...res]; 
+           renderApp();
+       });
     }
   });
 
