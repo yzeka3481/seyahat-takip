@@ -1,0 +1,3579 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Seyahat Cüzdanı - Travel Expense Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: rgba(148,163,184,0.7);
+      border-radius: 9999px;
+    }
+  </style>
+  <!-- Leaflet (Harita için) -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
+  <div id="app" class="min-h-screen flex items-center justify-center px-4 py-6 md:px-6 md:py-10">
+    <div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
+  </div>
+
+  <script>
+  (() => {
+    const STORAGE_KEY = 'travel_expenses';
+    const CHECKLIST_STORAGE_KEY = 'travel_checklist';
+    const BUDGET_STORAGE_KEY = 'travel_budget';
+
+    let expenseChartInstance = null;
+
+    const ICONS = {
+      wallet: `
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
+          <path d="M16 10h3"></path>
+          <path d="M8 6V4h8v2"></path>
+        </svg>
+      `,
+      walletMini: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
+          <path d="M16 10h3"></path>
+          <path d="M8 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+        </svg>
+      `,
+      trash: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+        </svg>
+      `,
+      info: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+      `,
+      warning: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      `,
+      calendar: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      `,
+      person: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
+          <path d="M5 21a7 7 0 0 1 14 0"></path>
+        </svg>
+      `,
+      photo: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+          <circle cx="8.5" cy="10.5" r="1.5"></circle>
+          <path d="M21 15l-3.5-3.5L13 16l-2-2-4 4"></path>
+        </svg>
+      `,
+      plus: `
+        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      `,
+      chart: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.21 15.89A10 10 0 1 1 12 2"></path>
+          <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+        </svg>
+      `,
+      x: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `,
+      xMini: `
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `,
+      edit: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+        </svg>
+      `,
+      map: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2z"></path>
+          <path d="M9 6v12"></path>
+          <path d="M15 8v12"></path>
+        </svg>
+      `,
+      locationPin: `
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z"></path>
+          <circle cx="12" cy="11" r="2.5"></circle>
+        </svg>
+      `,
+      chevronUp: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      `,
+      chevronDown: `
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      `
+    };
+
+    const CATEGORY_META = {
+      food: {
+        id: 'food',
+        label: 'Yeme-İçme',
+        icon: '🍽️',
+        bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
+        chartColor: 'rgba(244,63,94,0.8)',
+        accent: 'bg-rose-500/15 text-rose-400',
+        headerGradient: 'from-rose-500 via-rose-500 to-amber-400'
+      },
+      stay: {
+        id: 'stay',
+        label: 'Konaklama',
+        icon: '🛏️',
+        bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+        chartColor: 'rgba(16,185,129,0.8)',
+        accent: 'bg-emerald-500/15 text-emerald-400',
+        headerGradient: 'from-emerald-500 via-emerald-500 to-teal-400'
+      },
+      transport: {
+        id: 'transport',
+        label: 'Ulaşım',
+        icon: '🚕',
+        bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
+        chartColor: 'rgba(56,189,248,0.8)',
+        accent: 'bg-sky-500/15 text-sky-400',
+        headerGradient: 'from-sky-500 via-sky-500 to-indigo-400'
+      },
+      shopping: {
+        id: 'shopping',
+        label: 'Alışveriş',
+        icon: '🛍️',
+        bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
+        chartColor: 'rgba(245,158,11,0.85)',
+        accent: 'bg-amber-500/15 text-amber-400',
+        headerGradient: 'from-amber-500 via-amber-500 to-rose-400'
+      },
+      activity: {
+        id: 'activity',
+        label: 'Müze & Aktivite',
+        icon: '🎟️',
+        bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
+        chartColor: 'rgba(139,92,246,0.85)',
+        accent: 'bg-violet-500/15 text-violet-400',
+        headerGradient: 'from-violet-500 via-violet-500 to-indigo-400'
+      },
+      other: {
+        id: 'other',
+        label: 'Diğer',
+        icon: '📦',
+        bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
+        chartColor: 'rgba(148,163,184,0.9)',
+        accent: 'bg-slate-500/15 text-slate-300',
+        headerGradient: 'from-slate-500 via-slate-600 to-slate-700'
+      }
+    };
+
+    const DEFAULT_CHECKLIST_CATEGORIES = [
+      { id: 'documents',  label: 'Belgeler',   icon: '📄' },
+      { id: 'clothes',    label: 'Giyim',      icon: '👕' },
+      { id: 'electronics',label: 'Elektronik', icon: '🔌' },
+      { id: 'health',     label: 'Sağlık',     icon: '💊' },
+      { id: 'other',      label: 'Diğer',      icon: '⭐' }
+    ];
+
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+
+    function getEmptyForm() {
+      const today = new Date().toISOString().slice(0, 10);
+      return {
+        id: null,
+        tripName: '',
+        city: '',
+        place: '',
+        amount: '',
+        currency: 'TRY',
+        date: today,
+        category: '',
+        description: '',
+        peopleCount: '1',
+        photos: []
+      };
+    }
+
+    function getDefaultChecklistItems() {
+      return [
+        { id: generateId(), label: 'Pasaport',                   category: 'documents',  done: false },
+        { id: generateId(), label: 'Kimlik / Ehliyet',           category: 'documents',  done: false },
+        { id: generateId(), label: 'Uçak bileti / Rezervasyon',  category: 'documents',  done: false },
+        { id: generateId(), label: 'Otel / Konaklama Belgeleri', category: 'documents',  done: false },
+
+        { id: generateId(), label: 'İç çamaşırı',                category: 'clothes',    done: false },
+        { id: generateId(), label: 'Çorap',                      category: 'clothes',    done: false },
+        { id: generateId(), label: 'Yedek tişört',               category: 'clothes',    done: false },
+        { id: generateId(), label: 'Yedek pantolon / şort',      category: 'clothes',    done: false },
+        { id: generateId(), label: 'Pijama',                     category: 'clothes',    done: false },
+        { id: generateId(), label: 'Hırka / Yağmurluk',          category: 'clothes',    done: false },
+
+        { id: generateId(), label: 'Telefon şarj aleti',         category: 'electronics',done: false },
+        { id: generateId(), label: 'Powerbank',                  category: 'electronics',done: false },
+        { id: generateId(), label: 'Kulaklık',                   category: 'electronics',done: false },
+        { id: generateId(), label: 'Fotoğraf makinesi / SD kart',category: 'electronics',done: false },
+        { id: generateId(), label: 'Laptop / tablet',            category: 'electronics',done: false },
+
+        { id: generateId(), label: 'Günlük kullanılan ilaçlar',  category: 'health',     done: false },
+        { id: generateId(), label: 'Ağrı kesici',                category: 'health',     done: false },
+        { id: generateId(), label: 'Yara bandı / bandaj',        category: 'health',     done: false },
+        { id: generateId(), label: 'Güneş kremi',                category: 'health',     done: false },
+        { id: generateId(), label: 'Islak mendil / dezenfektan', category: 'health',     done: false },
+
+        { id: generateId(), label: 'Not defteri / kalem',        category: 'other',      done: false },
+        { id: generateId(), label: 'Atıştırmalık',               category: 'other',      done: false },
+        { id: generateId(), label: 'Bozuk para / nakit',         category: 'other',      done: false },
+        { id: generateId(), label: 'Su matarası',                category: 'other',      done: false }
+      ];
+    }
+
+    
+    // Harita & Keşif modülleri için Leaflet instance değişkenleri
+    let cleanBiteMap = null;
+    let cleanBiteMarkersLayer = null;
+    let routeMap = null;
+    let routeMarkersLayer = null;
+    let routePolylineLayer = null;
+
+let state = {
+      expenses: [],
+      view: 'list',
+      activeTab: 'expenses', // 'expenses' | 'checklist' | 'tools'
+      filterCategory: '',
+      tripFilter: '',
+      searchQuery: '',
+      selectedExpenseId: null,
+      showDetailModal: false,
+      showConfirmClear: false,
+      showChartModal: false,
+      showDataModal: false,
+      importJsonText: '',
+      error: '',
+      form: getEmptyForm(),
+      expandedCities: {},
+      checklistItems: [],
+      checklistCategories: [],
+      openChecklistCategories: {},
+      showOnlyUnchecked: false,
+      budgetCurrency: 'TRY',
+      budgetAmount: '',
+      lightboxPhotoSrc: null,
+      showAddItemPanel: false,
+      showAddCategoryPanel: false,
+
+      // Harita & Keşif sekmesi
+      toolsView: 'restaurants', // 'restaurants' | 'route'
+      userLocation: null,       // { lat, lng }
+
+      // CleanBite Radar
+      cleanBiteFilter: 'halal', // 'halal' | 'no_alcohol' | 'vegan' | 'all'
+      cleanBiteRadiusKm: 1.5,
+      cleanBiteResults: [],
+
+      // Gezi Rotası (TripRoute)
+      routePoints: [],          // [{ id, lat, lng, label }]
+      routeSearchResults: [],
+      routeSearchQuery: ''
+    };
+
+    function setState(partial) {
+      state = Object.assign({}, state, partial);
+      renderApp();
+      attachEventListeners();
+    }
+
+    function resetForm() {
+      state.form = getEmptyForm();
+    }
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function toTitleCase(text) {
+      if (!text) return '';
+      return text
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+
+    function hashString(str) {
+      let hash = 0;
+      const s = String(str || '');
+      for (let i = 0; i < s.length; i++) {
+        hash = (hash << 5) - hash + s.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function getCityGradientStyle(city) {
+      const baseHue = hashString(city || '') % 360;
+      const hue1 = baseHue;
+      const hue2 = (baseHue + 30) % 360;
+      const color1 = `hsl(${hue1}, 85%, 60%)`;
+      const color2 = `hsl(${hue2}, 85%, 45%)`;
+      return `background: linear-gradient(120deg, ${color1}, ${color2});`;
+    }
+
+    function getCategoryMeta(id) {
+      if (CATEGORY_META[id]) return CATEGORY_META[id];
+      return CATEGORY_META.other;
+    }
+
+    function getMapsUrl(city, place) {
+      const query = [city, place].filter(Boolean).join(' ');
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return parts[2] + '.' + parts[1] + '.' + parts[0];
+      }
+      return dateStr;
+    }
+
+    function formatAmount(amount) {
+      const num = Number(amount || 0);
+      return num.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    }
+
+    
+    // Konum ve mesafe hesaplama yardımcıları
+    function ensureUserLocation() {
+      if (state.userLocation) return;
+
+      if (!navigator.geolocation) {
+        setState({
+          error: 'Konum servisi bu cihazda desteklenmiyor.'
+        });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          };
+          state.userLocation = coords;
+          setState({ userLocation: coords, error: '' });
+        },
+        (err) => {
+          console.error('geolocation error', err);
+          setState({
+            error: 'Konum alınamadı. Lütfen tarayıcı / telefon ayarlarından konum izni ver.'
+          });
+        },
+        { enableHighAccuracy: true, timeout: 15000 }
+      );
+    }
+
+    function getDistanceKm(a, b) {
+      const R = 6371; // km
+      const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+      const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+      const lat1 = (a.lat * Math.PI) / 180;
+      const lat2 = (b.lat * Math.PI) / 180;
+
+      const sinDLat = Math.sin(dLat / 2);
+      const sinDLng = Math.sin(dLng / 2);
+
+      const h =
+        sinDLat * sinDLat +
+        Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+
+      const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      return R * c;
+    }
+
+function loadExpenses() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.expenses)) return parsed.expenses;
+      } catch (err) {
+        console.error('localStorage parse error', err);
+      }
+      return [];
+    }
+
+    function saveExpenses() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.expenses));
+      } catch (err) {
+        console.error('localStorage save error', err);
+      }
+    }
+
+    function clearAllExpenses() {
+      state.expenses = [];
+      state.expandedCities = {};
+      state.selectedExpenseId = null;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (err) {
+        console.error('localStorage remove error', err);
+      }
+    }
+
+    function getChecklistCategories() {
+      return (state.checklistCategories && state.checklistCategories.length)
+        ? state.checklistCategories
+        : DEFAULT_CHECKLIST_CATEGORIES;
+    }
+
+    function loadChecklist() {
+      try {
+        const raw = localStorage.getItem(CHECKLIST_STORAGE_KEY);
+        if (!raw) {
+          return {
+            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+            items: getDefaultChecklistItems()
+          };
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return {
+            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+            items: parsed
+          };
+        }
+        if (parsed && Array.isArray(parsed.items)) {
+          const categories =
+            Array.isArray(parsed.categories) && parsed.categories.length
+              ? parsed.categories
+              : DEFAULT_CHECKLIST_CATEGORIES.slice();
+          return { categories, items: parsed.items };
+        }
+      } catch (err) {
+        console.error('localStorage checklist parse error', err);
+      }
+      return {
+        categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
+        items: getDefaultChecklistItems()
+      };
+    }
+
+    function saveChecklist() {
+      try {
+        const payload = {
+          categories: getChecklistCategories(),
+          items: state.checklistItems || []
+        };
+        localStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.error('localStorage checklist save error', err);
+      }
+    }
+
+    function loadBudget() {
+      try {
+        const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
+        if (!raw) return { currency: 'TRY', amount: '' };
+        const parsed = JSON.parse(raw);
+        return {
+          currency: parsed.currency || 'TRY',
+          amount: parsed.amount != null ? String(parsed.amount) : ''
+        };
+      } catch (err) {
+        console.error('budget parse error', err);
+        return { currency: 'TRY', amount: '' };
+      }
+    }
+
+    function saveBudget() {
+      try {
+        localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify({
+          currency: state.budgetCurrency || 'TRY',
+          amount: state.budgetAmount || ''
+        }));
+      } catch (err) {
+        console.error('budget save error', err);
+      }
+    }
+
+    function deleteChecklistCategory(catId) {
+      const categories = getChecklistCategories();
+      if (categories.length <= 1) {
+        setState({ error: 'En az bir kategori kalmalı. Son kategoriyi silemezsin.' });
+        return;
+      }
+      const newCategories = categories.filter(c => c.id !== catId);
+      const newItems = (state.checklistItems || []).filter(item => item.category !== catId);
+      state.checklistCategories = newCategories;
+      state.checklistItems = newItems;
+      saveChecklist();
+      setState({ checklistCategories: newCategories, checklistItems: newItems, error: '' });
+    }
+
+    function getVisibleExpenses() {
+      let exps = state.expenses.slice();
+
+      if (state.tripFilter) {
+        exps = exps.filter(exp => (exp.tripName || '') === state.tripFilter);
+      }
+
+      if (state.filterCategory) {
+        exps = exps.filter(exp => exp.category === state.filterCategory);
+      }
+
+      const q = (state.searchQuery || '').trim().toLowerCase();
+      if (q) {
+        exps = exps.filter(exp => {
+          const city = (exp.city || '').toLowerCase();
+          const place = (exp.place || '').toLowerCase();
+          return city.includes(q) || place.includes(q);
+        });
+      }
+
+      return exps;
+    }
+
+    function getSelectedExpense() {
+      if (!state.selectedExpenseId) return null;
+      return state.expenses.find(e => e.id === state.selectedExpenseId) || null;
+    }
+
+    function groupExpensesByCity(expenses) {
+      const groups = {};
+      expenses.forEach(exp => {
+        const city = exp.city || 'Diğer';
+        if (!groups[city]) groups[city] = [];
+        groups[city].push(exp);
+      });
+      return groups;
+    }
+
+    function getTripOptionsFromExpenses(expenses) {
+      const set = new Set();
+      expenses.forEach(exp => {
+        if (exp.tripName) set.add(exp.tripName);
+      });
+      return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'));
+    }
+
+    function renderHeader() {
+      const isChecklist = state.activeTab === 'checklist';
+      const buttonHtml = isChecklist
+        ? `
+          <button type="button" id="clear-checklist-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-600/90 to-teal-500/90 text-white border border-emerald-300/70 hover:from-emerald-500 hover:to-teal-500 shadow-sm shadow-emerald-500/40 transition">
+            ${ICONS.trash}
+            <span>Tümünü Kaldır</span>
+          </button>
+        `
+        : `
+          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-rose-600/80 to-amber-500/80 text-white border border-rose-300/60 hover:from-rose-600 hover:to-amber-500 shadow-sm shadow-rose-500/40 transition">
+            ${ICONS.trash}
+            <span>Harcamaları Temizle</span>
+          </button>
+        `;
+
+      return `
+        <header class="flex items-center justify-between mb-4 md:mb-6 relative z-10">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 border border-sky-300/70 flex items-center justify-center text-white shadow-md shadow-sky-500/40">
+              ${ICONS.wallet}
+            </div>
+            <div>
+              <h1 class="text-lg md:text-xl font-semibold tracking-tight text-slate-50">Seyahat Cüzdanı</h1>
+              <p class="text-xs md:text-sm text-slate-300/90">Gezilerindeki tüm harcamaları ve hazırlıkları tek yerden takip et</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${buttonHtml}
+            <button type="button" id="open-data-modal-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/80 border border-slate-600 text-slate-200 hover:bg-slate-900">
+              ${ICONS.info}
+              <span>Veri</span>
+            </button>
+          </div>
+        </header>
+      `;
+    }
+
+    function renderError(errorMsg) {
+      if (!errorMsg) return '';
+      return `
+        <div class="mb-3 md:mb-4 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-amber-500/15 to-amber-500/25 px-3.5 py-2.5 text-xs md:text-sm text-amber-100 flex items-start gap-2">
+          <div class="mt-[2px] text-amber-200">
+            ${ICONS.warning}
+          </div>
+          <div>${escapeHtml(errorMsg)}</div>
+        </div>
+      `;
+    }
+
+    function renderBudgetSnippet(totalsByCurrency) {
+      const currencyKeys = Object.keys(totalsByCurrency || {});
+      if (!currencyKeys.length) return '';
+
+      let budgetCurrency = state.budgetCurrency || currencyKeys[0];
+      if (!currencyKeys.includes(budgetCurrency)) {
+        budgetCurrency = currencyKeys[0];
+      }
+
+      const allCurrenciesSet = new Set([...currencyKeys, 'TRY', 'EUR', 'USD', 'GBP']);
+      const allCurrencies = Array.from(allCurrenciesSet);
+
+      const budgetAmountNum = parseFloat(state.budgetAmount || '');
+      const spent = totalsByCurrency[budgetCurrency] || 0;
+      const percent = budgetAmountNum > 0
+        ? Math.min(100, Math.round((spent * 100) / budgetAmountNum))
+        : 0;
+
+      const progressText = budgetAmountNum > 0
+        ? `${spent.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} / ${budgetAmountNum.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${budgetCurrency}`
+        : 'Bütçe belirleyerek ilerlemeyi takip edebilirsin.';
+
+      const options = allCurrencies
+        .map(cur => `
+          <option value="${cur}" ${budgetCurrency === cur ? 'selected' : ''}>${cur}</option>
+        `)
+        .join('');
+
+      return `
+        <div class="mt-2 rounded-2xl bg-slate-900/25 px-3 py-2.5 border border-sky-100/20">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-2xl bg-slate-950/80 border border-sky-300/70 flex items-center justify-center text-sky-200">
+                  ${ICONS.walletMini}
+                </div>
+                <div class="flex items-center gap-1.5 text-[11px] text-sky-50/90">
+                  <span class="hidden md:inline">Bütçe</span>
+                  <select id="budget-currency" class="rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-400">
+                    ${options}
+                  </select>
+                  <input id="budget-amount" type="text" inputmode="decimal"
+                    class="w-20 rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 placeholder-sky-200/60 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                    placeholder="0.00" value="${escapeHtml(state.budgetAmount || '')}" />
+                </div>
+              </div>
+              <div class="text-[11px] text-sky-50/90 text-right">
+                ${progressText}
+              </div>
+            </div>
+            <div class="h-1.5 rounded-full bg-sky-950/60 overflow-hidden">
+              <div class="h-full bg-sky-300" style="width:${percent}%;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 🔹 ÖZET KARTI – Artık görünür (filtrelenmiş) harcamalar üzerinden çalışıyor
+    // ve kendi içinde seyahat filtresi select'i var
+    function renderSummaryCard(expenses) {
+      if (!expenses || !expenses.length) {
+        return `
+          <section class="mb-4 md:mb-5">
+            <div class="rounded-2xl bg-gradient-to-r from-slate-900/85 via-slate-800/85 to-slate-900/85 border border-slate-600/70 px-4 py-3.5 text-xs md:text-sm text-slate-100 flex items-center gap-2">
+              <div class="text-sky-300">
+                ${ICONS.info}
+              </div>
+              <div>Henüz harcama kaydı yok. Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuyla ilk harcamanı ekle.</div>
+            </div>
+          </section>
+        `;
+      }
+
+      const totalsByCurrency = {};
+      expenses.forEach(exp => {
+        const cur = exp.currency || 'TRY';
+        const val = Number(exp.amount) || 0;
+        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
+        totalsByCurrency[cur] += val;
+      });
+
+      const visibleCount = expenses.length;
+      const totalCount = state.expenses.length;
+      const currencyCount = Object.keys(totalsByCurrency).length;
+
+      const currencyChips = Object.entries(totalsByCurrency)
+        .map(([cur, total]) => {
+          const formatted = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+          return `
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-xs text-sky-50/80">${cur}</span>
+              <span class="text-sm md:text-base font-semibold text-white">${formatted}</span>
+            </div>
+          `;
+        })
+        .join('');
+
+      const tripOptions = getTripOptionsFromExpenses(state.expenses);
+      const tripFilter = state.tripFilter || '';
+
+      const tripSelectHtml = `
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <div class="text-[11px] text-sky-50/90">
+            Seyahat filtresi
+          </div>
+          <select id="summary-trip-filter"
+                  class="rounded-xl bg-black/25 border border-sky-200/70 px-2.5 py-1.5 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-200">
+            <option value="">Tüm seyahatler</option>
+            ${tripOptions.map(name => `
+              <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
+                ${escapeHtml(name)}
+              </option>
+            `).join('')}
+          </select>
+        </div>
+      `;
+
+      const totalPart = totalCount > visibleCount
+        ? ` · Toplam ${totalCount} kayıt`
+        : '';
+
+      return `
+        <section class="mb-4 md:mb-5 relative z-10">
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 border border-white/20 shadow-lg shadow-sky-500/40">
+            <div class="absolute -right-16 -bottom-16 w-44 h-44 rounded-full bg-white/15 blur-3xl"></div>
+            <div class="absolute -left-20 -top-16 w-40 h-40 rounded-full bg-indigo-400/25 blur-3xl"></div>
+            <div class="relative px-4 py-3.5 md:px-5 md:py-4">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-[11px] uppercase tracking-wide text-sky-50/90 font-semibold">Harcamalar Özeti</p>
+                  <p class="text-xs md:text-sm text-sky-50/90">
+                    ${visibleCount} kayıt · ${currencyCount} para birimi${totalPart}
+                  </p>
+                </div>
+                <div class="flex flex-col items-end text-right gap-0.5">
+                  ${currencyChips}
+                </div>
+              </div>
+              ${tripSelectHtml}
+              ${renderBudgetSnippet(totalsByCurrency)}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderChecklistSummaryCard() {
+      const items = state.checklistItems || [];
+      if (!items.length) {
+        return `
+          <section class="mb-3 md:mb-4">
+            <div class="rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-4 py-3.5 text-xs md:text-sm text-slate-100 flex items-center gap-2">
+              <div class="text-emerald-300">
+                ${ICONS.info}
+              </div>
+              <div>Henüz check list maddesi yok. Aşağıdan seyahatte yanına alman gerekenleri listelemeye başlayabilirsin.</div>
+            </div>
+          </section>
+        `;
+      }
+      const total = items.length;
+      const done = items.filter(i => i.done).length;
+      const percent = total ? Math.round((done * 100) / total) : 0;
+      const width = percent + '%';
+
+      return `
+        <section class="mb-3 md:mb-4">
+          <div class="rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 border border-emerald-300/80 px-4 py-3.5 text-xs md:text-sm text-emerald-50 shadow-lg shadow-emerald-500/40">
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <p class="text-[11px] uppercase tracking-wide font-semibold opacity-90">Seyahat Hazırlığı</p>
+                <p class="text-xs md:text-sm">
+                  ${total} maddeden <span class="font-semibold">${done}</span> tanesi hazır.
+                </p>
+              </div>
+              <div class="text-right">
+                <div class="text-[11px] uppercase tracking-wide text-emerald-50/90">Tamamlanma</div>
+                <div class="text-base font-semibold">${percent}%</div>
+              </div>
+            </div>
+            <div class="h-1.5 rounded-full bg-emerald-900/40 overflow-hidden">
+              <div class="h-full bg-emerald-300" style="width:${width};"></div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    
+    function renderToolsSummaryCard() {
+      const isRestaurants = state.toolsView === 'restaurants';
+      const title = isRestaurants
+        ? 'CleanBite Radar'
+        : 'TripRoute Planlayıcı';
+      const desc = isRestaurants
+        ? 'Konumuna göre helal / alkolsüz / vegan seçenekleri olan mekanları keşfet.'
+        : 'Gezin için çok duraklı rota planla, Google Maps ile yola çık.';
+      const sub = state.userLocation
+        ? 'Konum alındı. Haritalar hazır 👍'
+        : 'Harita araçları için tarayıcıdan konum izni vermen gerekebilir.';
+
+      return `
+        <section class="mb-3 md:mb-4">
+          <div class="rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 border border-sky-200/80 px-4 py-3.5 text-xs md:text-sm text-slate-50 shadow-lg shadow-sky-500/40">
+            <div class="flex items-center justify-between gap-3 mb-1.5">
+              <div>
+                <p class="text-[11px] uppercase tracking-wide font-semibold opacity-90">Harita & Keşif</p>
+                <p class="text-xs md:text-sm">${escapeHtml(title)}</p>
+              </div>
+              <div class="hidden md:flex items-center justify-center w-9 h-9 rounded-2xl bg-slate-950/20 border border-slate-100/40">
+                ${ICONS.map}
+              </div>
+            </div>
+            <p class="text-[11px] md:text-xs text-slate-100/90 mb-1">${escapeHtml(desc)}</p>
+            <p class="text-[11px] text-slate-200/80">${escapeHtml(sub)}</p>
+          </div>
+        </section>
+      `;
+    }
+
+
+    function renderTabs() {
+      const active = state.activeTab;
+      const base =
+        'flex-1 px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-center text-xs md:text-sm font-medium transition border';
+
+      const isExpenses = active === 'expenses';
+      const isChecklist = active === 'checklist';
+      const isTools = active === 'tools';
+
+      const expClasses = isExpenses
+        ? 'bg-slate-900 text-slate-50 border-slate-600 shadow-sm'
+        : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-900/40';
+
+      const checkClasses = isChecklist
+        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-300 shadow-sm shadow-emerald-500/40'
+        : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-900/40';
+
+      const toolsClasses = isTools
+        ? 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white border-sky-300 shadow-sm shadow-sky-500/40'
+        : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-900/40';
+
+      return `
+        <div class="mb-2.5 md:mb-3 flex items-center gap-2 bg-slate-900/60 rounded-2xl p-1 border border-slate-700/80">
+          <button type="button" data-tab="expenses" class="${base} ${expClasses}">
+            Harcamalar
+          </button>
+          <button type="button" data-tab="checklist" class="${base} ${checkClasses}">
+            Check List
+          </button>
+          <button type="button" data-tab="tools" class="${base} ${toolsClasses}">
+            Harita & Keşif
+          </button>
+        </div>
+      `;
+    }
+
+function renderFilterBar(allExpenses, visibleExpenses, selectedCategory, searchQuery, tripFilter) {
+      const total = allExpenses.length;
+      const visible = visibleExpenses.length;
+      const filterText = selectedCategory
+        ? `Kategori filtresi: ${getCategoryMeta(selectedCategory).label}`
+        : 'Kategori filtresi yok';
+
+      const tripOptions = getTripOptionsFromExpenses(allExpenses);
+      const tripFilterText = tripFilter
+        ? `Seyahat filtresi: ${tripFilter}`
+        : 'Seyahat filtresi yok';
+
+      const disableChart = visible === 0;
+
+      const categoryOptions = Object.values(CATEGORY_META)
+        .map(cat => `
+          <option value="${cat.id}" ${selectedCategory === cat.id ? 'selected' : ''}>
+            ${cat.label}
+          </option>
+        `)
+        .join('');
+
+      const tripOptionsHtml = tripOptions
+        .map(name => `
+          <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
+            ${escapeHtml(name)}
+          </option>
+        `)
+        .join('');
+
+      return `
+        <div class="mb-3 md:mb-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-3.5 py-2.5 md:px-4 md:py-3 flex flex-col gap-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="text-xs md:text-sm text-slate-100/90">
+              <span class="font-semibold text-sky-300">${visible}</span> kayıt görüntüleniyor
+              <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
+              ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
+              <div class="text-[11px] text-slate-500 mt-0.5">
+                ${escapeHtml(tripFilterText)}
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div class="w-full md:w-56">
+              <div class="relative">
+                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">🔍</span>
+                <input
+                  id="search-input"
+                  type="search"
+                  class="w-full rounded-xl border border-slate-600 bg-slate-950/80 pl-7 pr-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80"
+                  placeholder="Şehir veya mekan ara"
+                  value="${escapeHtml(searchQuery || '')}"
+                />
+              </div>
+            </div>
+            <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+              <div class="flex items-center gap-2 w-full md:w-auto">
+                <select id="trip-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                  <option value="">Tüm seyahatler</option>
+                  ${tripOptionsHtml}
+                </select>
+                <select id="category-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                  <option value="">Tüm kategoriler</option>
+                  ${categoryOptions}
+                </select>
+              </div>
+              <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
+                ${ICONS.chart}
+                <span>Grafiği Göster</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCategoryToolbox(selectedCategory) {
+      const cats = Object.values(CATEGORY_META);
+      const buttons = cats
+        .map(cat => {
+          const isActive = selectedCategory === cat.id;
+          const baseClasses =
+            'flex flex-shrink-0 flex-col items-center justify-center gap-1 px-2.5 py-2.5 rounded-2xl border text-[11px] cursor-pointer transition min-w-[88px]';
+          const activeClasses =
+            'bg-gradient-to-r from-sky-600 to-indigo-600 border-sky-300/70 text-sky-50 shadow-sm shadow-sky-500/40';
+          const inactiveClasses =
+            'bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-slate-700 text-slate-200 hover:border-sky-500/60 hover:bg-slate-900';
+          const accent = cat.accent || 'bg-slate-800/90 text-sky-100';
+          return `
+            <button type="button" data-category="${cat.id}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses}">
+              <span class="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-2xl ${accent}">
+                ${escapeHtml(cat.icon)}
+              </span>
+              <span class="truncate mt-0.5">${cat.label}</span>
+            </button>
+          `;
+        })
+        .join('');
+      return `
+        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          ${buttons}
+        </div>
+      `;
+    }
+
+    function renderPhotoThumbnails(form) {
+      const photos = form.photos || [];
+      if (!photos.length) {
+        return '<p class="text-[11px] text-slate-400 italic">Henüz fotoğraf seçilmedi.</p>';
+      }
+      let html = '<div class="grid grid-cols-3 gap-2">';
+      photos.forEach((src, idx) => {
+        html += `
+          <div class="relative group">
+            <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70 cursor-zoom-in" />
+            <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/80 text-slate-100 opacity-0 group-hover:opacity-100 transition">
+              ${ICONS.xMini}
+            </button>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderExpenseCard(expense) {
+      const category = getCategoryMeta(expense.category);
+      const dateLabel = formatDate(expense.date);
+      const photosCount = (expense.photos && expense.photos.length) ? expense.photos.length : 0;
+      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
+      const peopleChip = peopleCount
+        ? `
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
+            ${ICONS.person}
+            <span>x${peopleCount}</span>
+          </span>
+        `
+        : '';
+      const photosChip = photosCount
+        ? `
+          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
+            ${ICONS.photo}
+            <span>${photosCount}</span>
+          </span>
+        `
+        : '';
+      const tripPill = expense.tripName
+        ? `<span class="inline-flex items-center gap-1 text-[10px] text-sky-700 bg-sky-100/90 px-1.5 py-0.5 rounded-full">${escapeHtml(expense.tripName)}</span>`
+        : '';
+
+      return `
+        <article class="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-2xl shadow-sm border border-slate-200/90 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <div class="text-[11px] font-medium uppercase tracking-wide text-sky-500">
+                  ${escapeHtml(expense.city || '')}
+                </div>
+                ${tripPill}
+              </div>
+              <div class="text-sm md:text-base font-semibold text-slate-900 truncate">
+                ${expense.place ? escapeHtml(expense.place) : '<span class="text-slate-400">Başlıksız</span>'}
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
+                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
+                  <span>${category.label}</span>
+                </span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                  ${ICONS.calendar}
+                  <span>${dateLabel}</span>
+                </span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <div class="text-sm md:text-base font-semibold text-slate-900">
+                ${formatAmount(expense.amount)} <span class="text-xs text-slate-500 ml-0.5">${escapeHtml(expense.currency || '')}</span>
+              </div>
+              <div class="flex items-center gap-2 mt-1">
+                ${peopleChip}
+                ${photosChip}
+              </div>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderCityExpenses(expensesInCity) {
+      const sorted = expensesInCity.slice().sort((a, b) => {
+        const da = a.date || '';
+        const db = b.date || '';
+        return db.localeCompare(da);
+      });
+      return sorted.map(exp => renderExpenseCard(exp)).join('');
+    }
+
+    function renderCitySection(city, expensesInCity) {
+      const isExpanded = state.expandedCities[city] === true;
+      const gradientStyle = getCityGradientStyle(city);
+
+      const totalsByCurrency = {};
+      expensesInCity.forEach(exp => {
+        const cur = exp.currency || 'TRY';
+        const val = Number(exp.amount) || 0;
+        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
+        totalsByCurrency[cur] += val;
+      });
+      const summaryParts = Object.entries(totalsByCurrency)
+        .map(([cur, total]) => total.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' ' + cur)
+        .join(' · ');
+      const summaryText = summaryParts ? ' · ' + summaryParts : '';
+
+      return `
+        <div class="mb-3 md:mb-4">
+          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition" style="${gradientStyle}">
+            <div class="relative flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
+              <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-50">
+                  ${escapeHtml(city)}
+                </div>
+                <div class="text-[11px] text-slate-200">
+                  ${expensesInCity.length} kayıt${summaryText}
+                </div>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <div class="w-8 h-8 rounded-2xl bg-slate-900/80 border border-sky-400/70 flex items-center justify-center text-sky-300 shadow-sm shadow-sky-500/40">
+                  ${ICONS.locationPin}
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="hidden md:flex flex-col text-right text-[10px] text-slate-100/90">
+                    <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
+                  </div>
+                  <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/30 flex items-center justify-center text-slate-50">
+                    ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </button>
+          ${isExpanded ? `<div class="mt-2 space-y-2.5 md:space-y-3">${renderCityExpenses(expensesInCity)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderCityList(expenses) {
+      if (!expenses || !expenses.length) {
+        return `
+          <div class="rounded-2xl bg-gradient-to-br from-slate-900/85 via-slate-900/90 to-slate-950/95 border border-slate-700/80 px-4 py-5 text-center text-sm text-slate-100">
+            Henüz hiç harcama eklenmedi.<br/>
+            Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuna tıklayarak ilk kaydını oluştur.
+          </div>
+        `;
+      }
+
+      const groups = groupExpensesByCity(expenses);
+      const entries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], 'tr'));
+
+      let html = '<div class="space-y-4 md:space-y-5 pb-2">';
+      entries.forEach(([city, exps]) => {
+        html += renderCitySection(city, exps);
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function getCityDatalistHtml() {
+      const set = new Set();
+      state.expenses.forEach(exp => {
+        if (exp.city) set.add(exp.city);
+      });
+      const options = Array.from(set)
+        .sort((a, b) => a.localeCompare(b, 'tr'))
+        .map(city => `<option value="${escapeHtml(city)}"></option>`)
+        .join('');
+      return `<datalist id="city-options">${options}</datalist>`;
+    }
+
+    function getTripDatalistHtml() {
+      const trips = getTripOptionsFromExpenses(state.expenses);
+      const options = trips
+        .map(name => `<option value="${escapeHtml(name)}"></option>`)
+        .join('');
+      return `<datalist id="trip-options">${options}</datalist>`;
+    }
+
+    function renderFormView() {
+      const f = state.form;
+      return `
+        <section class="mt-3 md:mt-4">
+          <div class="mb-3 md:mb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-base md:text-lg font-semibold text-slate-50">Harcama Kaydı</h2>
+              <p class="text-xs md:text-sm text-slate-400">${f.id ? 'Mevcut kaydı düzenliyorsun' : 'Yeni bir harcama ekle'}</p>
+            </div>
+            <button type="button" id="back-to-list-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-600 text-xs text-slate-200 hover:bg-slate-900">
+              ${ICONS.x}
+              <span>Listeye Dön</span>
+            </button>
+          </div>
+
+          <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
+            <form id="expense-form" class="space-y-4 md:space-y-5">
+              <div>
+                <label for="tripName" class="block text-xs font-medium text-slate-300 mb-1.5">Seyahat Adı (opsiyonel)</label>
+                <input id="tripName" type="text" list="trip-options" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Andalucia 2025" value="${escapeHtml(f.tripName)}" />
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
+                  <input id="city" type="text" autocomplete="off" list="city-options" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
+                </div>
+                <div>
+                  <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
+                  <input id="place" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Kahve Molası" value="${escapeHtml(f.place)}" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="col-span-2 md:col-span-1">
+                  <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
+                  <input id="amount" type="text" inputmode="decimal" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="0.00" value="${escapeHtml(f.amount)}" />
+                </div>
+                <div class="col-span-1 md:col-span-1">
+                  <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
+                  <select id="currency" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
+                    ${['TRY','EUR','USD','GBP'].map(cur => `
+                      <option value="${cur}" ${f.currency === cur ? 'selected' : ''}>${cur}</option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div class="col-span-1 md:col-span-1">
+                  <label for="peopleCount" class="block text-xs font-medium text-slate-300 mb-1.5">Kişi Sayısı</label>
+                  <input id="peopleCount" type="number" min="1" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.peopleCount)}" />
+                </div>
+                <div class="col-span-2 md:col-span-1">
+                  <label for="date" class="block text-xs font-medium text-slate-300 mb-1.5">Tarih</label>
+                  <input id="date" type="date" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.date)}" />
+                </div>
+              </div>
+
+              <div>
+                <span class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</span>
+                ${renderCategoryToolbox(f.category)}
+              </div>
+
+              <div>
+                <label for="description" class="block text-xs font-medium text-slate-300 mb-1.5">Açıklama</label>
+                <textarea id="description" rows="3" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Notlar, detaylar...">${escapeHtml(f.description)}</textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">Fotoğraflar (max 3)</label>
+                <div class="flex flex-col md:flex-row md:items-center gap-3">
+                  <div>
+                    <input type="file" id="photo-input" accept="image/*" multiple class="block text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-2xl file:border-0 file:text-xs file:font-medium file:bg-gradient-to-r file:from-sky-600 file:to-indigo-600 file:text-white hover:file:from-sky-500 hover:file:to-indigo-500 cursor-pointer" />
+                    <p class="mt-1 text-[11px] text-slate-400">Fotoğraflar otomatik olarak sıkıştırılıp base64 olarak kaydedilir.</p>
+                  </div>
+                  <div class="flex-1">
+                    ${renderPhotoThumbnails(f)}
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-2 flex items-center justify-between gap-3">
+                <button type="button" id="close-form-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900/80 border border-slate-600 text-xs md:text-sm text-slate-200 hover:bg-slate-900">
+                  İptal
+                </button>
+                <button type="submit" id="save-expense-btn" class="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-xs md:text-sm font-medium text-white shadow-md shadow-sky-500/40 hover:from-sky-500 hover:to-indigo-500">
+                  ${ICONS.walletMini}
+                  <span class="ml-1.5">${f.id ? 'Kaydı Güncelle' : 'Kaydet'}</span>
+                </button>
+              </div>
+            </form>
+            ${getCityDatalistHtml()}
+            ${getTripDatalistHtml()}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderDetailModal(expense) {
+      if (!expense) return '';
+      const category = getCategoryMeta(expense.category);
+      const dateLabel = formatDate(expense.date);
+      const amountFormatted = formatAmount(expense.amount);
+      const currency = escapeHtml(expense.currency || '');
+      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
+      const perPerson = peopleCount ? (Number(expense.amount) / peopleCount) : null;
+      const perPersonFormatted = perPerson ? perPerson.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : null;
+      const mapsUrl = getMapsUrl(expense.city, expense.place);
+      const photos = expense.photos || [];
+      const headerGradient = category.headerGradient || 'from-sky-500 via-indigo-500 to-emerald-500';
+      const currentTrip = expense.tripName || '';
+
+      const tripOptions = getTripOptionsFromExpenses(state.expenses);
+      const tripOptionsHtml = tripOptions
+        .map(name => `
+          <option value="${escapeHtml(name)}" ${currentTrip === name ? 'selected' : ''}>
+            ${escapeHtml(name)}
+          </option>
+        `)
+        .join('');
+
+      let photosHtml = '';
+      if (photos.length) {
+        photosHtml = '<div class="mt-4"><h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Fotoğraflar</span></h4><div class="grid grid-cols-2 gap-2">';
+        photos.forEach((src, idx) => {
+          photosHtml += `
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100/60">
+              <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover cursor-zoom-in" />
+            </div>
+          `;
+        });
+        photosHtml += '</div></div>';
+      }
+
+      const peopleInfo = peopleCount ? `
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
+            <span class="inline-flex items-center gap-1">
+              ${ICONS.person}
+              <span>Kişi sayısı</span>
+            </span>
+            <span class="font-semibold text-slate-900">${peopleCount}</span>
+          </div>
+          <div class="rounded-2xl bg-gradient-to-r from-sky-50 to-emerald-50 border border-sky-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
+            <span class="inline-flex items-center gap-1">
+              ${ICONS.walletMini}
+              <span>Kişi başı</span>
+            </span>
+            <span class="font-semibold text-slate-900">${perPersonFormatted} <span class="text-[11px] text-slate-500">${currency}</span></span>
+          </div>
+        </div>
+      ` : '';
+
+      const tripPill = expense.tripName
+        ? `
+          <div class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
+            <span>${escapeHtml(expense.tripName)}</span>
+          </div>
+        `
+        : '';
+
+      return `
+        <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/70 p-0">
+            <div class="relative overflow-hidden rounded-t-3xl bg-gradient-to-r ${headerGradient} px-5 pt-4 pb-5">
+              <div class="absolute -right-16 -bottom-20 w-40 h-40 rounded-full bg-white/15 blur-2xl"></div>
+              <div class="absolute -left-12 -top-16 w-36 h-36 rounded-full bg-indigo-300/25 blur-2xl"></div>
+              <div class="relative flex items-start justify-between gap-3">
+                <div class="max-w-[70%]">
+                  <p class="text-[11px] font-medium uppercase tracking-wide text-slate-100/90 mb-0.5">
+                    ${escapeHtml(expense.city || '')}
+                  </p>
+                  <h2 class="text-base md:text-lg font-semibold text-white leading-snug">
+                    ${expense.place ? escapeHtml(expense.place) : 'Harcama Detayı'}
+                  </h2>
+                  <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
+                    ${ICONS.calendar}
+                    <span>${dateLabel}</span>
+                  </div>
+                  ${tripPill}
+                </div>
+                <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/25 text-slate-50 hover:bg-black/35">
+                  ${ICONS.x}
+                </button>
+              </div>
+              <div class="relative mt-3 flex items-center justify-between gap-3">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/90 text-slate-800">
+                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
+                  <span>${category.label}</span>
+                </div>
+                <div class="text-right">
+                  <div class="text-[11px] text-slate-100/90">Toplam Tutar</div>
+                  <div class="text-lg font-semibold text-white">
+                    ${amountFormatted} <span class="text-xs text-slate-100/80">${currency}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-5 pb-5 pt-4">
+              ${peopleInfo}
+
+              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-2">
+                    <div class="mt-[2px] text-slate-500">
+                      ${ICONS.locationPin}
+                    </div>
+                    <div class="text-xs text-slate-700">
+                      <div class="font-semibold text-slate-900">${escapeHtml(expense.city || '')}</div>
+                      ${expense.place ? `<div class="text-slate-600">${escapeHtml(expense.place)}</div>` : ''}
+                    </div>
+                  </div>
+                  <a href="${mapsUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-50 text-[11px] font-medium text-sky-700 border border-sky-200 hover:bg-sky-100">
+                    ${ICONS.map}
+                    <span>Haritada Aç</span>
+                  </a>
+                </div>
+              </div>
+
+              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>Seyahat Değiştir</span>
+                </h4>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <div class="flex-1 space-y-1.5 text-xs">
+                    <label class="block text-[11px] text-slate-500 mb-0.5">Mevcut seyahatler</label>
+                    <select id="detail-trip-select"
+                            class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
+                      <option value="">Seçim yap (opsiyonel)</option>
+                      ${tripOptionsHtml}
+                    </select>
+                  </div>
+                  <div class="flex-1 space-y-1.5 text-xs">
+                    <label class="block text-[11px] text-slate-500 mb-0.5">Veya yeni isim yaz</label>
+                    <input id="detail-trip-input" type="text" list="trip-options"
+                           class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80"
+                           placeholder="Örn. Andalucia 2025" value="${escapeHtml(currentTrip)}" />
+                  </div>
+                </div>
+                <p class="mt-1 text-[11px] text-slate-500">Bu harcamayı ister mevcut seyahatlerden birine, ister yazacağın yeni bir seyahat adına taşıyabilirsin.</p>
+                ${getTripDatalistHtml()}
+                <div class="mt-2 flex justify-end">
+                  <button type="button" id="move-expense-trip-btn"
+                          class="inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                    Seyahate Taşı
+                  </button>
+                </div>
+              </div>
+
+              ${expense.description ? `
+                <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
+                  <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span>Notlar</span>
+                  </h4>
+                  <p class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(expense.description)}</p>
+                </div>
+              ` : ''}
+
+              ${photosHtml}
+
+              <div class="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div class="flex items-center gap-2 flex-1">
+                  <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                    ${ICONS.edit}
+                    <span class="ml-1.5">Düzenle</span>
+                  </button>
+                  <button type="button" id="duplicate-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-100 text-xs md:text-sm font-medium text-slate-800 border border-slate-200 hover:bg-slate-200">
+                    + Kopyala
+                  </button>
+                </div>
+                <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs md:text-sm font-medium text-white shadow-md shadow-rose-500/40 hover:from-rose-500 hover:to-red-600">
+                  ${ICONS.trash}
+                  <span class="ml-1.5">Sil</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderConfirmClearModal() {
+      return `
+        <div id="confirm-clear-modal" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div class="w-full max-w-sm bg-gradient-to-br from-slate-950 via-rose-950/90 to-slate-950 border border-rose-500/60 rounded-3xl p-5 shadow-xl shadow-rose-500/30">
+            <div class="flex items-start gap-3">
+              <div class="mt-1 text-rose-300">
+                ${ICONS.warning}
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-rose-50 mb-1">Tüm harcamaları silmek istiyor musun?</h3>
+                <p class="text-xs text-rose-100/90 mb-3">
+                  Bu işlem geri alınamaz. Tüm harcamalar ve fotoğraflar cihazındaki localStorage'dan temizlenecek.
+                </p>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center justify-end gap-2">
+              <button type="button" id="cancel-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-slate-900/80 text-xs text-slate-100 border border-slate-600 hover:bg-slate-900">
+                Vazgeç
+              </button>
+              <button type="button" id="confirm-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs text-white hover:from-rose-500 hover:to-red-600">
+                Evet, sil
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderChartModal() {
+      return `
+        <div id="chart-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
+          <div id="chart-modal" class="w-full max-w-md max-h-[80vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl flex flex-col border border-slate-200/80">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white flex items-center justify-center shadow-sm shadow-sky-500/40">
+                  ${ICONS.chart}
+                </div>
+                <div>
+                  <h3 class="text-sm font-semibold text-slate-900">Harcama Dağılımı</h3>
+                  <p class="text-[11px] text-slate-500">Kategorilere göre toplam tutarların dağılımı</p>
+                </div>
+              </div>
+              <button type="button" id="close-chart-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                ${ICONS.x}
+              </button>
+            </div>
+            <div class="px-5 pt-4 pb-5 flex-1 flex flex-col">
+              <div class="relative h-40 md:h-52">
+                <canvas id="expenseChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDataModal() {
+      const data = {
+        expenses: state.expenses,
+        checklistItems: state.checklistItems,
+        checklistCategories: getChecklistCategories(),
+        budget: {
+          currency: state.budgetCurrency,
+          amount: state.budgetAmount
+        }
+      };
+      const json = escapeHtml(JSON.stringify(data, null, 2));
+
+      return `
+        <div id="data-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/70 backdrop-blur-sm">
+          <div id="data-modal" class="w-full max-w-xl max-h-[90vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <h3 class="text-sm md:text-base font-semibold text-slate-900">Veri Yedekleme & Paylaşım</h3>
+                <p class="text-[11px] md:text-xs text-slate-500">Harcamalar ve check list verilerini JSON olarak dışa aktarabilir veya içe alabilirsin.</p>
+              </div>
+              <button type="button" id="close-data-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
+                ${ICONS.x}
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-4">
+              <section class="space-y-2">
+                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                  <span>Verileri Dışa Aktar</span>
+                </h4>
+                <p class="text-[11px] text-slate-500">Aşağıdaki JSON'u kopyalayıp WhatsApp / e-posta ile paylaşabilirsin. Karşı taraf bu JSON'u "Verileri İçeri Al" kısmından yükleyebilir.</p>
+                <textarea id="export-json" readonly class="w-full h-40 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 whitespace-pre overflow-auto scrollbar-thin">${json}</textarea>
+                <div class="flex justify-end">
+                  <button type="button" id="copy-export-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-900 text-[11px] font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
+                    Kopyala
+                  </button>
+                </div>
+              </section>
+              <section class="space-y-2">
+                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span>Verileri İçeri Al</span>
+                </h4>
+                <p class="text-[11px] text-slate-500">Buraya daha önce dışa aktarılan JSON'u yapıştırıp veriyi bu cihaza yükleyebilirsin. Mevcut verinin üstüne yazılır.</p>
+                <textarea id="import-json-input" class="w-full h-32 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 placeholder-slate-400 whitespace-pre overflow-auto scrollbar-thin" placeholder='{"expenses":[...],"checklistItems":[...],...}'>${escapeHtml(state.importJsonText || '')}</textarea>
+                <div class="flex justify-end gap-2">
+                  <button type="button" id="apply-import-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                    Yükle
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLightboxModal() {
+      if (!state.lightboxPhotoSrc) return '';
+      return `
+        <div id="lightbox-overlay" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4 py-6">
+          <div class="relative max-w-3xl max-h-[90vh]">
+            <button type="button" id="close-lightbox-btn" class="absolute -top-4 -right-4 inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/80 text-slate-100 hover:bg-black">
+              ${ICONS.x}
+            </button>
+            <img src="${state.lightboxPhotoSrc}" alt="Fotoğraf" class="max-w-full max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl" />
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFab() {
+      return `
+        <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-xl shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900">
+          ${ICONS.plus}
+        </button>
+      `;
+    }
+
+    function renderChecklistCategorySection(cat, itemsInCat) {
+      const total = itemsInCat.length;
+      const done = itemsInCat.filter(i => i.done).length;
+      const hasItems = total > 0;
+      const progressText = hasItems ? `${done} / ${total} tamamlandı` : 'Henüz madde yok';
+      const isOpen = state.openChecklistCategories[cat.id] === true;
+
+      const itemsHtml = hasItems
+        ? itemsInCat.map(item => `
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-2 text-xs text-slate-100 flex-1">
+                <input type="checkbox" data-check-item-id="${item.id}"
+                       class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70"
+                       ${item.done ? 'checked' : ''} />
+                <span class="${item.done ? 'line-through text-slate-500' : ''}">
+                  ${escapeHtml(item.label)}
+                </span>
+              </label>
+              <button type="button" data-remove-check-item="${item.id}"
+                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
+                ${ICONS.trash}
+              </button>
+            </div>
+          `).join('')
+        : `<p class="text-[11px] text-slate-500 italic">Bu kategoride henüz madde yok.</p>`;
+
+      return `
+        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3" ${isOpen ? 'open' : ''}>
+          <summary data-checklist-cat-id="${cat.id}" class="flex items-center justify-between gap-2 cursor-pointer list-none">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-base">
+                ${escapeHtml(cat.icon)}
+              </div>
+              <div>
+                <div class="text-xs font-semibold text-slate-50">${escapeHtml(cat.label)}</div>
+                <div class="text-[11px] text-slate-400">${progressText}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" data-remove-category="${cat.id}"
+                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
+                ${ICONS.trash}
+              </button>
+              <span class="text-[11px] text-slate-500">${isOpen ? '▲' : '▼'}</span>
+            </div>
+          </summary>
+          <div class="mt-2 flex items-center justify-end gap-2">
+            <button type="button" data-uncheck-all-category="${cat.id}"
+                    class="text-[11px] text-slate-300 px-2 py-1 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 ${hasItems ? '' : 'opacity-40 cursor-default'}"
+                    ${hasItems ? '' : 'disabled'}>
+              Hepsini kaldır
+            </button>
+            <button type="button" data-check-all-category="${cat.id}"
+                    class="text-[11px] text-slate-200 px-2 py-1 rounded-xl bg-slate-800 border border-slate-600 hover:bg-slate-700 ${hasItems ? '' : 'opacity-40 cursor-default'}"
+                    ${hasItems ? '' : 'disabled'}>
+              Hepsini işaretle
+            </button>
+          </div>
+          <div class="mt-2 space-y-1.5">
+            ${itemsHtml}
+          </div>
+        </details>
+      `;
+    }
+
+    function renderChecklistView() {
+      const items = state.checklistItems || [];
+      const categories = getChecklistCategories();
+
+      const addItemOpenAttr = state.showAddItemPanel ? 'open' : '';
+      const addCatOpenAttr = state.showAddCategoryPanel ? 'open' : '';
+
+      let html = `
+        <section class="mt-3 md:mt-4">
+          <div class="mb-2 flex items-center justify-end">
+            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-200">
+              <input id="show-only-unchecked" type="checkbox" class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70" ${state.showOnlyUnchecked ? 'checked' : ''} />
+              <span>Sadece eksikler</span>
+            </label>
+          </div>
+          <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
+            <div class="space-y-3 md:space-y-4">
+      `;
+      categories.forEach(cat => {
+        const itemsInCat = items.filter(item =>
+          item.category === cat.id &&
+          (!state.showOnlyUnchecked || !item.done)
+        );
+        html += renderChecklistCategorySection(cat, itemsInCat);
+      });
+
+      html += `
+              <div class="mt-2 rounded-2xl bg-slate-950/90 border border-slate-700/80 px-3.5 py-3.5 space-y-3">
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addItemOpenAttr}>
+                  <summary id="toggle-add-item-panel" class="flex items-center justify-between cursor-pointer list-none">
+                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span>Yeni madde ekle</span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">${state.showAddItemPanel ? '▲' : '▼'}</span>
+                  </summary>
+                  <div class="mt-2 space-y-2">
+                    <div class="grid grid-cols-3 gap-2">
+                      <input id="new-check-label" type="text" placeholder="Örn. Powerbank, Kulaklık"
+                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
+                      <select id="new-check-category"
+                              class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
+                        ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
+                      </select>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Virgül kullanarak aynı anda birden fazla madde ekleyebilirsin.</p>
+                    <div class="flex justify-end">
+                      <button type="button" id="add-check-item-btn"
+                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
+                        + Madde Ekle
+                      </button>
+                    </div>
+                  </div>
+                </details>
+
+                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addCatOpenAttr}>
+                  <summary id="toggle-add-category-panel" class="flex items-center justify-between cursor-pointer list-none">
+                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                      <span>Yeni kategori ekle</span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">${state.showAddCategoryPanel ? '▲' : '▼'}</span>
+                  </summary>
+                  <div class="mt-2 space-y-2">
+                    <div class="grid grid-cols-3 gap-2">
+                      <input id="new-category-label" type="text" placeholder="Kategori adı"
+                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                      <input id="new-category-icon" type="text" placeholder="Örn. 🎒"
+                             class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
+                    </div>
+                    <div class="flex justify-end">
+                      <button type="button" id="add-category-btn"
+                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-[11px] font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500">
+                        + Kategori Ekle
+                      </button>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+      return html;
+    }
+    function renderToolsView() {
+      const isRestaurants = state.toolsView === 'restaurants';
+      const base =
+        'flex-1 px-3 py-1.5 rounded-xl text-center text-[11px] md:text-xs font-medium border transition';
+
+      const restClasses = isRestaurants
+        ? 'bg-sky-500 text-white border-sky-200 shadow-sm shadow-sky-500/40'
+        : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-900';
+
+      const routeClasses = !isRestaurants
+        ? 'bg-sky-500 text-white border-sky-200 shadow-sm shadow-sky-500/40'
+        : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-900';
+
+      return `
+        <section class="mt-1">
+          <div class="mb-2.5 flex items-center gap-2 bg-slate-900/70 rounded-2xl p-1 border border-slate-700/80">
+            <button type="button" data-tools-tab="restaurants" class="${base} ${restClasses}">
+              🍽️ CleanBite Radar
+            </button>
+            <button type="button" data-tools-tab="route" class="${base} ${routeClasses}">
+              🗺️ TripRoute Planlayıcı
+            </button>
+          </div>
+          ${
+            state.toolsView === 'restaurants'
+              ? renderRestaurantFinder()
+              : renderRoutePlanner()
+          }
+        </section>
+      `;
+    }
+
+    function renderRestaurantFinder() {
+      const filter = state.cleanBiteFilter || 'halal';
+      const radiusKm = state.cleanBiteRadiusKm || 1.5;
+      const results = state.cleanBiteResults || [];
+      const radiusLabel = radiusKm.toFixed(1).replace('.', ',') + ' km';
+
+      const options = [
+        { value: 'halal', label: 'Helal / Domuzsuz' },
+        { value: 'no_alcohol', label: 'Alkolsüz' },
+        { value: 'vegan', label: 'Vegan / Vejetaryen' },
+        { value: 'all', label: 'Tüm mekanlar' }
+      ];
+
+      const infoText =
+        'Sonuçlar, OpenStreetMap verileri ve etiketlerine göre yaklaşık olarak filtrelenir. Mekanla mutlaka tekrar doğrula.';
+
+      return `
+        <div class="space-y-3">
+          <div class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <h2 class="text-xs md:text-sm font-semibold text-slate-50 flex items-center gap-1.5">
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-xl bg-sky-500/30 border border-sky-300/70 text-sky-50 text-xs">
+                    ${ICONS.locationPin}
+                  </span>
+                  CleanBite Radar
+                </h2>
+                <p class="text-[11px] text-slate-400">
+                  Konumuna yakın helal / alkolsüz / vegan seçenekleri bul.
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2.5">
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-[11px] text-slate-300 mb-1">Filtre</label>
+                <select
+                  id="cb-filter"
+                  class="w-full rounded-xl bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                >
+                  ${options
+                    .map(
+                      (o) => `
+                        <option value="${o.value}" ${
+                        filter === o.value ? 'selected' : ''
+                      }>${escapeHtml(o.label)}</option>
+                      `
+                    )
+                    .join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-300 mb-1">Yarıçap</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    id="cb-radius"
+                    type="range"
+                    min="0.5"
+                    max="5"
+                    step="0.5"
+                    value="${radiusKm}"
+                    class="flex-1 accent-sky-400"
+                  />
+                  <span
+                    id="cb-radius-label"
+                    class="text-[11px] text-slate-200 w-12"
+                  >
+                    ${radiusLabel}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              id="cb-search-btn"
+              class="w-full inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-xs font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500"
+            >
+              Çevremde mekan tara
+            </button>
+
+            <p class="mt-2 text-[10px] text-slate-500 leading-snug">
+              ${escapeHtml(infoText)}
+            </p>
+          </div>
+
+          <div class="rounded-2xl bg-slate-900/85 border border-slate-700/80 overflow-hidden">
+            <div id="cb-map" class="h-64 w-full"></div>
+            <div class="max-h-40 overflow-y-auto divide-y divide-slate-800">
+              ${
+                results.length
+                  ? results
+                      .map(
+                        (r) => `
+                    <div class="px-3.5 py-2.5 text-xs text-slate-100 flex items-start gap-2">
+                      <div class="mt-0.5 text-sky-300">
+                        ${ICONS.locationPin}
+                      </div>
+                      <div class="flex-1">
+                        <div class="font-semibold text-[12px]">
+                          ${escapeHtml(r.name || 'İsimsiz mekan')}
+                        </div>
+                        ${
+                          r.address
+                            ? `<div class="text-[11px] text-slate-400">${escapeHtml(
+                                r.address
+                              )}</div>`
+                            : ''
+                        }
+                        <div class="mt-0.5 text-[10px] text-slate-500">
+                          ${
+                            r.distanceKm != null
+                              ? `${r.distanceKm
+                                  .toFixed(1)
+                                  .toString()
+                                  .replace('.', ',')} km · `
+                              : ''
+                          }
+                          ${escapeHtml(r.tagsText || '')}
+                        </div>
+                      </div>
+                      <a
+                        href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                          (r.name || '') + ' ' + (r.address || '')
+                        )}"
+                        target="_blank"
+                        class="ml-1 inline-flex items-center justify-center px-2 py-1 rounded-xl bg-slate-800 text-[10px] text-sky-200 border border-slate-600 hover:bg-slate-700"
+                      >
+                        Haritada aç
+                      </a>
+                    </div>
+                  `
+                      )
+                      .join('')
+                  : `<div class="px-3.5 py-3 text-[11px] text-slate-400">
+                      Henüz sonuç yok. Konum izni verdiğinden ve "Çevremde tara"yı kullandığından emin ol.
+                    </div>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRoutePlanner() {
+      const points = state.routePoints || [];
+      const results = state.routeSearchResults || [];
+      const query = state.routeSearchQuery || '';
+
+      const hasRoute = points.length >= 2;
+
+      return `
+        <div class="space-y-3">
+          <div class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <h2 class="text-xs md:text-sm font-semibold text-slate-50 flex items-center gap-1.5">
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded-xl bg-indigo-500/30 border border-indigo-300/70 text-indigo-50 text-xs">
+                    ${ICONS.map}
+                  </span>
+                  TripRoute Planlayıcı
+                </h2>
+                <p class="text-[11px] text-slate-400">
+                  Başlangıç, duraklar ve varış noktası ekle; Google Maps ile yola çık.
+                </p>
+              </div>
+            </div>
+
+            <div class="mb-2.5">
+              <label class="block text-[11px] text-slate-300 mb-1">
+                Yer ara (şehir, mekan, adres)
+              </label>
+              <div class="flex items-center gap-1.5">
+                <input
+                  id="route-search-input"
+                  type="text"
+                  value="${escapeHtml(query)}"
+                  class="flex-1 rounded-xl bg-slate-950 border border-slate-700 px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-400"
+                  placeholder="Örn: Sevilla Katedrali veya Cordoba"
+                />
+                <button
+                  type="button"
+                  id="route-search-btn"
+                  class="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-sky-500 text-xs font-medium text-white hover:bg-sky-400"
+                >
+                  Ara
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-2 max-h-32 overflow-y-auto divide-y divide-slate-800">
+              ${
+                results.length
+                  ? results
+                      .map(
+                        (r, idx) => `
+                    <button
+                      type="button"
+                      data-add-route-idx="${idx}"
+                      class="w-full text-left px-2.5 py-2 text-[11px] text-slate-100 hover:bg-slate-800/80 flex items-start gap-2"
+                    >
+                      <div class="mt-0.5 text-sky-300">
+                        ${ICONS.locationPin}
+                      </div>
+                      <div>
+                        <div class="font-semibold">${escapeHtml(
+                          r.displayName
+                        )}</div>
+                        ${
+                          r.address
+                            ? `<div class="text-[10px] text-slate-400">${escapeHtml(
+                                r.address
+                              )}</div>`
+                            : ''
+                        }
+                      </div>
+                    </button>
+                  `
+                      )
+                      .join('')
+                  : `<div class="px-2.5 py-2 text-[11px] text-slate-500">
+                      Arama sonuçları burada görünecek.
+                    </div>`
+              }
+            </div>
+
+            <div class="mt-2">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] text-slate-300">
+                  Rota noktaları (${points.length})
+                </span>
+                <button
+                  type="button"
+                  id="route-clear-btn"
+                  class="text-[10px] text-slate-300 px-2 py-1 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 ${
+                    points.length ? '' : 'opacity-40 cursor-default'
+                  }"
+                  ${points.length ? '' : 'disabled'}
+                >
+                  Temizle
+                </button>
+              </div>
+              <ol class="space-y-1 max-h-24 overflow-y-auto">
+                ${
+                  points.length
+                    ? points
+                        .map(
+                          (p, idx) => `
+                    <li class="flex items-start gap-2 text-[11px] text-slate-100">
+                      <span class="mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-800 text-[10px] text-slate-200">
+                        ${
+                          idx === 0
+                            ? 'S'
+                            : idx === points.length - 1
+                            ? 'V'
+                            : idx
+                        }
+                      </span>
+                      <div class="flex-1">
+                        <div class="font-medium">
+                          ${escapeHtml(
+                            p.label ||
+                              p.displayName ||
+                              'Nokta ' + (idx + 1)
+                          )}
+                        </div>
+                        <div class="text-[10px] text-slate-500">
+                          ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}
+                        </div>
+                      </div>
+                    </li>
+                  `
+                        )
+                        .join('')
+                    : `<li class="text-[11px] text-slate-500">
+                        Haritaya tıklayarak veya aramadan seçim yaparak rota noktaları ekleyebilirsin.
+                       </li>`
+                }
+              </ol>
+            </div>
+
+            <div class="mt-3 flex flex-col md:flex-row md:items-center gap-2">
+              <p class="text-[10px] text-slate-500 flex-1">
+                Haritaya tıklayarak da rota noktası ekleyebilirsin. İlk nokta başlangıç, son nokta varış olarak kullanılır.
+              </p>
+              <button
+                type="button"
+                id="route-go-btn"
+                class="inline-flex items-center justify-center px-3.5 py-2 rounded-2xl text-xs font-medium border ${
+                  hasRoute
+                    ? 'bg-gradient-to-r from-emerald-500 to-sky-500 text-white border-emerald-300 shadow-sm shadow-emerald-500/40'
+                    : 'bg-slate-900 text-slate-400 border-slate-700 opacity-60 cursor-default'
+                }"
+                ${hasRoute ? '' : 'disabled'}
+              >
+                Google Maps ile Git
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-slate-900/85 border border-slate-700/80 overflow-hidden">
+            <div id="route-map" class="h-72 w-full"></div>
+          </div>
+        </div>
+      `;
+    }
+
+
+
+    
+    // CleanBite Radar: Overpass API ile yakın mekanları tarama
+    function initCleanBiteMap() {
+      const container = document.getElementById('cb-map');
+      if (!container || typeof L === 'undefined') return;
+
+      if (cleanBiteMap) {
+        cleanBiteMap.remove();
+        cleanBiteMap = null;
+        cleanBiteMarkersLayer = null;
+      }
+
+      cleanBiteMap = L.map('cb-map', {
+        zoomControl: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap katkıcıları'
+      }).addTo(cleanBiteMap);
+
+      cleanBiteMarkersLayer = L.layerGroup().addTo(cleanBiteMap);
+
+      if (state.userLocation) {
+        const { lat, lng } = state.userLocation;
+        cleanBiteMap.setView([lat, lng], 14);
+        L.circleMarker([lat, lng], {
+          radius: 6
+        }).addTo(cleanBiteMarkersLayer);
+      } else {
+        cleanBiteMap.setView([39, 35], 6);
+      }
+
+      // Mevcut sonuçları yeniden çiz
+      if (state.cleanBiteResults && state.cleanBiteResults.length) {
+        state.cleanBiteResults.forEach((r) => {
+          if (!r.lat || !r.lng) return;
+          L.marker([r.lat, r.lng])
+            .addTo(cleanBiteMarkersLayer)
+            .bindPopup(
+              `<strong>${escapeHtml(r.name || '')}</strong><br>${escapeHtml(
+                r.address || ''
+              )}`
+            );
+        });
+      }
+    }
+
+    function searchNearbyRestaurants() {
+      if (!state.userLocation) {
+        ensureUserLocation();
+        if (!state.userLocation) {
+          setState({
+            error: 'Konum alınamadı. Lütfen konum izni verip tekrar dene.'
+          });
+          return;
+        }
+      }
+
+      if (typeof fetch === 'undefined') return;
+
+      const { lat, lng } = state.userLocation;
+      const radiusKm = state.cleanBiteRadiusKm || 1.5;
+      const radiusMeters = Math.round(radiusKm * 1000);
+      const filter = state.cleanBiteFilter || 'halal';
+
+      const query = `
+        [out:json][timeout:25];
+        (
+          node(around:${radiusMeters},${lat},${lng})["amenity"~"restaurant|cafe|fast_food"];
+        );
+        out center 40;
+      `;
+
+      setState({ error: 'Mekanlar taranıyor, lütfen bekle...' });
+
+      fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: query
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          const elements = data && Array.isArray(data.elements) ? data.elements : [];
+          const origin = { lat, lng };
+
+          const rawResults = elements
+            .map((el) => {
+              const tags = el.tags || {};
+              const name = tags.name || tags['name:tr'] || '';
+              const cuisine = tags.cuisine || '';
+              const addressParts = [
+                tags['addr:street'],
+                tags['addr:housenumber'],
+                tags['addr:city']
+              ].filter(Boolean);
+              const address = addressParts.join(' ');
+              const point = {
+                lat: el.lat || (el.center && el.center.lat),
+                lng: el.lon || (el.center && el.center.lon)
+              };
+              const distanceKm =
+                point.lat && point.lng
+                  ? getDistanceKm(origin, point)
+                  : null;
+
+              return {
+                id: el.id,
+                name,
+                address,
+                lat: point.lat,
+                lng: point.lng,
+                distanceKm,
+                tags,
+                tagsText: cuisine
+              };
+            })
+            .filter((r) => r.lat != null && r.lng != null);
+
+          const filtered = rawResults.filter((r) => {
+            const t = r.tags || {};
+            const name = (r.name || '').toLowerCase();
+            const cuisine = (t.cuisine || '').toLowerCase();
+            const dietHalal = (t['diet:halal'] || t.halal || '')
+              .toString()
+              .toLowerCase();
+            const dietVegan = (t['diet:vegan'] || t.vegan || '')
+              .toString()
+              .toLowerCase();
+            const alcohol = (t.alcohol || '')
+              .toString()
+              .toLowerCase();
+
+            if (filter === 'halal') {
+              return (
+                dietHalal === 'yes' ||
+                name.includes('halal') ||
+                name.includes('helal') ||
+                cuisine.includes('halal') ||
+                cuisine.includes('helal')
+              );
+            }
+            if (filter === 'vegan') {
+              return (
+                dietVegan === 'yes' ||
+                cuisine.includes('vegan') ||
+                cuisine.includes('vegetarian') ||
+                name.includes('vegan')
+              );
+            }
+            if (filter === 'no_alcohol') {
+              return alcohol === 'no' || alcohol === 'none';
+            }
+            return true;
+          });
+
+          filtered.sort((a, b) => {
+            const da = a.distanceKm != null ? a.distanceKm : 9999;
+            const db = b.distanceKm != null ? b.distanceKm : 9999;
+            return da - db;
+          });
+
+          const limited = filtered.slice(0, 25);
+          state.cleanBiteResults = limited;
+
+          if (cleanBiteMap && cleanBiteMarkersLayer) {
+            cleanBiteMap.remove();
+            cleanBiteMap = null;
+            cleanBiteMarkersLayer = null;
+          }
+
+          setState({
+            cleanBiteResults: limited,
+            error: limited.length
+              ? ''
+              : 'Yakında uygun etiketlere sahip mekan bulunamadı. Haritadan yine de kontrol edebilirsin.'
+          });
+        })
+        .catch((err) => {
+          console.error('Overpass error', err);
+          setState({
+            error: 'Mekanları çekerken bir hata oldu. Biraz sonra tekrar dene.'
+          });
+        });
+    }
+
+    // Gezi Rotası: Nominatim ile yer arama ve Leaflet ile rota çizimi
+    function performRouteSearch() {
+      const q = (state.routeSearchQuery || '').trim();
+      if (!q) {
+        setState({ error: 'Lütfen önce bir yer adı yaz.' });
+        return;
+      }
+
+      const url =
+        'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=' +
+        encodeURIComponent(q);
+
+      fetch(url, {
+        headers: { Accept: 'application/json' }
+      })
+        .then((res) => res.json())
+        .then((list) => {
+          const results = (list || []).map((item) => {
+            const displayName = item.display_name || '';
+            const address = item.address
+              ? [
+                  item.address.road,
+                  item.address.house_number,
+                  item.address.city ||
+                    item.address.town ||
+                    item.address.village,
+                  item.address.country
+                ]
+                  .filter(Boolean)
+                  .join(', ')
+              : '';
+            return {
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+              displayName,
+              address
+            };
+          });
+
+          state.routeSearchResults = results;
+
+          setState({
+            routeSearchResults: results,
+            error: results.length
+              ? ''
+              : 'Bu arama için sonuç bulunamadı.'
+          });
+        })
+        .catch((err) => {
+          console.error('nominatim error', err);
+          setState({
+            error: 'Konum aranırken bir hata oluştu.'
+          });
+        });
+    }
+
+    function initRouteMap() {
+      const container = document.getElementById('route-map');
+      if (!container || typeof L === 'undefined') return;
+
+      if (routeMap) {
+        routeMap.remove();
+        routeMap = null;
+        routeMarkersLayer = null;
+        routePolylineLayer = null;
+      }
+
+      routeMap = L.map('route-map', {
+        zoomControl: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap katkıcıları'
+      }).addTo(routeMap);
+
+      routeMarkersLayer = L.layerGroup().addTo(routeMap);
+
+      const pts = state.routePoints || [];
+
+      if (pts.length) {
+        const latlngs = [];
+        pts.forEach((p, idx) => {
+          const ll = [p.lat, p.lng];
+          latlngs.push(ll);
+          L.marker(ll)
+            .addTo(routeMarkersLayer)
+            .bindPopup(
+              `<strong>${
+                idx === 0
+                  ? 'Başlangıç'
+                  : idx === pts.length - 1
+                  ? 'Varış'
+                  : 'Durak ' + idx
+              }</strong><br>${escapeHtml(p.label || '')}`
+            );
+        });
+
+        if (latlngs.length === 1) {
+          routeMap.setView(latlngs[0], 13);
+        } else {
+          routeMap.fitBounds(latlngs, { padding: [20, 20] });
+        }
+
+        routePolylineLayer = L.polyline(latlngs, { weight: 4 }).addTo(routeMap);
+      } else if (state.userLocation) {
+        routeMap.setView(
+          [state.userLocation.lat, state.userLocation.lng],
+          13
+        );
+      } else {
+        routeMap.setView([39, 35], 6);
+      }
+
+      routeMap.on('click', (e) => {
+        const newPoint = {
+          id: generateId(),
+          lat: e.latlng.lat,
+          lng: e.latlng.lng,
+          label:
+            'Harita noktası ' + ((state.routePoints || []).length + 1)
+        };
+        const newPoints = (state.routePoints || []).concat(newPoint);
+        state.routePoints = newPoints;
+        setState({ routePoints: newPoints });
+      });
+    }
+
+
+    function renderApp() {
+      const root = document.getElementById('app-root');
+      if (!root) return;
+
+      const visibleExpenses = getVisibleExpenses();
+
+      const summaryHtml =
+        state.activeTab === 'expenses'
+          ? renderSummaryCard(visibleExpenses)
+          : state.activeTab === 'checklist'
+          ? renderChecklistSummaryCard()
+          : renderToolsSummaryCard();
+
+      let mainHtml = '';
+
+      if (state.activeTab === 'expenses') {
+        if (state.view === 'list') {
+          mainHtml = `
+            ${renderFilterBar(
+              state.expenses,
+              visibleExpenses,
+              state.filterCategory,
+              state.searchQuery,
+              state.tripFilter
+            )}
+            <div id="expense-list-container">
+              ${renderCityList(visibleExpenses)}
+            </div>
+          `;
+        } else {
+          mainHtml = `${renderFormView()}`;
+        }
+      } else if (state.activeTab === 'checklist') {
+        mainHtml = renderChecklistView();
+      } else if (state.activeTab === 'tools') {
+        mainHtml = renderToolsView();
+      }
+
+      let html = `
+        <div class="relative bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950 min-h-[540px] w-full max-w-5xl mx-auto rounded-3xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] p-4 md:p-5 overflow-hidden">
+          <div class="pointer-events-none absolute -top-24 -right-10 w-56 h-56 rounded-full bg-sky-500/20 blur-3xl"></div>
+          <div class="pointer-events-none absolute -bottom-24 -left-10 w-60 h-60 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <div class="relative z-10">
+            ${renderHeader()}
+            ${renderError(state.error)}
+            ${summaryHtml}
+            ${renderTabs()}
+            ${mainHtml}
+          </div>
+        </div>
+        ${state.activeTab === 'expenses' && state.view === 'list' ? renderFab() : ''}
+        ${state.showDetailModal ? renderDetailModal(getSelectedExpense()) : ''}
+        ${state.showConfirmClear ? renderConfirmClearModal() : ''}
+        ${state.showChartModal ? renderChartModal() : ''}
+        ${state.showDataModal ? renderDataModal() : ''}
+        ${state.lightboxPhotoSrc ? renderLightboxModal() : ''}
+      `;
+
+      root.innerHTML = html;
+    }
+
+function resizeImageToDataURL(file) {
+      const maxSize = 1280;
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxSize) {
+                height = Math.round((height * maxSize) / width);
+                width = maxSize;
+              }
+            } else {
+              if (height > maxSize) {
+                width = Math.round((width * maxSize) / height);
+                height = maxSize;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve(dataUrl);
+          };
+          img.onerror = (e) => reject(e);
+          img.src = event.target.result;
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function handlePhotoInputChange(e) {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+      const existingPhotos = state.form.photos || [];
+      const remainingSlots = 3 - existingPhotos.length;
+      if (remainingSlots <= 0) {
+        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin.' });
+        e.target.value = '';
+        return;
+      }
+      const filesToUse = files.slice(0, remainingSlots);
+      if (files.length > remainingSlots) {
+        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin. Fazladan seçilenler alınmadı.' });
+      }
+      Promise.all(filesToUse.map(resizeImageToDataURL))
+        .then((newPhotos) => {
+          const nextPhotos = existingPhotos.concat(newPhotos);
+          const newForm = Object.assign({}, state.form, { photos: nextPhotos });
+          state.form = newForm;
+          setState({ form: newForm, error: '' });
+        })
+        .catch((err) => {
+          console.error(err);
+          setState({ error: 'Fotoğraflar işlenirken bir hata oluştu.' });
+        })
+        .finally(() => {
+          e.target.value = '';
+        });
+    }
+
+    function renderExpenseChart() {
+      const canvas = document.getElementById('expenseChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const expenses = getVisibleExpenses();
+      if (!expenses.length) return;
+
+      const totals = {};
+      expenses.forEach(exp => {
+        const catId = exp.category || 'other';
+        const amount = Number(exp.amount) || 0;
+        if (!amount) return;
+        if (!totals[catId]) totals[catId] = 0;
+        totals[catId] += amount;
+      });
+      const catIds = Object.keys(totals);
+      if (!catIds.length) return;
+
+      const labels = catIds.map(id => getCategoryMeta(id).label);
+      const data = catIds.map(id => totals[id]);
+      const colors = catIds.map(id => getCategoryMeta(id).chartColor);
+
+      if (expenseChartInstance) {
+        expenseChartInstance.destroy();
+        expenseChartInstance = null;
+      }
+
+      expenseChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [
+            {
+              data,
+              backgroundColor: colors,
+              borderWidth: 1,
+              borderColor: 'rgba(15,23,42,0.08)'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '60%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#0f172a',
+                font: { size: 11 }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  return label + ': ' + value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function openNewExpenseForm() {
+      resetForm();
+      const formWithTrip = Object.assign({}, state.form);
+      if (state.tripFilter) {
+        formWithTrip.tripName = state.tripFilter;
+      }
+      state.form = formWithTrip;
+      setState({
+        view: 'form',
+        selectedExpenseId: null,
+        showDetailModal: false,
+        error: '',
+        activeTab: 'expenses'
+      });
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const f = state.form;
+
+      const trimmedTrip = (f.tripName || '').trim() || (state.tripFilter || '').trim();
+      const trimmedCity = (f.city || '').trim();
+      const trimmedPlace = (f.place || '').trim();
+      const amountNum = parseFloat(f.amount);
+      const peopleNum = parseInt(f.peopleCount || '1', 10) || 1;
+
+      const errors = [];
+      if (!trimmedCity) errors.push('Şehir alanı zorunludur.');
+      if (!trimmedPlace) errors.push('Mekan / başlık alanı zorunludur.');
+      if (!f.date) errors.push('Tarih seçmelisin.');
+      if (!f.currency) errors.push('Para birimi seçmelisin.');
+      if (!f.category) errors.push('Kategori seçmelisin.');
+      if (!amountNum || amountNum <= 0) errors.push('Tutar 0\'dan büyük olmalıdır.');
+
+      if (errors.length) {
+        setState({ error: errors[0] });
+        return;
+      }
+
+      const normalizedTrip = trimmedTrip ? toTitleCase(trimmedTrip) : '';
+      const normalizedCity = toTitleCase(trimmedCity);
+      const normalizedPlace = toTitleCase(trimmedPlace);
+
+      const expense = {
+        id: f.id || generateId(),
+        tripName: normalizedTrip,
+        city: normalizedCity,
+        place: normalizedPlace,
+        amount: amountNum,
+        currency: f.currency,
+        date: f.date,
+        category: f.category,
+        description: (f.description || '').trim(),
+        peopleCount: peopleNum,
+        photos: (f.photos || []).slice()
+      };
+
+      let newExpenses;
+      if (f.id) {
+        newExpenses = state.expenses.map(exp => exp.id === f.id ? Object.assign({}, exp, expense) : exp);
+      } else {
+        newExpenses = state.expenses.concat(expense);
+      }
+      state.expenses = newExpenses;
+
+      const newExpanded = Object.assign({}, state.expandedCities, { [normalizedCity]: false });
+      state.expandedCities = newExpanded;
+
+      saveExpenses();
+      resetForm();
+      setState({
+        view: 'list',
+        error: '',
+        activeTab: 'expenses'
+      });
+    }
+
+    function handleDeleteExpense() {
+      const exp = getSelectedExpense();
+      if (!exp) return;
+      const filtered = state.expenses.filter(e => e.id !== exp.id);
+      state.expenses = filtered;
+      const remainingForCity = filtered.filter(e => e.city === exp.city);
+      const expanded = Object.assign({}, state.expandedCities);
+      if (!remainingForCity.length && expanded.hasOwnProperty(exp.city)) {
+        delete expanded[exp.city];
+      }
+      state.expandedCities = expanded;
+      saveExpenses();
+      setState({
+        showDetailModal: false,
+        selectedExpenseId: null,
+        error: ''
+      });
+    }
+
+    function addChecklistItem() {
+      const labelInput = document.getElementById('new-check-label');
+      const categorySelect = document.getElementById('new-check-category');
+      if (!labelInput) return;
+      const raw = (labelInput.value || '');
+      const labels = raw.split(',').map(s => s.trim()).filter(Boolean);
+      const category = categorySelect ? (categorySelect.value || 'other') : 'other';
+
+      if (!labels.length) {
+        setState({ error: 'Lütfen eklenecek maddenin adını yaz.' });
+        return;
+      }
+
+      const itemsToAdd = labels.map(label => ({
+        id: generateId(),
+        label,
+        category,
+        done: false
+      }));
+
+      const newItems = (state.checklistItems || []).concat(itemsToAdd);
+      state.checklistItems = newItems;
+      saveChecklist();
+      labelInput.value = '';
+      setState({ checklistItems: newItems, error: '', showAddItemPanel: true });
+    }
+
+    function addChecklistCategory() {
+      const labelInput = document.getElementById('new-category-label');
+      const iconInput = document.getElementById('new-category-icon');
+      if (!labelInput) return;
+      const label = (labelInput.value || '').trim();
+      let icon = iconInput ? (iconInput.value || '').trim() : '';
+      if (!label) {
+        setState({ error: 'Lütfen kategori adını yaz.' });
+        return;
+      }
+      if (!icon) icon = '⭐';
+      const currentCategories = getChecklistCategories().slice();
+      const newCategory = {
+        id: 'cat_' + generateId(),
+        label,
+        icon
+      };
+      currentCategories.push(newCategory);
+      state.checklistCategories = currentCategories;
+      saveChecklist();
+      labelInput.value = '';
+      if (iconInput) iconInput.value = '';
+      setState({ checklistCategories: currentCategories, error: '', showAddCategoryPanel: true });
+    }
+
+    function importDataFromJson(jsonText) {
+      let obj;
+      try {
+        obj = JSON.parse(jsonText);
+      } catch (err) {
+        setState({ error: 'JSON parse edilemedi. Formatı kontrol et.', importJsonText: jsonText });
+        return;
+      }
+      const expenses = Array.isArray(obj.expenses) ? obj.expenses : [];
+      const checklistItems = Array.isArray(obj.checklistItems) ? obj.checklistItems : [];
+      const checklistCategories =
+        Array.isArray(obj.checklistCategories) && obj.checklistCategories.length
+          ? obj.checklistCategories
+          : DEFAULT_CHECKLIST_CATEGORIES.slice();
+
+      state.expenses = expenses;
+      state.checklistItems = checklistItems;
+      state.checklistCategories = checklistCategories;
+
+      const expandedCities = {};
+      expenses.forEach(exp => {
+        if (exp.city) expandedCities[exp.city] = false;
+      });
+      state.expandedCities = expandedCities;
+
+      if (obj.budget) {
+        state.budgetCurrency = obj.budget.currency || state.budgetCurrency;
+        state.budgetAmount = obj.budget.amount != null ? String(obj.budget.amount) : state.budgetAmount;
+        saveBudget();
+      }
+
+      saveExpenses();
+      saveChecklist();
+
+      setState({
+        showDataModal: false,
+        importJsonText: '',
+        error: ''
+      });
+    }
+
+    function updateExpenseListOnly() {
+      const container = document.getElementById('expense-list-container');
+      if (!container) return;
+      const visibleExpenses = getVisibleExpenses();
+      container.innerHTML = renderCityList(visibleExpenses);
+      attachExpenseListListeners();
+    }
+
+    function attachExpenseListListeners() {
+      const expenseCards = document.querySelectorAll('[data-expense-id]');
+      expenseCards.forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.getAttribute('data-expense-id');
+          setState({
+            selectedExpenseId: id,
+            showDetailModal: true,
+            error: '',
+            activeTab: 'expenses'
+          });
+        });
+      });
+
+      const cityHeaders = document.querySelectorAll('[data-city-toggle]');
+      cityHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+          const city = header.getAttribute('data-city-toggle');
+          const isExpanded = state.expandedCities[city] === true;
+          const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
+          state.expandedCities = updated;
+          setState({ expandedCities: updated });
+        });
+      });
+    }
+
+    function attachEventListeners() {
+      const categoryFilter = document.getElementById('category-filter');
+      if (categoryFilter) {
+        categoryFilter.addEventListener('change', (e) => {
+          setState({ filterCategory: e.target.value });
+        });
+      }
+
+      const tripFilterSelect = document.getElementById('trip-filter');
+      if (tripFilterSelect) {
+        tripFilterSelect.addEventListener('change', (e) => {
+          setState({ tripFilter: e.target.value });
+        });
+      }
+
+      // 🔹 Özet kartındaki seyahat filtresi
+      const summaryTripFilter = document.getElementById('summary-trip-filter');
+      if (summaryTripFilter) {
+        summaryTripFilter.addEventListener('change', (e) => {
+          setState({ tripFilter: e.target.value });
+        });
+      }
+
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          state.searchQuery = e.target.value;
+          updateExpenseListOnly();
+        });
+      }
+
+      const openChartBtn = document.getElementById('open-chart-modal-btn');
+      if (openChartBtn) {
+        openChartBtn.addEventListener('click', () => {
+          if (getVisibleExpenses().length === 0) return;
+          setState({ showChartModal: true });
+        });
+      }
+
+      const closeChartBtn = document.getElementById('close-chart-modal-btn');
+      if (closeChartBtn) {
+        closeChartBtn.addEventListener('click', () => {
+          if (expenseChartInstance) {
+            expenseChartInstance.destroy();
+            expenseChartInstance = null;
+          }
+          setState({ showChartModal: false });
+        });
+      }
+
+      const chartOverlay = document.getElementById('chart-modal-overlay');
+      if (chartOverlay) {
+        chartOverlay.addEventListener('click', (e) => {
+          if (e.target === chartOverlay) {
+            if (expenseChartInstance) {
+              expenseChartInstance.destroy();
+              expenseChartInstance = null;
+            }
+            setState({ showChartModal: false });
+          }
+        });
+      }
+
+      const chartCanvas = document.getElementById('expenseChart');
+      if (chartCanvas && state.showChartModal) {
+        renderExpenseChart();
+      }
+
+      const clearBtn = document.getElementById('clear-all-btn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          setState({ showConfirmClear: true });
+        });
+      }
+
+      const clearChecklistBtn = document.getElementById('clear-checklist-btn');
+      if (clearChecklistBtn) {
+        clearChecklistBtn.addEventListener('click', () => {
+          const items = (state.checklistItems || []).map(item =>
+            Object.assign({}, item, { done: false })
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items, error: '' });
+        });
+      }
+
+      const confirmClearBtn = document.getElementById('confirm-clear-all-btn');
+      if (confirmClearBtn) {
+        confirmClearBtn.addEventListener('click', () => {
+          clearAllExpenses();
+          setState({ showConfirmClear: false, error: '' });
+        });
+      }
+
+      const cancelClearBtn = document.getElementById('cancel-clear-all-btn');
+      if (cancelClearBtn) {
+        cancelClearBtn.addEventListener('click', () => {
+          setState({ showConfirmClear: false });
+        });
+      }
+
+      const fab = document.getElementById('add-expense-fab');
+      if (fab) {
+        fab.addEventListener('click', () => {
+          openNewExpenseForm();
+        });
+      }
+
+      const backBtn = document.getElementById('back-to-list-btn');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          resetForm();
+          setState({ view: 'list', error: '', activeTab: 'expenses' });
+        });
+      }
+
+      const closeFormBtn = document.getElementById('close-form-btn');
+      if (closeFormBtn) {
+        closeFormBtn.addEventListener('click', () => {
+          resetForm();
+          setState({ view: 'list', error: '', activeTab: 'expenses' });
+        });
+      }
+
+      const formEl = document.getElementById('expense-form');
+      if (formEl) {
+        formEl.addEventListener('submit', handleFormSubmit);
+      }
+
+      const tripInput = document.getElementById('tripName');
+      if (tripInput) {
+        tripInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { tripName: e.target.value });
+        });
+      }
+
+      const cityInput = document.getElementById('city');
+      if (cityInput) {
+        cityInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { city: e.target.value });
+        });
+      }
+
+      const placeInput = document.getElementById('place');
+      if (placeInput) {
+        placeInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { place: e.target.value });
+        });
+      }
+
+      const amountInput = document.getElementById('amount');
+      if (amountInput) {
+        amountInput.addEventListener('input', (e) => {
+          let val = e.target.value || '';
+          val = val.replace(',', '.');
+          val = val.replace(/[^0-9.]/g, '');
+          const parts = val.split('.');
+          if (parts.length > 2) {
+            val = parts[0] + '.' + parts.slice(1).join('');
+          }
+          e.target.value = val;
+          state.form = Object.assign({}, state.form, { amount: val });
+        });
+      }
+
+      const currencySelect = document.getElementById('currency');
+      if (currencySelect) {
+        currencySelect.addEventListener('change', (e) => {
+          state.form = Object.assign({}, state.form, { currency: e.target.value });
+        });
+      }
+
+      const dateInput = document.getElementById('date');
+      if (dateInput) {
+        dateInput.addEventListener('change', (e) => {
+          state.form = Object.assign({}, state.form, { date: e.target.value });
+        });
+      }
+
+      const peopleInput = document.getElementById('peopleCount');
+      if (peopleInput) {
+        peopleInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { peopleCount: e.target.value });
+        });
+      }
+
+      const descInput = document.getElementById('description');
+      if (descInput) {
+        descInput.addEventListener('input', (e) => {
+          state.form = Object.assign({}, state.form, { description: e.target.value });
+        });
+      }
+
+      const categoryButtons = document.querySelectorAll('[data-category]');
+      categoryButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.getAttribute('data-category');
+          const newForm = Object.assign({}, state.form, { category: catId });
+          state.form = newForm;
+          setState({ form: newForm, error: '' });
+        });
+      });
+
+      const photoInput = document.getElementById('photo-input');
+      if (photoInput) {
+        photoInput.addEventListener('change', handlePhotoInputChange);
+      }
+
+      const thumbDeleteBtns = document.querySelectorAll('[data-remove-photo]');
+      thumbDeleteBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-remove-photo'), 10);
+          const photos = (state.form.photos || []).slice();
+          if (idx >= 0 && idx < photos.length) {
+            photos.splice(idx, 1);
+            const newForm = Object.assign({}, state.form, { photos });
+            state.form = newForm;
+            setState({ form: newForm });
+          }
+        });
+      });
+
+      const detailCloseBtn = document.getElementById('close-detail-modal-btn');
+      const detailOverlay = document.getElementById('detail-modal-overlay');
+      if (detailCloseBtn) {
+        detailCloseBtn.addEventListener('click', () => {
+          setState({ showDetailModal: false, selectedExpenseId: null });
+        });
+      }
+      if (detailOverlay) {
+        detailOverlay.addEventListener('click', (e) => {
+          if (e.target === detailOverlay) {
+            setState({ showDetailModal: false, selectedExpenseId: null });
+          }
+        });
+      }
+
+      const editExpenseBtn = document.getElementById('edit-expense-btn');
+      if (editExpenseBtn) {
+        editExpenseBtn.addEventListener('click', () => {
+          const exp = getSelectedExpense();
+          if (!exp) return;
+          state.form = {
+            id: exp.id,
+            tripName: exp.tripName || '',
+            city: exp.city || '',
+            place: exp.place || '',
+            amount: String(exp.amount),
+            currency: exp.currency || 'TRY',
+            date: exp.date || new Date().toISOString().slice(0, 10),
+            category: exp.category || '',
+            description: exp.description || '',
+            peopleCount: exp.peopleCount != null ? String(exp.peopleCount) : '1',
+            photos: (exp.photos || []).slice()
+          };
+          setState({
+            view: 'form',
+            showDetailModal: false,
+            error: '',
+            activeTab: 'expenses'
+          });
+        });
+      }
+
+      const duplicateExpenseBtn = document.getElementById('duplicate-expense-btn');
+      if (duplicateExpenseBtn) {
+        duplicateExpenseBtn.addEventListener('click', () => {
+          const exp = getSelectedExpense();
+          if (!exp) return;
+          state.form = {
+            id: null,
+            tripName: exp.tripName || '',
+            city: exp.city || '',
+            place: exp.place || '',
+            amount: String(exp.amount),
+            currency: exp.currency || 'TRY',
+            date: new Date().toISOString().slice(0, 10),
+            category: exp.category || '',
+            description: exp.description || '',
+            peopleCount: exp.peopleCount != null ? String(exp.peopleCount) : '1',
+            photos: (exp.photos || []).slice()
+          };
+          setState({
+            view: 'form',
+            showDetailModal: false,
+            error: '',
+            activeTab: 'expenses'
+          });
+        });
+      }
+
+      const deleteExpenseBtn = document.getElementById('delete-expense-btn');
+      if (deleteExpenseBtn) {
+        deleteExpenseBtn.addEventListener('click', () => {
+          handleDeleteExpense();
+        });
+      }
+
+      const moveTripBtn = document.getElementById('move-expense-trip-btn');
+      if (moveTripBtn) {
+        moveTripBtn.addEventListener('click', () => {
+          const exp = getSelectedExpense();
+          if (!exp) return;
+          const select = document.getElementById('detail-trip-select');
+          const input = document.getElementById('detail-trip-input');
+          const rawSelect = select ? (select.value || '').trim() : '';
+          const rawInput = input ? (input.value || '').trim() : '';
+          const raw = rawSelect || rawInput;
+          const newTrip = raw ? toTitleCase(raw) : '';
+
+          const updatedExpenses = state.expenses.map(e =>
+            e.id === exp.id ? Object.assign({}, e, { tripName: newTrip }) : e
+          );
+          state.expenses = updatedExpenses;
+          saveExpenses();
+          setState({ expenses: updatedExpenses, error: '', showDetailModal: true });
+        });
+      }
+
+      
+      const tabButtons = document.querySelectorAll('[data-tab]');
+      tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tab = btn.getAttribute('data-tab');
+          if (tab === 'expenses') {
+            setState({ activeTab: 'expenses', view: 'list', showDetailModal: false });
+          } else if (tab === 'checklist') {
+            setState({ activeTab: 'checklist', view: 'list', showDetailModal: false });
+          } else if (tab === 'tools') {
+            ensureUserLocation();
+            setState({ activeTab: 'tools' });
+          }
+        });
+      });
+
+const addCheckItemBtn = document.getElementById('add-check-item-btn');
+      if (addCheckItemBtn) {
+        addCheckItemBtn.addEventListener('click', () => {
+          addChecklistItem();
+        });
+      }
+
+      const addCategoryBtn = document.getElementById('add-category-btn');
+      if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', () => {
+          addChecklistCategory();
+        });
+      }
+
+      const toggleAddItemPanel = document.getElementById('toggle-add-item-panel');
+      if (toggleAddItemPanel) {
+        toggleAddItemPanel.addEventListener('click', (e) => {
+          e.preventDefault();
+          setState({ showAddItemPanel: !state.showAddItemPanel });
+        });
+      }
+
+      const toggleAddCategoryPanel = document.getElementById('toggle-add-category-panel');
+      if (toggleAddCategoryPanel) {
+        toggleAddCategoryPanel.addEventListener('click', (e) => {
+          e.preventDefault();
+          setState({ showAddCategoryPanel: !state.showAddCategoryPanel });
+        });
+      }
+
+      const checkboxes = document.querySelectorAll('[data-check-item-id]');
+      checkboxes.forEach(ch => {
+        ch.addEventListener('change', () => {
+          const id = ch.getAttribute('data-check-item-id');
+          const items = (state.checklistItems || []).map(item =>
+            item.id === id ? Object.assign({}, item, { done: ch.checked }) : item
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
+
+      const checkAllButtons = document.querySelectorAll('[data-check-all-category]');
+      checkAllButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.getAttribute('data-check-all-category');
+          const items = (state.checklistItems || []).map(item =>
+            item.category === catId ? Object.assign({}, item, { done: true }) : item
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
+
+      const uncheckAllButtons = document.querySelectorAll('[data-uncheck-all-category]');
+      uncheckAllButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.getAttribute('data-uncheck-all-category');
+          const items = (state.checklistItems || []).map(item =>
+            item.category === catId ? Object.assign({}, item, { done: false }) : item
+          );
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
+
+      const removeItemButtons = document.querySelectorAll('[data-remove-check-item]');
+      removeItemButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-remove-check-item');
+          const items = (state.checklistItems || []).filter(item => item.id !== id);
+          state.checklistItems = items;
+          saveChecklist();
+          setState({ checklistItems: items });
+        });
+      });
+
+      const removeCategoryButtons = document.querySelectorAll('[data-remove-category]');
+      removeCategoryButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const catId = btn.getAttribute('data-remove-category');
+          const ok = window.confirm('Bu kategoriyi ve içindeki tüm maddeleri silmek istiyor musun?');
+          if (!ok) return;
+          deleteChecklistCategory(catId);
+        });
+      });
+
+      const checklistSummaries = document.querySelectorAll('[data-checklist-cat-id]');
+      checklistSummaries.forEach(summary => {
+        summary.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const catId = summary.getAttribute('data-checklist-cat-id');
+          const current = state.openChecklistCategories[catId] === true;
+          const updated = Object.assign({}, state.openChecklistCategories, { [catId]: !current });
+          state.openChecklistCategories = updated;
+          setState({ openChecklistCategories: updated });
+        });
+      });
+
+      const showOnlyUncheckedCb = document.getElementById('show-only-unchecked');
+      if (showOnlyUncheckedCb) {
+        showOnlyUncheckedCb.addEventListener('change', (e) => {
+          setState({ showOnlyUnchecked: e.target.checked });
+        });
+      }
+
+      const openDataModalBtn = document.getElementById('open-data-modal-btn');
+      if (openDataModalBtn) {
+        openDataModalBtn.addEventListener('click', () => {
+          setState({ showDataModal: true, importJsonText: '' });
+        });
+      }
+
+      const closeDataModalBtn = document.getElementById('close-data-modal-btn');
+      const dataOverlay = document.getElementById('data-modal-overlay');
+      if (closeDataModalBtn) {
+        closeDataModalBtn.addEventListener('click', () => {
+          setState({ showDataModal: false });
+        });
+      }
+      if (dataOverlay) {
+        dataOverlay.addEventListener('click', (e) => {
+          if (e.target === dataOverlay) {
+            setState({ showDataModal: false });
+          }
+        });
+      }
+
+      const copyExportBtn = document.getElementById('copy-export-btn');
+      if (copyExportBtn) {
+        copyExportBtn.addEventListener('click', () => {
+          const ta = document.getElementById('export-json');
+          if (!ta) return;
+          const text = ta.value;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {});
+          } else {
+            ta.select();
+            document.execCommand('copy');
+          }
+        });
+      }
+
+      const applyImportBtn = document.getElementById('apply-import-btn');
+      if (applyImportBtn) {
+        applyImportBtn.addEventListener('click', () => {
+          const ta = document.getElementById('import-json-input');
+          if (!ta) return;
+          const text = ta.value || '';
+          state.importJsonText = text;
+          importDataFromJson(text);
+        });
+      }
+
+      const budgetCurrencySelect = document.getElementById('budget-currency');
+      if (budgetCurrencySelect) {
+        budgetCurrencySelect.addEventListener('change', (e) => {
+          state.budgetCurrency = e.target.value;
+          saveBudget();
+          renderApp();
+          attachEventListeners();
+        });
+      }
+
+      const budgetAmountInput = document.getElementById('budget-amount');
+      if (budgetAmountInput) {
+        budgetAmountInput.addEventListener('input', (e) => {
+          let val = e.target.value || '';
+          val = val.replace(',', '.');
+          val = val.replace(/[^0-9.]/g, '');
+          const parts = val.split('.');
+          if (parts.length > 2) {
+            val = parts[0] + '.' + parts.slice(1).join('');
+          }
+          e.target.value = val;
+          state.budgetAmount = val;
+          saveBudget();
+          renderApp();
+          attachEventListeners();
+        });
+      }
+
+      const lightboxThumbs = document.querySelectorAll('[data-lightbox-src]');
+      lightboxThumbs.forEach(el => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const src = el.getAttribute('data-lightbox-src');
+          setState({ lightboxPhotoSrc: src });
+        });
+      });
+
+      const lightboxOverlay = document.getElementById('lightbox-overlay');
+      const closeLightboxBtn = document.getElementById('close-lightbox-btn');
+      if (closeLightboxBtn) {
+        closeLightboxBtn.addEventListener('click', () => {
+          setState({ lightboxPhotoSrc: null });
+        });
+      }
+      if (lightboxOverlay) {
+        lightboxOverlay.addEventListener('click', (e) => {
+          if (e.target === lightboxOverlay) {
+            setState({ lightboxPhotoSrc: null });
+          }
+        });
+      }
+
+      
+      // Harita & Keşif sekmesi eventleri
+      if (state.activeTab === 'tools') {
+        // İç sekme butonları
+        const toolsTabButtons = document.querySelectorAll('[data-tools-tab]');
+        toolsTabButtons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const view = btn.getAttribute('data-tools-tab') || 'restaurants';
+            setState({ toolsView: view });
+          });
+        });
+
+        // CleanBite Radar kontrolleri
+        if (state.toolsView === 'restaurants') {
+          const filterSelect = document.getElementById('cb-filter');
+          if (filterSelect) {
+            filterSelect.addEventListener('change', (e) => {
+              state.cleanBiteFilter = e.target.value;
+              setState({ cleanBiteFilter: e.target.value });
+            });
+          }
+
+          const radiusInput = document.getElementById('cb-radius');
+          const radiusLabel = document.getElementById('cb-radius-label');
+          if (radiusInput) {
+            radiusInput.addEventListener('input', (e) => {
+              const val = parseFloat(e.target.value || '1.5');
+              if (radiusLabel) {
+                radiusLabel.textContent = val.toFixed(1).replace('.', ',') + ' km';
+              }
+            });
+            radiusInput.addEventListener('change', (e) => {
+              const val = parseFloat(e.target.value || '1.5');
+              setState({ cleanBiteRadiusKm: isNaN(val) ? 1.5 : val });
+            });
+          }
+
+          const searchBtn = document.getElementById('cb-search-btn');
+          if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+              ensureUserLocation();
+              searchNearbyRestaurants();
+            });
+          }
+
+          // Haritayı hazırla
+          initCleanBiteMap();
+        }
+
+        // TripRoute Planlayıcı kontrolleri
+        if (state.toolsView === 'route') {
+          const searchInput = document.getElementById('route-search-input');
+          const searchBtn = document.getElementById('route-search-btn');
+
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              state.routeSearchQuery = e.target.value;
+            });
+            searchInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                setState({ routeSearchQuery: searchInput.value });
+                performRouteSearch();
+              }
+            });
+          }
+
+          if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+              if (searchInput) {
+                setState({ routeSearchQuery: searchInput.value });
+              }
+              performRouteSearch();
+            });
+          }
+
+          const resultButtons = document.querySelectorAll('[data-add-route-idx]');
+          if (resultButtons && resultButtons.length) {
+            resultButtons.forEach((btn) => {
+              btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-add-route-idx') || '0', 10);
+                const list = state.routeSearchResults || [];
+                const item = list[idx];
+                if (!item) return;
+                const newPoint = {
+                  id: generateId(),
+                  lat: item.lat,
+                  lng: item.lng,
+                  label: item.displayName
+                };
+                const newPoints = (state.routePoints || []).concat(newPoint);
+                state.routePoints = newPoints;
+                setState({ routePoints: newPoints });
+              });
+            });
+          }
+
+          const clearBtn = document.getElementById('route-clear-btn');
+          if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+              if (!(state.routePoints || []).length) return;
+              state.routePoints = [];
+              setState({ routePoints: [] });
+            });
+          }
+
+          const goBtn = document.getElementById('route-go-btn');
+          if (goBtn) {
+            goBtn.addEventListener('click', () => {
+              const pts = state.routePoints || [];
+              if (pts.length < 2) return;
+
+              const origin = pts[0];
+              const destination = pts[pts.length - 1];
+              const waypoints = pts.slice(1, -1);
+
+              const params = new URLSearchParams();
+              params.set('api', '1');
+              params.set(
+                'origin',
+                origin.lat + ',' + origin.lng
+              );
+              params.set(
+                'destination',
+                destination.lat + ',' + destination.lng
+              );
+              if (waypoints.length) {
+                params.set(
+                  'waypoints',
+                  waypoints
+                    .map((p) => p.lat + ',' + p.lng)
+                    .join('|')
+                );
+              }
+              params.set('travelmode', 'driving');
+
+              const url =
+                'https://www.google.com/maps/dir/?' + params.toString();
+              window.open(url, '_blank');
+            });
+          }
+
+          // Haritayı hazırla
+          initRouteMap();
+        }
+      }
+
+attachExpenseListListeners();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const expenses = loadExpenses();
+      const checklistData = loadChecklist();
+      const budget = loadBudget();
+      const { categories, items } = checklistData;
+
+      const expandedCities = {};
+      expenses.forEach(exp => {
+        if (exp.city) expandedCities[exp.city] = false;
+      });
+
+      state.expenses = expenses;
+      state.checklistCategories = categories;
+      state.checklistItems = items;
+      state.expandedCities = expandedCities;
+      state.budgetCurrency = budget.currency;
+      state.budgetAmount = budget.amount;
+
+      renderApp();
+      attachEventListeners();
+    });
+  })();
+  </script>
+</body>
+</html>
