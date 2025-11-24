@@ -36,8 +36,7 @@ body{font-family:'Inter',sans-serif}
   const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget',PREF:'travel_pref'};
   let chartInst=null, state={};
   
-  // GÜNCEL KURLAR (Kasım 2025 Verileri - Sabit)
-  // TRY baz alınarak diğer kurlar hesaplanmıştır.
+  // GÜNCEL KURLAR (Kasım 2025 Verileri - Sabit) - Sadece dönüştürücüde kullanılıyordu, ancak convert fonsiyonunda kalacak
   const RATES = { TRY:1, USD:42.42, EUR:48.91, GBP:55.61 };
   
   const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -115,10 +114,7 @@ body{font-family:'Inter',sans-serif}
         c.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
     }
     
-    // Yeni state: Döviz Hesaplayıcı başlangıç değerleri
-    const initialFrom = p;
-    const initialTo = (p === 'USD' ? 'EUR' : 'USD');
-    const initialAmount = 100;
+    // Döviz Hesaplayıcı state'i kaldırıldı.
 
     state={
         exp:e,
@@ -135,12 +131,6 @@ body{font-family:'Inter',sans-serif}
         expandedCities:{},
         lightbox:null,
         err:'',
-        converter: {
-            amount: initialAmount,
-            from: initialFrom,
-            to: initialTo,
-            result: convert(initialAmount, initialFrom, initialTo)
-        }
     };
     
     // Check List Kategorileri: Açık/Kapalı Durumu
@@ -155,7 +145,7 @@ body{font-family:'Inter',sans-serif}
     localStorage.setItem(K.PREF,state.prefCur);
   };
   
-  // Para Birimi Dönüştürücü
+  // Para Birimi Dönüştürücü (Sadece harcama toplamı için kaldı)
   const convert = (amt, from, to) => {
     // Kur oranları sadece TRY'ye göre belirlenmiştir.
     const rateFrom = RATES[from] || 1;
@@ -207,11 +197,6 @@ body{font-family:'Inter',sans-serif}
     visibleExp.forEach(x => {
         total += convert(Number(x.amt), x.cur, state.prefCur);
     });
-    
-    const converter = state.converter;
-    const cur_options = Object.keys(RATES).map(c=>`<option value="${c}" ${converter.from===c?'selected':''}>${c}</option>`).join('');
-    const cur_options_to = Object.keys(RATES).map(c=>`<option value="${c}" ${converter.to===c?'selected':''}>${c}</option>`).join('');
-
 
     return `
       <!-- TOPLAM HARCAMA ALANI -->
@@ -238,37 +223,6 @@ body{font-family:'Inter',sans-serif}
                </div>
             </div>
          </div>
-      </div>
-      
-      <!-- DÖVİZ HESAPLAYICISI -->
-      <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 mb-3 shadow-lg">
-          <h3 class="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1">${ICONS.currency.replace('w-4 h-4', 'w-3.5 h-3.5')} Hızlı Kur Hesaplama</h3>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
-              
-              <input 
-                id="conv-amount" 
-                type="text" 
-                inputmode="decimal" 
-                data-act="conv-amt" 
-                value="${converter.amount || ''}" 
-                placeholder="Miktar"
-                class="col-span-1 md:col-span-2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 outline-none font-mono text-center"
-              >
-              
-              <select id="conv-from" data-act="conv-from" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-sm text-slate-200 outline-none cursor-pointer">
-                ${cur_options}
-              </select>
-
-              <div class="text-center text-slate-400 font-bold hidden md:block">${ICONS.map.replace('w-4 h-4', 'w-3.5 h-3.5 rotate-90 md:rotate-0')}</div>
-
-              <select id="conv-to" data-act="conv-to" class="bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-sm text-slate-200 outline-none cursor-pointer">
-                ${cur_options_to}
-              </select>
-          </div>
-          <div class="mt-2 bg-slate-900 border border-slate-700 rounded-lg p-2 text-center">
-             <div class="text-[9px] uppercase text-slate-500 font-bold mb-0.5">Dönüşüm Sonucu</div>
-             <div class="text-lg font-bold text-white">${fmtNum(converter.result)} <span class="text-xs opacity-70">${converter.to}</span></div>
-          </div>
       </div>
       
     `;
@@ -851,13 +805,7 @@ body{font-family:'Inter',sans-serif}
     if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
     if(t.dataset.act==='set-pref-cur'){state.prefCur=t.value; save(); renderApp();}
     
-    // Döviz Hesaplayıcı birimlerini değiştir
-    if(t.dataset.act === 'conv-from' || t.dataset.act === 'conv-to'){
-        state.converter[t.dataset.act.replace('conv-', '')] = t.value;
-        const result = convert(state.converter.amount, state.converter.from, state.converter.to);
-        state.converter.result = result;
-        renderApp();
-    }
+    // Döviz Hesaplayıcı birimlerini değiştirme mantığı kaldırıldı.
   });
 
   document.addEventListener('input',e=>{
@@ -873,7 +821,8 @@ body{font-family:'Inter',sans-serif}
             case 'i-city': f.city = cleanValue; break;
             case 'i-place': f.place = cleanValue; break;
             case 'i-amt': 
-                // ÖNEMLİ DÜZELTME: Sadece form state'ini ve input değerini güncelle, renderApp'i çağırma
+                // Klavyede imlecin kaybolmasını engelleyen kritik düzeltme:
+                // DOM'u yeniden çizmek yerine sadece input değerini ve state'i güncelliyoruz.
                 const inputElement = document.getElementById('i-amt');
                 const start = inputElement.selectionStart;
                 const end = inputElement.selectionEnd;
@@ -884,9 +833,8 @@ body{font-family:'Inter',sans-serif}
                 // İmleç pozisyonunu koru
                 inputElement.setSelectionRange(start, end);
                 
-                // DOM'u yeniden çizmediğimiz için renderApp'i burada çağırmıyoruz.
-                // Diğer alanlar için DOM yeniden çizimi gerekiyorsa, onların input event'i renderApp'i çağırır.
-                break;
+                // Buradaki inputlar için renderApp() çağrılmaz.
+                return;
             case 'i-cur': f.cur = cleanValue; renderApp(); break;
             case 'i-ppl': f.ppl = cleanValue; renderApp(); break;
             case 'i-date': f.date = cleanValue; renderApp(); break;
@@ -895,23 +843,10 @@ body{font-family:'Inter',sans-serif}
     };
 
     if(e.target.id && e.target.id.startsWith('i-')) {
-        // Miktar alanı dışındaki form alanları için renderApp() çağrılabilir
-        if (e.target.id !== 'i-amt') {
-            updateForm(e.target.id, e.target.value);
-        } else {
-            // Miktar alanı için sadece state'i güncelle ve imleci koru
-            updateForm(e.target.id, e.target.value);
-        }
+        updateForm(e.target.id, e.target.value);
     }
     
-    // Döviz Hesaplayıcı tutarını değiştir
-    if(e.target.dataset.act === 'conv-amt'){
-        const cleanVal = e.target.value.replace(',','.').replace(/[^0-9.]/g,'');
-        state.converter.amount = parseFloat(cleanVal) || 0;
-        const result = convert(state.converter.amount, state.converter.from, state.converter.to);
-        state.converter.result = result;
-        renderApp();
-    }
+    // Döviz Hesaplayıcı tutarını değiştirme mantığı kaldırıldı.
 
     // Resim Yükleme (Base64'e dönüştürme ve boyutlandırma)
     if(e.target.id==='i-img'){
