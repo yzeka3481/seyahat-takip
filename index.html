@@ -1,2633 +1,747 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Seyahat Cüzdanı - Travel Expense Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-    .scrollbar-thin::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    .scrollbar-thin::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-      background: rgba(148,163,184,0.7);
-      border-radius: 9999px;
-    }
-  </style>
+<meta charset="UTF-8"><title>Seyahat Cüzdanı</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif}
+.scrl::-webkit-scrollbar{width:6px;height:6px}
+.scrl::-webkit-scrollbar-thumb{background:rgba(71,85,105,0.5);border-radius:99px}
+.scrl::-webkit-scrollbar-track{background:transparent}
+/* Checkbox custom style */
+.custom-checkbox:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e"); border-color: transparent; background-color: #10b981; }
+.glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+</style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-slate-100">
-  <div id="app" class="min-h-screen flex items-center justify-center px-4 py-6 md:px-6 md:py-10">
-    <div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
-  </div>
+<body class="min-h-screen bg-[#0F111A] text-slate-200 flex items-center justify-center p-4 selection:bg-blue-500/30">
+<div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
 
-  <script>
-  (() => {
-    const STORAGE_KEY = 'travel_expenses';
-    const CHECKLIST_STORAGE_KEY = 'travel_checklist';
-    const BUDGET_STORAGE_KEY = 'travel_budget';
+<script>
+(()=>{
+  // --- Sabitler ---
+  const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget',PREF:'travel_pref'};
+  let chartInst=null, state={};
+  
+  // GÜNCEL KURLAR (Kasım 2025 Verileri)
+  const RATES = { TRY:1, USD:42.42, EUR:48.91, GBP:55.61 };
+  
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  
+  const fmtNum=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2, minimumFractionDigits:2});
+  const fmtDate=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d};
+  const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+  const titleCase=s=>s?s.toLowerCase().split(' ').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '):'';
+  
+  const getCityColor = (str) => {
+    let hash = 0; if (!str) return 'hsl(210, 100%, 50%)'; 
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return `hsl(${Math.abs(hash)%360}, 70%, 55%)`; 
+  };
 
-    let expenseChartInstance = null;
+  const mkSvg=(d,s=4)=>`<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICONS={
+    wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',6),
+    trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
+    info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+    plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+    x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+    chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
+    cal: mkSvg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+    map: mkSvg('<path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2z"/><path d="M9 6v12"/><path d="M15 8v12"/>'),
+    edit: mkSvg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
+    down: mkSvg('<polyline points="6 9 12 15 18 9"/>'),
+    search: mkSvg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    person: mkSvg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+    briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+    broom: mkSvg('<path d="M18 7c0-2.8-2.2-5-5-5S8 4.2 8 7c0 1.2.4 2.3 1 3.2l-6 10.6a1 1 0 0 0 1.8 1l2.4-4.4 2.4 4.4a1 1 0 0 0 1.8-1l-6-10.6C12.4 9.4 13 8.3 13 7z"/>'),
+    refresh: mkSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>')
+  };
 
-    const ICONS = {
-      wallet: `
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
-          <path d="M16 10h3"></path>
-          <path d="M8 6V4h8v2"></path>
-        </svg>
-      `,
-      walletMini: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="6" width="18" height="13" rx="3"></rect>
-          <path d="M16 10h3"></path>
-          <path d="M8 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-        </svg>
-      `,
-      trash: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-          <path d="M10 11v6"></path>
-          <path d="M14 11v6"></path>
-          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-        </svg>
-      `,
-      info: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-      `,
-      warning: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-      `,
-      calendar: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-      `,
-      person: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"></path>
-          <path d="M5 21a7 7 0 0 1 14 0"></path>
-        </svg>
-      `,
-      photo: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-          <circle cx="8.5" cy="10.5" r="1.5"></circle>
-          <path d="M21 15l-3.5-3.5L13 16l-2-2-4 4"></path>
-        </svg>
-      `,
-      plus: `
-        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      `,
-      chart: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21.21 15.89A10 10 0 1 1 12 2"></path>
-          <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
-        </svg>
-      `,
-      x: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      `,
-      xMini: `
-        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      `,
-      edit: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 20h9"></path>
-          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-        </svg>
-      `,
-      map: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2z"></path>
-          <path d="M9 6v12"></path>
-          <path d="M15 8v12"></path>
-        </svg>
-      `,
-      locationPin: `
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z"></path>
-          <circle cx="12" cy="11" r="2.5"></circle>
-        </svg>
-      `,
-      chevronUp: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-      `,
-      chevronDown: `
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      `
-    };
+  const CATS={
+    food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
+    stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
+    transport:{id:'transport',l:'Ulaşım',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
+    shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
+    activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
+    other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
+  };
+  
+  const DEF_CATS=[{id:'docs',l:'Belgeler',i:'📄'},{id:'clth',l:'Giyim',i:'👕'},{id:'elec',l:'Elektronik',i:'🔌'},{id:'hlth',l:'Sağlık',i:'💊'},{id:'otr',l:'Diğer',i:'⭐'}];
+  
+  const DEF_ITEMS = [
+    {cat:'docs', val:'Pasaport'}, {cat:'docs', val:'Kimlik / Ehliyet'}, {cat:'docs', val:'Uçak Biletleri'}, {cat:'docs', val:'Otel Rezervasyonları'}, {cat:'docs', val:'Seyahat Sigortası'},
+    {cat:'clth', val:'Tişörtler'}, {cat:'clth', val:'Pantolon / Şort'}, {cat:'clth', val:'İç Çamaşırı'}, {cat:'clth', val:'Çoraplar'}, {cat:'clth', val:'Rahat Ayakkabı'}, {cat:'clth', val:'Pijama'},
+    {cat:'elec', val:'Şarj Aleti'}, {cat:'elec', val:'Powerbank'}, {cat:'elec', val:'Kulaklık'}, {cat:'elec', val:'Priz Dönüştürücü'},
+    {cat:'hlth', val:'Ağrı Kesici'}, {cat:'hlth', val:'Yara Bandı'}, {cat:'hlth', val:'Kişisel İlaçlar'}, {cat:'hlth', val:'El Dezenfektanı'},
+    {cat:'otr', val:'Güneş Gözlüğü'}, {cat:'otr', val:'Diş Fırçası & Macunu'}, {cat:'otr', val:'Şampuan & Duş Jeli'}
+  ];
 
-    const CATEGORY_META = {
-      food: {
-        id: 'food',
-        label: 'Yeme-İçme',
-        icon: '🍽️',
-        bgClass: 'bg-rose-50 text-rose-700 border border-rose-100',
-        chartColor: 'rgba(244,63,94,0.8)',
-        accent: 'bg-rose-500/15 text-rose-400',
-        headerGradient: 'from-rose-500 via-rose-500 to-amber-400'
-      },
-      stay: {
-        id: 'stay',
-        label: 'Konaklama',
-        icon: '🛏️',
-        bgClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
-        chartColor: 'rgba(16,185,129,0.8)',
-        accent: 'bg-emerald-500/15 text-emerald-400',
-        headerGradient: 'from-emerald-500 via-emerald-500 to-teal-400'
-      },
-      transport: {
-        id: 'transport',
-        label: 'Ulaşım',
-        icon: '🚕',
-        bgClass: 'bg-sky-50 text-sky-700 border border-sky-100',
-        chartColor: 'rgba(56,189,248,0.8)',
-        accent: 'bg-sky-500/15 text-sky-400',
-        headerGradient: 'from-sky-500 via-sky-500 to-indigo-400'
-      },
-      shopping: {
-        id: 'shopping',
-        label: 'Alışveriş',
-        icon: '🛍️',
-        bgClass: 'bg-amber-50 text-amber-700 border border-amber-100',
-        chartColor: 'rgba(245,158,11,0.85)',
-        accent: 'bg-amber-500/15 text-amber-400',
-        headerGradient: 'from-amber-500 via-amber-500 to-rose-400'
-      },
-      activity: {
-        id: 'activity',
-        label: 'Müze & Aktivite',
-        icon: '🎟️',
-        bgClass: 'bg-violet-50 text-violet-700 border border-violet-100',
-        chartColor: 'rgba(139,92,246,0.85)',
-        accent: 'bg-violet-500/15 text-violet-400',
-        headerGradient: 'from-violet-500 via-violet-500 to-indigo-400'
-      },
-      other: {
-        id: 'other',
-        label: 'Diğer',
-        icon: '📦',
-        bgClass: 'bg-slate-50 text-slate-700 border border-slate-100',
-        chartColor: 'rgba(148,163,184,0.9)',
-        accent: 'bg-slate-500/15 text-slate-300',
-        headerGradient: 'from-slate-500 via-slate-600 to-slate-700'
-      }
-    };
+  const getEmptyForm=()=>({id:null,trip:'',city:'',place:'',amt:'',cur:'TRY',date:new Date().toISOString().slice(0,10),cat:'',desc:'',ppl:'1',imgs:[]});
 
-    const DEFAULT_CHECKLIST_CATEGORIES = [
-      { id: 'documents',  label: 'Belgeler',   icon: '📄' },
-      { id: 'clothes',    label: 'Giyim',      icon: '👕' },
-      { id: 'electronics',label: 'Elektronik', icon: '🔌' },
-      { id: 'health',     label: 'Sağlık',     icon: '💊' },
-      { id: 'other',      label: 'Diğer',      icon: '⭐' }
-    ];
-
-    function generateId() {
-      return Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-    }
-
-    function getEmptyForm() {
-      const today = new Date().toISOString().slice(0, 10);
-      return {
-        id: null,
-        tripName: '',
-        city: '',
-        place: '',
-        amount: '',
-        currency: 'TRY',
-        date: today,
-        category: '',
-        description: '',
-        peopleCount: '1',
-        photos: []
-      };
-    }
-
-    function getDefaultChecklistItems() {
-      return [
-        { id: generateId(), label: 'Pasaport',                   category: 'documents',  done: false },
-        { id: generateId(), label: 'Kimlik / Ehliyet',           category: 'documents',  done: false },
-        { id: generateId(), label: 'Uçak bileti / Rezervasyon',  category: 'documents',  done: false },
-        { id: generateId(), label: 'Otel / Konaklama Belgeleri', category: 'documents',  done: false },
-
-        { id: generateId(), label: 'İç çamaşırı',                category: 'clothes',    done: false },
-        { id: generateId(), label: 'Çorap',                      category: 'clothes',    done: false },
-        { id: generateId(), label: 'Yedek tişört',               category: 'clothes',    done: false },
-        { id: generateId(), label: 'Yedek pantolon / şort',      category: 'clothes',    done: false },
-        { id: generateId(), label: 'Pijama',                     category: 'clothes',    done: false },
-        { id: generateId(), label: 'Hırka / Yağmurluk',          category: 'clothes',    done: false },
-
-        { id: generateId(), label: 'Telefon şarj aleti',         category: 'electronics',done: false },
-        { id: generateId(), label: 'Powerbank',                  category: 'electronics',done: false },
-        { id: generateId(), label: 'Kulaklık',                   category: 'electronics',done: false },
-        { id: generateId(), label: 'Fotoğraf makinesi / SD kart',category: 'electronics',done: false },
-        { id: generateId(), label: 'Laptop / tablet',            category: 'electronics',done: false },
-
-        { id: generateId(), label: 'Günlük kullanılan ilaçlar',  category: 'health',     done: false },
-        { id: generateId(), label: 'Ağrı kesici',                category: 'health',     done: false },
-        { id: generateId(), label: 'Yara bandı / bandaj',        category: 'health',     done: false },
-        { id: generateId(), label: 'Güneş kremi',                category: 'health',     done: false },
-        { id: generateId(), label: 'Islak mendil / dezenfektan', category: 'health',     done: false },
-
-        { id: generateId(), label: 'Not defteri / kalem',        category: 'other',      done: false },
-        { id: generateId(), label: 'Atıştırmalık',               category: 'other',      done: false },
-        { id: generateId(), label: 'Bozuk para / nakit',         category: 'other',      done: false },
-        { id: generateId(), label: 'Su matarası',                category: 'other',      done: false }
-      ];
-    }
-
-    let state = {
-      expenses: [],
-      view: 'list',
-      activeTab: 'expenses',
-      filterCategory: '',
-      tripFilter: '',
-      searchQuery: '',
-      selectedExpenseId: null,
-      showDetailModal: false,
-      showConfirmClear: false,
-      showChartModal: false,
-      showDataModal: false,
-      importJsonText: '',
-      error: '',
-      form: getEmptyForm(),
-      expandedCities: {},
-      checklistItems: [],
-      checklistCategories: [],
-      openChecklistCategories: {},
-      showOnlyUnchecked: false,
-      budgetCurrency: 'TRY',
-      budgetAmount: '',
-      lightboxPhotoSrc: null,
-      showAddItemPanel: false,
-      showAddCategoryPanel: false
-    };
-
-    function setState(partial) {
-      state = Object.assign({}, state, partial);
-      renderApp();
-      attachEventListeners();
-    }
-
-    function resetForm() {
-      state.form = getEmptyForm();
-    }
-
-    function escapeHtml(str) {
-      if (str === null || str === undefined) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function toTitleCase(text) {
-      if (!text) return '';
-      return text
-        .toLowerCase()
-        .split(' ')
-        .filter(Boolean)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    }
-
-    function hashString(str) {
-      let hash = 0;
-      const s = String(str || '');
-      for (let i = 0; i < s.length; i++) {
-        hash = (hash << 5) - hash + s.charCodeAt(i);
-        hash |= 0;
-      }
-      return Math.abs(hash);
-    }
-
-    function getCityGradientStyle(city) {
-      const baseHue = hashString(city || '') % 360;
-      const hue1 = baseHue;
-      const hue2 = (baseHue + 30) % 360;
-      const color1 = `hsl(${hue1}, 85%, 60%)`;
-      const color2 = `hsl(${hue2}, 85%, 45%)`;
-      return `background: linear-gradient(120deg, ${color1}, ${color2});`;
-    }
-
-    function getCategoryMeta(id) {
-      if (CATEGORY_META[id]) return CATEGORY_META[id];
-      return CATEGORY_META.other;
-    }
-
-    function getMapsUrl(city, place) {
-      const query = [city, place].filter(Boolean).join(' ');
-      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        return parts[2] + '.' + parts[1] + '.' + parts[0];
-      }
-      return dateStr;
-    }
-
-    function formatAmount(amount) {
-      const num = Number(amount || 0);
-      return num.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-    }
-
-    function loadExpenses() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-        if (parsed && Array.isArray(parsed.expenses)) return parsed.expenses;
-      } catch (err) {
-        console.error('localStorage parse error', err);
-      }
-      return [];
-    }
-
-    function saveExpenses() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.expenses));
-      } catch (err) {
-        console.error('localStorage save error', err);
-      }
-    }
-
-    function clearAllExpenses() {
-      state.expenses = [];
-      state.expandedCities = {};
-      state.selectedExpenseId = null;
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch (err) {
-        console.error('localStorage remove error', err);
-      }
-    }
-
-    function getChecklistCategories() {
-      return (state.checklistCategories && state.checklistCategories.length)
-        ? state.checklistCategories
-        : DEFAULT_CHECKLIST_CATEGORIES;
-    }
-
-    function loadChecklist() {
-      try {
-        const raw = localStorage.getItem(CHECKLIST_STORAGE_KEY);
-        if (!raw) {
-          return {
-            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
-            items: getDefaultChecklistItems()
-          };
+  function initState(){
+    let e=[], c={cats:[...DEF_CATS],items:[]}, p='TRY';
+    try{e=JSON.parse(localStorage.getItem(K.EXP)||'[]');}catch(err){}
+    try{const l=JSON.parse(localStorage.getItem(K.LIST)); 
+        if(l){
+            c.items=l.items||[]; 
+            c.cats=l.cats||[...DEF_CATS];
+            if(c.cats.length === 0) c.cats = [...DEF_CATS]; 
         }
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return {
-            categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
-            items: parsed
-          };
-        }
-        if (parsed && Array.isArray(parsed.items)) {
-          const categories =
-            Array.isArray(parsed.categories) && parsed.categories.length
-              ? parsed.categories
-              : DEFAULT_CHECKLIST_CATEGORIES.slice();
-          return { categories, items: parsed.items };
-        }
-      } catch (err) {
-        console.error('localStorage checklist parse error', err);
-      }
-      return {
-        categories: DEFAULT_CHECKLIST_CATEGORIES.slice(),
-        items: getDefaultChecklistItems()
-      };
+    }catch(err){}
+    try{p=localStorage.getItem(K.PREF)||'TRY';}catch(err){}
+    
+    // Checklist boşsa varsayılanları yükle
+    if(!c.items || c.items.length === 0) {
+        c.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
     }
 
-    function saveChecklist() {
-      try {
-        const payload = {
-          categories: getChecklistCategories(),
-          items: state.checklistItems || []
-        };
-        localStorage.setItem(CHECKLIST_STORAGE_KEY, JSON.stringify(payload));
-      } catch (err) {
-        console.error('localStorage checklist save error', err);
-      }
-    }
+    state={exp:e,chk:c,prefCur:p,view:'list',tab:'exp',tripFilter:'',catFilter:'',search:'',selExp:null,modals:{detail:false,chart:false,data:false},form:getEmptyForm(),expandedCities:{},lightbox:null,err:''};
+    
+    // YENİ İSTEK: Kapatma mantığı
+    state.openChkCats={}; 
+    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); // Defaultta kapalı gelsin
+  }
 
-    function loadBudget() {
-      try {
-        const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
-        if (!raw) return { currency: 'TRY', amount: '' };
-        const parsed = JSON.parse(raw);
-        return {
-          currency: parsed.currency || 'TRY',
-          amount: parsed.amount != null ? String(parsed.amount) : ''
-        };
-      } catch (err) {
-        console.error('budget parse error', err);
-        return { currency: 'TRY', amount: '' };
-      }
-    }
+  function setState(p){state={...state,...p}; renderApp();}
+  const save=()=>{
+    localStorage.setItem(K.EXP,JSON.stringify(state.exp));
+    localStorage.setItem(K.LIST,JSON.stringify(state.chk));
+    localStorage.setItem(K.PREF,state.prefCur);
+  };
+  
+  // Para Birimi Dönüştürücü
+  const convert = (amt, from, to) => {
+    if(from === to) return amt;
+    const inTry = amt * (RATES[from] || 1);
+    return inTry / (RATES[to] || 1);
+  };
 
-    function saveBudget() {
-      try {
-        localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify({
-          currency: state.budgetCurrency || 'TRY',
-          amount: state.budgetAmount || ''
-        }));
-      } catch (err) {
-        console.error('budget save error', err);
-      }
-    }
+  // --- Render Functions ---
 
-    function deleteChecklistCategory(catId) {
-      const categories = getChecklistCategories();
-      if (categories.length <= 1) {
-        setState({ error: 'En az bir kategori kalmalı. Son kategoriyi silemezsin.' });
-        return;
-      }
-      const newCategories = categories.filter(c => c.id !== catId);
-      const newItems = (state.checklistItems || []).filter(item => item.category !== catId);
-      state.checklistCategories = newCategories;
-      state.checklistItems = newItems;
-      saveChecklist();
-      setState({ checklistCategories: newCategories, checklistItems: newItems, error: '' });
-    }
+  function renderHeader(){
+    return `
+      <div class="glass-panel rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between shadow-lg gap-4">
+        <div class="flex items-center gap-4 w-full md:w-auto">
+           <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
+              <div class="absolute inset-0 bg-blue-500 rounded-xl rotate-6 opacity-30"></div>
+              <div class="absolute inset-0 bg-blue-600 rounded-xl -rotate-3 opacity-80"></div>
+              <div class="relative text-white drop-shadow-md">${ICONS.wallet}</div>
+           </div>
+           <div>
+              <h1 class="text-xl font-bold text-white tracking-tight">Seyahat Cüzdanı</h1>
+              <div class="flex items-center gap-2 text-xs text-slate-400">
+                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Takip & Planlama
+              </div>
+           </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+           ${state.tab==='exp' ? `
+             <div class="flex items-center bg-slate-800/80 rounded-xl p-1 border border-slate-700">
+                <select data-act="set-pref-cur" class="bg-transparent text-xs font-bold text-slate-300 outline-none px-2 py-1.5 cursor-pointer">
+                   ${['TRY','USD','EUR','GBP'].map(c=>`<option value="${c}" ${state.prefCur===c?'selected':''}>${c}</option>`).join('')}
+                </select>
+             </div>
+             <button data-act="clean-all-exp" class="bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/20 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap">
+               ${ICONS.trash} <span class="hidden sm:inline">Tümünü Sil</span>
+             </button>
+           ` : ''}
+           <button data-act="data" class="bg-slate-700/50 hover:bg-slate-700 text-slate-300 border border-slate-600/50 px-3 py-2 rounded-xl transition">${ICONS.info}</button>
+        </div>
+      </div>
+    `;
+  }
 
-    function getVisibleExpenses() {
-      let exps = state.expenses.slice();
+  function renderDashboardHeader(visibleExp){
+    let total = 0;
+    visibleExp.forEach(x => {
+        total += convert(Number(x.amt), x.cur, state.prefCur);
+    });
 
-      if (state.tripFilter) {
-        exps = exps.filter(exp => (exp.tripName || '') === state.tripFilter);
-      }
-
-      if (state.filterCategory) {
-        exps = exps.filter(exp => exp.category === state.filterCategory);
-      }
-
-      const q = (state.searchQuery || '').trim().toLowerCase();
-      if (q) {
-        exps = exps.filter(exp => {
-          const city = (exp.city || '').toLowerCase();
-          const place = (exp.place || '').toLowerCase();
-          return city.includes(q) || place.includes(q);
-        });
-      }
-
-      return exps;
-    }
-
-    function getSelectedExpense() {
-      if (!state.selectedExpenseId) return null;
-      return state.expenses.find(e => e.id === state.selectedExpenseId) || null;
-    }
-
-    function groupExpensesByCity(expenses) {
-      const groups = {};
-      expenses.forEach(exp => {
-        const city = exp.city || 'Diğer';
-        if (!groups[city]) groups[city] = [];
-        groups[city].push(exp);
-      });
-      return groups;
-    }
-
-    function getTripOptionsFromExpenses(expenses) {
-      const set = new Set();
-      expenses.forEach(exp => {
-        if (exp.tripName) set.add(exp.tripName);
-      });
-      return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'));
-    }
-
-    function renderHeader() {
-      const isChecklist = state.activeTab === 'checklist';
-      const buttonHtml = isChecklist
-        ? `
-          <button type="button" id="clear-checklist-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-600/90 to-teal-500/90 text-white border border-emerald-300/70 hover:from-emerald-500 hover:to-teal-500 shadow-sm shadow-emerald-500/40 transition">
-            ${ICONS.trash}
-            <span>Tümünü Kaldır</span>
-          </button>
-        `
-        : `
-          <button type="button" id="clear-all-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-rose-600/80 to-amber-500/80 text-white border border-rose-300/60 hover:from-rose-600 hover:to-amber-500 shadow-sm shadow-rose-500/40 transition">
-            ${ICONS.trash}
-            <span>Harcamaları Temizle</span>
-          </button>
-        `;
-
-      return `
-        <header class="flex items-center justify-between mb-4 md:mb-6 relative z-10">
-          <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 border border-sky-300/70 flex items-center justify-center text-white shadow-md shadow-sky-500/40">
-              ${ICONS.wallet}
-            </div>
+    return `
+      <div class="bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-800/50 rounded-2xl p-5 mb-5 shadow-2xl relative overflow-hidden group">
+         <div class="absolute -right-10 -top-10 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-500/30 transition duration-1000"></div>
+         
+         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 class="text-lg md:text-xl font-semibold tracking-tight text-slate-50">Seyahat Cüzdanı</h1>
-              <p class="text-xs md:text-sm text-slate-300/90">Gezilerindeki tüm harcamaları ve hazırlıkları tek yerden takip et</p>
+               <div class="text-[10px] uppercase tracking-widest text-blue-300 font-bold mb-2">Toplam Tahmini Bakiye</div>
+               <div class="text-3xl font-bold text-white flex items-end gap-2 leading-none">
+                  ${fmtNum(total)} <span class="text-lg opacity-60 mb-1">${state.prefCur}</span>
+               </div>
+               <div class="text-xs text-blue-200/60 mt-2 font-medium">${visibleExp.length} işlem</div>
             </div>
-          </div>
-          <div class="flex items-center gap-2">
-            ${buttonHtml}
-            <button type="button" id="open-data-modal-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/80 border border-slate-600 text-slate-200 hover:bg-slate-900">
-              ${ICONS.info}
-              <span>Veri</span>
-            </button>
-          </div>
-        </header>
-      `;
-    }
+            
+            <div class="flex flex-col gap-1 min-w-[180px]">
+               <label class="text-[10px] text-blue-300 font-bold uppercase ml-1">Seyahat Seçimi</label>
+               <div class="relative">
+                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-blue-500/30 rounded-xl py-2.5 px-3 pr-8 text-sm text-white outline-none focus:border-blue-400 appearance-none cursor-pointer backdrop-blur-sm">
+                   <option value="">Tüm Seyahatler</option>
+                   ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${state.tripFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
+                 </select>
+                 <div class="absolute right-3 top-3 text-blue-300 pointer-events-none">${ICONS.down}</div>
+               </div>
+            </div>
+         </div>
+      </div>
+    `;
+  }
 
-    function renderError(errorMsg) {
-      if (!errorMsg) return '';
+  function renderTabs(){
+    const t = state.tab;
+    const btnCls = "flex-1 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 border";
+    const active = "bg-slate-700 text-white border-slate-600 shadow-lg";
+    const passive = "bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300";
+    
+    return `
+      <div class="glass-panel p-1 rounded-2xl mb-5 flex gap-1">
+        <button data-act="tab" data-val="exp" class="${btnCls} ${t==='exp'?active:passive}">${ICONS.wallet} Harcamalar</button>
+        <button data-act="tab" data-val="chk" class="${btnCls} ${t==='chk'?active:passive}">${ICONS.briefcase} Check List</button>
+      </div>
+    `;
+  }
+
+  function renderFilters(){
+    return `
+      <div class="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+         <div class="relative flex-1 min-w-[150px]">
+            <span class="absolute left-3 top-2.5 text-slate-500 w-4 h-4">${ICONS.search}</span>
+            <input data-act="search" value="${esc(state.search)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Ara...">
+         </div>
+         <div class="relative w-40 flex-shrink-0">
+            <select data-act="flt-cat" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
+              <option value="">Tüm Kategoriler</option>
+              ${Object.values(CATS).map(c=>`<option value="${c.id}" ${state.catFilter===c.id?'selected':''}>${c.l}</option>`).join('')}
+            </select>
+         </div>
+         <button data-act="open-chart" class="bg-slate-800 border border-slate-700 text-slate-300 px-3 rounded-xl hover:text-white transition">${ICONS.chart}</button>
+      </div>
+    `;
+  }
+
+  function renderExpenseList(exp){
+    if(!exp.length) return `<div class="text-center py-12 text-slate-500 text-sm border border-dashed border-slate-800 rounded-3xl">Kayıt bulunamadı.</div>`;
+
+    const grp={}; exp.forEach(x=>{const c=x.city||'Genel'; if(!grp[c])grp[c]=[]; grp[c].push(x)});
+    
+    return `<div class="space-y-3 pb-24">${Object.keys(grp).sort().map(city=>{
+      const lst=grp[city].sort((a,b)=>(b.date||'').localeCompare(a.date));
+      const expd=state.expandedCities[city];
+      const sum={}; lst.forEach(x=>sum[x.cur]=(sum[x.cur]||0)+Number(x.amt));
+      const sumTxt=Object.entries(sum).map(([c,v])=>fmtNum(v)+' '+c).join(' · ');
+      const cityColor = getCityColor(city);
+      
       return `
-        <div class="mb-3 md:mb-4 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-amber-500/15 to-amber-500/25 px-3.5 py-2.5 text-xs md:text-sm text-amber-100 flex items-start gap-2">
-          <div class="mt-[2px] text-amber-200">
-            ${ICONS.warning}
-          </div>
-          <div>${escapeHtml(errorMsg)}</div>
-        </div>
-      `;
-    }
-
-    function renderBudgetSnippet(totalsByCurrency) {
-      const currencyKeys = Object.keys(totalsByCurrency || {});
-      if (!currencyKeys.length) return '';
-
-      let budgetCurrency = state.budgetCurrency || currencyKeys[0];
-      if (!currencyKeys.includes(budgetCurrency)) {
-        budgetCurrency = currencyKeys[0];
-      }
-
-      const allCurrenciesSet = new Set([...currencyKeys, 'TRY', 'EUR', 'USD', 'GBP']);
-      const allCurrencies = Array.from(allCurrenciesSet);
-
-      const budgetAmountNum = parseFloat(state.budgetAmount || '');
-      const spent = totalsByCurrency[budgetCurrency] || 0;
-      const percent = budgetAmountNum > 0
-        ? Math.min(100, Math.round((spent * 100) / budgetAmountNum))
-        : 0;
-
-      const progressText = budgetAmountNum > 0
-        ? `${spent.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} / ${budgetAmountNum.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${budgetCurrency}`
-        : 'Bütçe belirleyerek ilerlemeyi takip edebilirsin.';
-
-      const options = allCurrencies
-        .map(cur => `
-          <option value="${cur}" ${budgetCurrency === cur ? 'selected' : ''}>${cur}</option>
-        `)
-        .join('');
-
-      return `
-        <div class="mt-2 rounded-2xl bg-slate-900/25 px-3 py-2.5 border border-sky-100/20">
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-2xl bg-slate-950/80 border border-sky-300/70 flex items-center justify-center text-sky-200">
-                  ${ICONS.walletMini}
-                </div>
-                <div class="flex items-center gap-1.5 text-[11px] text-sky-50/90">
-                  <span class="hidden md:inline">Bütçe</span>
-                  <select id="budget-currency" class="rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-400">
-                    ${options}
-                  </select>
-                  <input id="budget-amount" type="text" inputmode="decimal"
-                    class="w-20 rounded-xl bg-slate-950/80 border border-sky-400/60 px-2 py-1 text-[11px] text-sky-50 placeholder-sky-200/60 focus:outline-none focus:ring-1 focus:ring-sky-400"
-                    placeholder="0.00" value="${escapeHtml(state.budgetAmount || '')}" />
-                </div>
-              </div>
-              <div class="text-[11px] text-sky-50/90 text-right">
-                ${progressText}
-              </div>
+        <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl overflow-hidden">
+          <button data-act="tog-city" data-val="${esc(city)}" data-city-name="${esc(city)}" class="w-full flex justify-between items-center p-4 hover:bg-slate-800 transition relative">
+            <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color:${cityColor}"></div>
+            <div class="pl-3 text-left pointer-events-none">
+              <div class="font-bold text-sm text-slate-200" style="color:${cityColor}">${esc(city)}</div>
+              <div class="text-[11px] text-slate-500 mt-0.5">${lst.length} harcama · ${sumTxt||'0.00'}</div>
             </div>
-            <div class="h-1.5 rounded-full bg-sky-950/60 overflow-hidden">
-              <div class="h-full bg-sky-300" style="width:${percent}%;"></div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // 🔹 ÖZET KARTI – Artık görünür (filtrelenmiş) harcamalar üzerinden çalışıyor
-    // ve kendi içinde seyahat filtresi select'i var
-    function renderSummaryCard(expenses) {
-      if (!expenses || !expenses.length) {
-        return `
-          <section class="mb-4 md:mb-5">
-            <div class="rounded-2xl bg-gradient-to-r from-slate-900/85 via-slate-800/85 to-slate-900/85 border border-slate-600/70 px-4 py-3.5 text-xs md:text-sm text-slate-100 flex items-center gap-2">
-              <div class="text-sky-300">
-                ${ICONS.info}
-              </div>
-              <div>Henüz harcama kaydı yok. Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuyla ilk harcamanı ekle.</div>
-            </div>
-          </section>
-        `;
-      }
-
-      const totalsByCurrency = {};
-      expenses.forEach(exp => {
-        const cur = exp.currency || 'TRY';
-        const val = Number(exp.amount) || 0;
-        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
-        totalsByCurrency[cur] += val;
-      });
-
-      const visibleCount = expenses.length;
-      const totalCount = state.expenses.length;
-      const currencyCount = Object.keys(totalsByCurrency).length;
-
-      const currencyChips = Object.entries(totalsByCurrency)
-        .map(([cur, total]) => {
-          const formatted = total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-          return `
-            <div class="flex items-baseline gap-1.5">
-              <span class="text-xs text-sky-50/80">${cur}</span>
-              <span class="text-sm md:text-base font-semibold text-white">${formatted}</span>
-            </div>
-          `;
-        })
-        .join('');
-
-      const tripOptions = getTripOptionsFromExpenses(state.expenses);
-      const tripFilter = state.tripFilter || '';
-
-      const tripSelectHtml = `
-        <div class="mt-2 flex items-center justify-between gap-3">
-          <div class="text-[11px] text-sky-50/90">
-            Seyahat filtresi
-          </div>
-          <select id="summary-trip-filter"
-                  class="rounded-xl bg-black/25 border border-sky-200/70 px-2.5 py-1.5 text-[11px] text-sky-50 focus:outline-none focus:ring-1 focus:ring-sky-200">
-            <option value="">Tüm seyahatler</option>
-            ${tripOptions.map(name => `
-              <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
-                ${escapeHtml(name)}
-              </option>
-            `).join('')}
-          </select>
-        </div>
-      `;
-
-      const totalPart = totalCount > visibleCount
-        ? ` · Toplam ${totalCount} kayıt`
-        : '';
-
-      return `
-        <section class="mb-4 md:mb-5 relative z-10">
-          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 border border-white/20 shadow-lg shadow-sky-500/40">
-            <div class="absolute -right-16 -bottom-16 w-44 h-44 rounded-full bg-white/15 blur-3xl"></div>
-            <div class="absolute -left-20 -top-16 w-40 h-40 rounded-full bg-indigo-400/25 blur-3xl"></div>
-            <div class="relative px-4 py-3.5 md:px-5 md:py-4">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-[11px] uppercase tracking-wide text-sky-50/90 font-semibold">Harcamalar Özeti</p>
-                  <p class="text-xs md:text-sm text-sky-50/90">
-                    ${visibleCount} kayıt · ${currencyCount} para birimi${totalPart}
-                  </p>
-                </div>
-                <div class="flex flex-col items-end text-right gap-0.5">
-                  ${currencyChips}
-                </div>
-              </div>
-              ${tripSelectHtml}
-              ${renderBudgetSnippet(totalsByCurrency)}
-            </div>
-          </div>
-        </section>
-      `;
-    }
-
-    function renderChecklistSummaryCard() {
-      const items = state.checklistItems || [];
-      if (!items.length) {
-        return `
-          <section class="mb-3 md:mb-4">
-            <div class="rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-4 py-3.5 text-xs md:text-sm text-slate-100 flex items-center gap-2">
-              <div class="text-emerald-300">
-                ${ICONS.info}
-              </div>
-              <div>Henüz check list maddesi yok. Aşağıdan seyahatte yanına alman gerekenleri listelemeye başlayabilirsin.</div>
-            </div>
-          </section>
-        `;
-      }
-      const total = items.length;
-      const done = items.filter(i => i.done).length;
-      const percent = total ? Math.round((done * 100) / total) : 0;
-      const width = percent + '%';
-
-      return `
-        <section class="mb-3 md:mb-4">
-          <div class="rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 border border-emerald-300/80 px-4 py-3.5 text-xs md:text-sm text-emerald-50 shadow-lg shadow-emerald-500/40">
-            <div class="flex items-center justify-between gap-3 mb-2">
-              <div>
-                <p class="text-[11px] uppercase tracking-wide font-semibold opacity-90">Seyahat Hazırlığı</p>
-                <p class="text-xs md:text-sm">
-                  ${total} maddeden <span class="font-semibold">${done}</span> tanesi hazır.
-                </p>
-              </div>
-              <div class="text-right">
-                <div class="text-[11px] uppercase tracking-wide text-emerald-50/90">Tamamlanma</div>
-                <div class="text-base font-semibold">${percent}%</div>
-              </div>
-            </div>
-            <div class="h-1.5 rounded-full bg-emerald-900/40 overflow-hidden">
-              <div class="h-full bg-emerald-300" style="width:${width};"></div>
-            </div>
-          </div>
-        </section>
-      `;
-    }
-
-    function renderTabs() {
-      const isExpenses = state.activeTab === 'expenses';
-      const base = 'flex-1 px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-center text-xs md:text-sm font-medium transition border';
-      const expClasses = isExpenses
-        ? 'bg-slate-900 text-slate-50 border-slate-600 shadow-sm'
-        : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-900/40';
-      const checkClasses = !isExpenses
-        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-emerald-300 shadow-sm shadow-emerald-500/40'
-        : 'bg-transparent text-slate-400 border-transparent hover:bg-slate-900/40';
-
-      return `
-        <div class="mb-2.5 md:mb-3 flex items-center gap-2 bg-slate-900/60 rounded-2xl p-1 border border-slate-700/80">
-          <button type="button" data-tab="expenses" class="${base} ${expClasses}">
-            Harcamalar
+            <!-- Silme butonu -->
+            <button data-act="del-city" data-val="${esc(city)}" class="absolute right-4 md:right-12 p-1 text-slate-600 hover:text-red-400 hover:bg-slate-700 rounded transition z-10">${ICONS.trash}</button>
+            <div class="text-slate-600 transform transition ${expd?'rotate-180':''}">${ICONS.down}</div>
           </button>
-          <button type="button" data-tab="checklist" class="${base} ${checkClasses}">
-            Check List
-          </button>
+          
+          ${expd ? `<div class="bg-slate-900/50 border-t border-slate-700/50">
+            ${lst.map(x=>`
+            <div data-act="detail" data-id="${x.id}" class="p-3 pl-6 flex justify-between items-center hover:bg-slate-800/50 cursor-pointer border-l-[3px] border-transparent hover:border-slate-600 transition">
+               <div class="flex items-center gap-3">
+                  <div class="text-xl opacity-80">${CATS[x.cat]?.i||'📦'}</div>
+                  <div>
+                     <div class="text-sm font-medium text-slate-300 line-clamp-1">${esc(x.place)}</div>
+                     <div class="text-[10px] text-slate-500">${fmtDate(x.date)}</div>
+                  </div>
+               </div>
+               <div class="text-right">
+                  <div class="text-sm font-bold text-slate-200">${fmtNum(x.amt)}</div>
+                  <div class="text-[10px] text-slate-500">${x.cur}</div>
+               </div>
+            </div>`).join('')}
+          </div>` : ''}
+        </div>`;
+    }).join('')}</div>`;
+  }
+
+  function renderChecklist(){
+    const done=state.chk.items.filter(i=>i.done).length, total=state.chk.items.length;
+    const pct=total?Math.round((done*100)/total):0;
+    
+    // Kategori Sıralama: "Diğer" (otr) her zaman en altta kalsın
+    const sortedCats = [...state.chk.cats].sort((a, b) => {
+        if (a.id === 'otr') return 1;
+        if (b.id === 'otr') return -1;
+        return a.l.localeCompare(b.l);
+    });
+
+    return `
+      <div class="flex justify-end mb-4 gap-2">
+         <button data-act="reset-chk" class="text-xs text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20 transition flex items-center gap-1">
+            ${ICONS.refresh} Listeyi Sıfırla (Varsayılan)
+         </button>
+      </div>
+
+      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-2xl p-5 mb-6">
+        <div class="flex justify-between items-end mb-3">
+          <div><div class="text-[10px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
+          <div class="text-2xl font-bold text-white">${pct}%</div>
         </div>
-      `;
-    }
+        <div class="h-2 bg-slate-900/50 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-700" style="width:${pct}%"></div></div>
+      </div>
 
-    function renderFilterBar(allExpenses, visibleExpenses, selectedCategory, searchQuery, tripFilter) {
-      const total = allExpenses.length;
-      const visible = visibleExpenses.length;
-      const filterText = selectedCategory
-        ? `Kategori filtresi: ${getCategoryMeta(selectedCategory).label}`
-        : 'Kategori filtresi yok';
-
-      const tripOptions = getTripOptionsFromExpenses(allExpenses);
-      const tripFilterText = tripFilter
-        ? `Seyahat filtresi: ${tripFilter}`
-        : 'Seyahat filtresi yok';
-
-      const disableChart = visible === 0;
-
-      const categoryOptions = Object.values(CATEGORY_META)
-        .map(cat => `
-          <option value="${cat.id}" ${selectedCategory === cat.id ? 'selected' : ''}>
-            ${cat.label}
-          </option>
-        `)
-        .join('');
-
-      const tripOptionsHtml = tripOptions
-        .map(name => `
-          <option value="${escapeHtml(name)}" ${tripFilter === name ? 'selected' : ''}>
-            ${escapeHtml(name)}
-          </option>
-        `)
-        .join('');
-
-      return `
-        <div class="mb-3 md:mb-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/85 to-slate-950/95 border border-slate-700/80 px-3.5 py-2.5 md:px-4 md:py-3 flex flex-col gap-3">
-          <div class="flex items-start justify-between gap-3">
-            <div class="text-xs md:text-sm text-slate-100/90">
-              <span class="font-semibold text-sky-300">${visible}</span> kayıt görüntüleniyor
-              <span class="text-slate-400"> · ${escapeHtml(filterText)}</span>
-              ${total > visible ? `<span class="text-slate-500"> · Toplam ${total} kayıt</span>` : ''}
-              <div class="text-[11px] text-slate-500 mt-0.5">
-                ${escapeHtml(tripFilterText)}
-              </div>
-            </div>
-          </div>
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div class="w-full md:w-56">
-              <div class="relative">
-                <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-500">🔍</span>
-                <input
-                  id="search-input"
-                  type="search"
-                  class="w-full rounded-xl border border-slate-600 bg-slate-950/80 pl-7 pr-3 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80"
-                  placeholder="Şehir veya mekan ara"
-                  value="${escapeHtml(searchQuery || '')}"
-                />
-              </div>
-            </div>
-            <div class="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
-              <div class="flex items-center gap-2 w-full md:w-auto">
-                <select id="trip-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
-                  <option value="">Tüm seyahatler</option>
-                  ${tripOptionsHtml}
-                </select>
-                <select id="category-filter" class="flex-1 md:w-40 text-xs md:text-sm rounded-xl border border-slate-600 bg-slate-900/90 text-slate-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
-                  <option value="">Tüm kategoriler</option>
-                  ${categoryOptions}
-                </select>
-              </div>
-              <button type="button" id="open-chart-modal-btn" ${disableChart ? 'disabled' : ''} class="inline-flex items-center gap-1.5 text-xs md:text-sm px-3 py-2 rounded-xl bg-gradient-to-r from-sky-600/90 to-indigo-600/90 border border-sky-400/70 text-sky-50 hover:from-sky-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-sky-500/40">
-                ${ICONS.chart}
-                <span>Grafiği Göster</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderCategoryToolbox(selectedCategory) {
-      const cats = Object.values(CATEGORY_META);
-      const buttons = cats
-        .map(cat => {
-          const isActive = selectedCategory === cat.id;
-          const baseClasses =
-            'flex flex-shrink-0 flex-col items-center justify-center gap-1 px-2.5 py-2.5 rounded-2xl border text-[11px] cursor-pointer transition min-w-[88px]';
-          const activeClasses =
-            'bg-gradient-to-r from-sky-600 to-indigo-600 border-sky-300/70 text-sky-50 shadow-sm shadow-sky-500/40';
-          const inactiveClasses =
-            'bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-slate-700 text-slate-200 hover:border-sky-500/60 hover:bg-slate-900';
-          const accent = cat.accent || 'bg-slate-800/90 text-sky-100';
+      <div class="pb-24 space-y-4">
+        ${sortedCats.map(c => {
+          const its = state.chk.items.filter(i => i.cat === c.id);
+          const isOpen = state.openChkCats[c.id];
           return `
-            <button type="button" data-category="${cat.id}" class="${baseClasses} ${isActive ? activeClasses : inactiveClasses}">
-              <span class="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-2xl ${accent}">
-                ${escapeHtml(cat.icon)}
-              </span>
-              <span class="truncate mt-0.5">${cat.label}</span>
-            </button>
-          `;
-        })
-        .join('');
-      return `
-        <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-          ${buttons}
-        </div>
-      `;
-    }
-
-    function renderPhotoThumbnails(form) {
-      const photos = form.photos || [];
-      if (!photos.length) {
-        return '<p class="text-[11px] text-slate-400 italic">Henüz fotoğraf seçilmedi.</p>';
-      }
-      let html = '<div class="grid grid-cols-3 gap-2">';
-      photos.forEach((src, idx) => {
-        html += `
-          <div class="relative group">
-            <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-20 object-cover rounded-xl border border-slate-600/70 cursor-zoom-in" />
-            <button type="button" data-remove-photo="${idx}" class="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-black/80 text-slate-100 opacity-0 group-hover:opacity-100 transition">
-              ${ICONS.xMini}
-            </button>
-          </div>
-        `;
-      });
-      html += '</div>';
-      return html;
-    }
-
-    function renderExpenseCard(expense) {
-      const category = getCategoryMeta(expense.category);
-      const dateLabel = formatDate(expense.date);
-      const photosCount = (expense.photos && expense.photos.length) ? expense.photos.length : 0;
-      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
-      const peopleChip = peopleCount
-        ? `
-          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
-            ${ICONS.person}
-            <span>x${peopleCount}</span>
-          </span>
-        `
-        : '';
-      const photosChip = photosCount
-        ? `
-          <span class="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100/90 px-1.5 py-0.5 rounded-full">
-            ${ICONS.photo}
-            <span>${photosCount}</span>
-          </span>
-        `
-        : '';
-      const tripPill = expense.tripName
-        ? `<span class="inline-flex items-center gap-1 text-[10px] text-sky-700 bg-sky-100/90 px-1.5 py-0.5 rounded-full">${escapeHtml(expense.tripName)}</span>`
-        : '';
-
-      return `
-        <article class="bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 rounded-2xl shadow-sm border border-slate-200/90 px-3.5 py-3 md:px-4 md:py-3.5 cursor-pointer hover:shadow-md hover:-translate-y-[1px] transition" data-expense-id="${escapeHtml(expense.id)}">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-1.5 mb-0.5">
-                <div class="text-[11px] font-medium uppercase tracking-wide text-sky-500">
-                  ${escapeHtml(expense.city || '')}
-                </div>
-                ${tripPill}
-              </div>
-              <div class="text-sm md:text-base font-semibold text-slate-900 truncate">
-                ${expense.place ? escapeHtml(expense.place) : '<span class="text-slate-400">Başlıksız</span>'}
-              </div>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${category.bgClass}">
-                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
-                  <span>${category.label}</span>
-                </span>
-                <span class="inline-flex items-center gap-1 text-[11px] text-slate-500">
-                  ${ICONS.calendar}
-                  <span>${dateLabel}</span>
-                </span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-              <div class="text-sm md:text-base font-semibold text-slate-900">
-                ${formatAmount(expense.amount)} <span class="text-xs text-slate-500 ml-0.5">${escapeHtml(expense.currency || '')}</span>
-              </div>
-              <div class="flex items-center gap-2 mt-1">
-                ${peopleChip}
-                ${photosChip}
-              </div>
-            </div>
-          </div>
-        </article>
-      `;
-    }
-
-    function renderCityExpenses(expensesInCity) {
-      const sorted = expensesInCity.slice().sort((a, b) => {
-        const da = a.date || '';
-        const db = b.date || '';
-        return db.localeCompare(da);
-      });
-      return sorted.map(exp => renderExpenseCard(exp)).join('');
-    }
-
-    function renderCitySection(city, expensesInCity) {
-      const isExpanded = state.expandedCities[city] === true;
-      const gradientStyle = getCityGradientStyle(city);
-
-      const totalsByCurrency = {};
-      expensesInCity.forEach(exp => {
-        const cur = exp.currency || 'TRY';
-        const val = Number(exp.amount) || 0;
-        if (!totalsByCurrency[cur]) totalsByCurrency[cur] = 0;
-        totalsByCurrency[cur] += val;
-      });
-      const summaryParts = Object.entries(totalsByCurrency)
-        .map(([cur, total]) => total.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + ' ' + cur)
-        .join(' · ');
-      const summaryText = summaryParts ? ' · ' + summaryParts : '';
-
-      return `
-        <div class="mb-3 md:mb-4">
-          <button type="button" data-city-toggle="${escapeHtml(city)}" class="w-full text-left p-[1px] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-[1px] transition" style="${gradientStyle}">
-            <div class="relative flex items-center justify-between gap-3 px-3.5 py-2.5 bg-slate-950/85 rounded-[1rem]">
-              <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-50">
-                  ${escapeHtml(city)}
-                </div>
-                <div class="text-[11px] text-slate-200">
-                  ${expensesInCity.length} kayıt${summaryText}
-                </div>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <div class="w-8 h-8 rounded-2xl bg-slate-900/80 border border-sky-400/70 flex items-center justify-center text-sky-300 shadow-sm shadow-sky-500/40">
-                  ${ICONS.locationPin}
+            <div class="bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
+              <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-800/50 transition">
+                <div class="flex items-center gap-3">
+                   <div class="bg-slate-800 w-8 h-8 rounded flex items-center justify-center">${c.i}</div>
+                   <div><div class="text-sm font-bold text-slate-200">${esc(c.l)}</div><div class="text-xs text-slate-500">${its.filter(i=>i.done).length}/${its.length}</div></div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <div class="hidden md:flex flex-col text-right text-[10px] text-slate-100/90">
-                    <span>Detayları ${isExpanded ? 'gizle' : 'göster'}</span>
-                  </div>
-                  <div class="w-7 h-7 rounded-full bg-slate-900/80 border border-white/30 flex items-center justify-center text-slate-50">
-                    ${isExpanded ? ICONS.chevronUp : ICONS.chevronDown}
-                  </div>
+                    <!-- Sadece varsayılan kategoriler silinemez, özel eklenenler silinebilir (id'si "c" ile başlayanlar) -->
+                    ${c.id.startsWith('c') ? `<button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-red-400 transition p-1 rounded-md hover:bg-slate-800">${ICONS.trash}</button>` : ''}
+                    <div class="text-slate-600 transform ${isOpen?'rotate-180':''}">${ICONS.down}</div>
                 </div>
               </div>
-            </div>
-          </button>
-          ${isExpanded ? `<div class="mt-2 space-y-2.5 md:space-y-3">${renderCityExpenses(expensesInCity)}</div>` : ''}
-        </div>
-      `;
-    }
+              ${isOpen ? `<div class="bg-slate-900/30 border-t border-slate-700/50 p-2">
+                 ${its.map(i=>`<div class="flex items-center gap-3 p-2 hover:bg-slate-800/30 rounded-lg group"><input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done?'checked':''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-800"><span class="flex-1 text-sm text-slate-300 ${i.done?'line-through opacity-50':''}">${esc(i.val)}</span><button data-act="del-chk" data-id="${i.id}" class="text-slate-600 hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1">${ICONS.x}</button></div>`).join('')}
+                 <div class="mt-2 flex gap-2"><input id="new-chk-${c.id}" placeholder="Madde 1, Madde 2..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs w-full outline-none text-slate-200"><button data-act="add-chk" data-val="${c.id}" class="bg-slate-700 text-emerald-400 border border-slate-600 px-3 rounded-lg hover:bg-emerald-500 hover:text-white transition">+</button></div>
+              </div>` : ''}
+            </div>`;
+        }).join('')}
+      </div>
 
-    function renderCityList(expenses) {
-      if (!expenses || !expenses.length) {
-        return `
-          <div class="rounded-2xl bg-gradient-to-br from-slate-900/85 via-slate-900/90 to-slate-950/95 border border-slate-700/80 px-4 py-5 text-center text-sm text-slate-100">
-            Henüz hiç harcama eklenmedi.<br/>
-            Sağ alttaki <span class="font-semibold text-sky-300">+</span> butonuna tıklayarak ilk kaydını oluştur.
-          </div>
-        `;
-      }
-
-      const groups = groupExpensesByCity(expenses);
-      const entries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0], 'tr'));
-
-      let html = '<div class="space-y-4 md:space-y-5 pb-2">';
-      entries.forEach(([city, exps]) => {
-        html += renderCitySection(city, exps);
-      });
-      html += '</div>';
-      return html;
-    }
-
-    function getCityDatalistHtml() {
-      const set = new Set();
-      state.expenses.forEach(exp => {
-        if (exp.city) set.add(exp.city);
-      });
-      const options = Array.from(set)
-        .sort((a, b) => a.localeCompare(b, 'tr'))
-        .map(city => `<option value="${escapeHtml(city)}"></option>`)
-        .join('');
-      return `<datalist id="city-options">${options}</datalist>`;
-    }
-
-    function getTripDatalistHtml() {
-      const trips = getTripOptionsFromExpenses(state.expenses);
-      const options = trips
-        .map(name => `<option value="${escapeHtml(name)}"></option>`)
-        .join('');
-      return `<datalist id="trip-options">${options}</datalist>`;
-    }
-
-    function renderFormView() {
-      const f = state.form;
-      return `
-        <section class="mt-3 md:mt-4">
-          <div class="mb-3 md:mb-4 flex items-center justify-between">
-            <div>
-              <h2 class="text-base md:text-lg font-semibold text-slate-50">Harcama Kaydı</h2>
-              <p class="text-xs md:text-sm text-slate-400">${f.id ? 'Mevcut kaydı düzenliyorsun' : 'Yeni bir harcama ekle'}</p>
-            </div>
-            <button type="button" id="back-to-list-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-600 text-xs text-slate-200 hover:bg-slate-900">
-              ${ICONS.x}
-              <span>Listeye Dön</span>
-            </button>
-          </div>
-
-          <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
-            <form id="expense-form" class="space-y-4 md:space-y-5">
-              <div>
-                <label for="tripName" class="block text-xs font-medium text-slate-300 mb-1.5">Seyahat Adı (opsiyonel)</label>
-                <input id="tripName" type="text" list="trip-options" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Andalucia 2025" value="${escapeHtml(f.tripName)}" />
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label for="city" class="block text-xs font-medium text-slate-300 mb-1.5">Şehir</label>
-                  <input id="city" type="text" autocomplete="off" list="city-options" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Sevilla" value="${escapeHtml(f.city)}" />
-                </div>
-                <div>
-                  <label for="place" class="block text-xs font-medium text-slate-300 mb-1.5">Mekan / Başlık</label>
-                  <input id="place" type="text" autocomplete="off" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Örn. Kahve Molası" value="${escapeHtml(f.place)}" />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div class="col-span-2 md:col-span-1">
-                  <label for="amount" class="block text-xs font-medium text-slate-300 mb-1.5">Tutar</label>
-                  <input id="amount" type="text" inputmode="decimal" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="0.00" value="${escapeHtml(f.amount)}" />
-                </div>
-                <div class="col-span-1 md:col-span-1">
-                  <label for="currency" class="block text-xs font-medium text-slate-300 mb-1.5">Para Birimi</label>
-                  <select id="currency" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80">
-                    ${['TRY','EUR','USD','GBP'].map(cur => `
-                      <option value="${cur}" ${f.currency === cur ? 'selected' : ''}>${cur}</option>
-                    `).join('')}
-                  </select>
-                </div>
-                <div class="col-span-1 md:col-span-1">
-                  <label for="peopleCount" class="block text-xs font-medium text-slate-300 mb-1.5">Kişi Sayısı</label>
-                  <input id="peopleCount" type="number" min="1" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-2.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.peopleCount)}" />
-                </div>
-                <div class="col-span-2 md:col-span-1">
-                  <label for="date" class="block text-xs font-medium text-slate-300 mb-1.5">Tarih</label>
-                  <input id="date" type="date" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" value="${escapeHtml(f.date)}" />
-                </div>
-              </div>
-
-              <div>
-                <span class="block text-xs font-medium text-slate-300 mb-1.5">Kategori</span>
-                ${renderCategoryToolbox(f.category)}
-              </div>
-
-              <div>
-                <label for="description" class="block text-xs font-medium text-slate-300 mb-1.5">Açıklama</label>
-                <textarea id="description" rows="3" class="w-full rounded-2xl border border-slate-700/70 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" placeholder="Notlar, detaylar...">${escapeHtml(f.description)}</textarea>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">Fotoğraflar (max 3)</label>
-                <div class="flex flex-col md:flex-row md:items-center gap-3">
-                  <div>
-                    <input type="file" id="photo-input" accept="image/*" multiple class="block text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-2xl file:border-0 file:text-xs file:font-medium file:bg-gradient-to-r file:from-sky-600 file:to-indigo-600 file:text-white hover:file:from-sky-500 hover:file:to-indigo-500 cursor-pointer" />
-                    <p class="mt-1 text-[11px] text-slate-400">Fotoğraflar otomatik olarak sıkıştırılıp base64 olarak kaydedilir.</p>
-                  </div>
-                  <div class="flex-1">
-                    ${renderPhotoThumbnails(f)}
-                  </div>
-                </div>
-              </div>
-
-              <div class="pt-2 flex items-center justify-between gap-3">
-                <button type="button" id="close-form-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900/80 border border-slate-600 text-xs md:text-sm text-slate-200 hover:bg-slate-900">
-                  İptal
-                </button>
-                <button type="submit" id="save-expense-btn" class="inline-flex items-center justify-center px-4 py-2.5 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-xs md:text-sm font-medium text-white shadow-md shadow-sky-500/40 hover:from-sky-500 hover:to-indigo-500">
-                  ${ICONS.walletMini}
-                  <span class="ml-1.5">${f.id ? 'Kaydı Güncelle' : 'Kaydet'}</span>
-                </button>
-              </div>
-            </form>
-            ${getCityDatalistHtml()}
-            ${getTripDatalistHtml()}
-          </div>
-        </section>
-      `;
-    }
-
-    function renderDetailModal(expense) {
-      if (!expense) return '';
-      const category = getCategoryMeta(expense.category);
-      const dateLabel = formatDate(expense.date);
-      const amountFormatted = formatAmount(expense.amount);
-      const currency = escapeHtml(expense.currency || '');
-      const peopleCount = expense.peopleCount ? Number(expense.peopleCount) : 0;
-      const perPerson = peopleCount ? (Number(expense.amount) / peopleCount) : null;
-      const perPersonFormatted = perPerson ? perPerson.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) : null;
-      const mapsUrl = getMapsUrl(expense.city, expense.place);
-      const photos = expense.photos || [];
-      const headerGradient = category.headerGradient || 'from-sky-500 via-indigo-500 to-emerald-500';
-      const currentTrip = expense.tripName || '';
-
-      const tripOptions = getTripOptionsFromExpenses(state.expenses);
-      const tripOptionsHtml = tripOptions
-        .map(name => `
-          <option value="${escapeHtml(name)}" ${currentTrip === name ? 'selected' : ''}>
-            ${escapeHtml(name)}
-          </option>
-        `)
-        .join('');
-
-      let photosHtml = '';
-      if (photos.length) {
-        photosHtml = '<div class="mt-4"><h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Fotoğraflar</span></h4><div class="grid grid-cols-2 gap-2">';
-        photos.forEach((src, idx) => {
-          photosHtml += `
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100/60">
-              <img src="${src}" data-lightbox-src="${src}" alt="Fotoğraf ${idx + 1}" class="w-full h-28 object-cover cursor-zoom-in" />
-            </div>
-          `;
-        });
-        photosHtml += '</div></div>';
-      }
-
-      const peopleInfo = peopleCount ? `
-        <div class="grid grid-cols-2 gap-2 mt-2">
-          <div class="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
-            <span class="inline-flex items-center gap-1">
-              ${ICONS.person}
-              <span>Kişi sayısı</span>
-            </span>
-            <span class="font-semibold text-slate-900">${peopleCount}</span>
-          </div>
-          <div class="rounded-2xl bg-gradient-to-r from-sky-50 to-emerald-50 border border-sky-200 px-3 py-2 flex items-center justify-between text-xs text-slate-700">
-            <span class="inline-flex items-center gap-1">
-              ${ICONS.walletMini}
-              <span>Kişi başı</span>
-            </span>
-            <span class="font-semibold text-slate-900">${perPersonFormatted} <span class="text-[11px] text-slate-500">${currency}</span></span>
-          </div>
-        </div>
-      ` : '';
-
-      const tripPill = expense.tripName
-        ? `
-          <div class="mt-1 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
-            <span>${escapeHtml(expense.tripName)}</span>
-          </div>
-        `
-        : '';
-
-      return `
-        <div id="detail-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div id="detail-modal" class="relative w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/70 p-0">
-            <div class="relative overflow-hidden rounded-t-3xl bg-gradient-to-r ${headerGradient} px-5 pt-4 pb-5">
-              <div class="absolute -right-16 -bottom-20 w-40 h-40 rounded-full bg-white/15 blur-2xl"></div>
-              <div class="absolute -left-12 -top-16 w-36 h-36 rounded-full bg-indigo-300/25 blur-2xl"></div>
-              <div class="relative flex items-start justify-between gap-3">
-                <div class="max-w-[70%]">
-                  <p class="text-[11px] font-medium uppercase tracking-wide text-slate-100/90 mb-0.5">
-                    ${escapeHtml(expense.city || '')}
-                  </p>
-                  <h2 class="text-base md:text-lg font-semibold text-white leading-snug">
-                    ${expense.place ? escapeHtml(expense.place) : 'Harcama Detayı'}
-                  </h2>
-                  <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-100/90 bg-black/20 px-2 py-1 rounded-full">
-                    ${ICONS.calendar}
-                    <span>${dateLabel}</span>
-                  </div>
-                  ${tripPill}
-                </div>
-                <button type="button" id="close-detail-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/25 text-slate-50 hover:bg-black/35">
-                  ${ICONS.x}
-                </button>
-              </div>
-              <div class="relative mt-3 flex items-center justify-between gap-3">
-                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/90 text-slate-800">
-                  <span class="shrink-0">${escapeHtml(category.icon)}</span>
-                  <span>${category.label}</span>
-                </div>
-                <div class="text-right">
-                  <div class="text-[11px] text-slate-100/90">Toplam Tutar</div>
-                  <div class="text-lg font-semibold text-white">
-                    ${amountFormatted} <span class="text-xs text-slate-100/80">${currency}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="px-5 pb-5 pt-4">
-              ${peopleInfo}
-
-              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex items-start gap-2">
-                    <div class="mt-[2px] text-slate-500">
-                      ${ICONS.locationPin}
-                    </div>
-                    <div class="text-xs text-slate-700">
-                      <div class="font-semibold text-slate-900">${escapeHtml(expense.city || '')}</div>
-                      ${expense.place ? `<div class="text-slate-600">${escapeHtml(expense.place)}</div>` : ''}
-                    </div>
-                  </div>
-                  <a href="${mapsUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-50 text-[11px] font-medium text-sky-700 border border-sky-200 hover:bg-sky-100">
-                    ${ICONS.map}
-                    <span>Haritada Aç</span>
-                  </a>
-                </div>
-              </div>
-
-              <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
-                <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>Seyahat Değiştir</span>
-                </h4>
-                <div class="flex flex-col sm:flex-row gap-2">
-                  <div class="flex-1 space-y-1.5 text-xs">
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Mevcut seyahatler</label>
-                    <select id="detail-trip-select"
-                            class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
-                      <option value="">Seçim yap (opsiyonel)</option>
-                      ${tripOptionsHtml}
-                    </select>
-                  </div>
-                  <div class="flex-1 space-y-1.5 text-xs">
-                    <label class="block text-[11px] text-slate-500 mb-0.5">Veya yeni isim yaz</label>
-                    <input id="detail-trip-input" type="text" list="trip-options"
-                           class="w-full rounded-2xl bg-slate-900/5 border border-slate-300 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80"
-                           placeholder="Örn. Andalucia 2025" value="${escapeHtml(currentTrip)}" />
-                  </div>
-                </div>
-                <p class="mt-1 text-[11px] text-slate-500">Bu harcamayı ister mevcut seyahatlerden birine, ister yazacağın yeni bir seyahat adına taşıyabilirsin.</p>
-                ${getTripDatalistHtml()}
-                <div class="mt-2 flex justify-end">
-                  <button type="button" id="move-expense-trip-btn"
-                          class="inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
-                    Seyahate Taşı
-                  </button>
-                </div>
-              </div>
-
-              ${expense.description ? `
-                <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-200 px-3.5 py-3">
-                  <h4 class="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                    <span>Notlar</span>
-                  </h4>
-                  <p class="text-sm text-slate-600 whitespace-pre-line">${escapeHtml(expense.description)}</p>
-                </div>
-              ` : ''}
-
-              ${photosHtml}
-
-              <div class="mt-5 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                <div class="flex items-center gap-2 flex-1">
-                  <button type="button" id="edit-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-900 text-xs md:text-sm font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
-                    ${ICONS.edit}
-                    <span class="ml-1.5">Düzenle</span>
-                  </button>
-                  <button type="button" id="duplicate-expense-btn" class="flex-1 inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-slate-100 text-xs md:text-sm font-medium text-slate-800 border border-slate-200 hover:bg-slate-200">
-                    + Kopyala
-                  </button>
-                </div>
-                <button type="button" id="delete-expense-btn" class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs md:text-sm font-medium text-white shadow-md shadow-rose-500/40 hover:from-rose-500 hover:to-red-600">
-                  ${ICONS.trash}
-                  <span class="ml-1.5">Sil</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderConfirmClearModal() {
-      return `
-        <div id="confirm-clear-modal" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div class="w-full max-w-sm bg-gradient-to-br from-slate-950 via-rose-950/90 to-slate-950 border border-rose-500/60 rounded-3xl p-5 shadow-xl shadow-rose-500/30">
-            <div class="flex items-start gap-3">
-              <div class="mt-1 text-rose-300">
-                ${ICONS.warning}
-              </div>
-              <div>
-                <h3 class="text-sm font-semibold text-rose-50 mb-1">Tüm harcamaları silmek istiyor musun?</h3>
-                <p class="text-xs text-rose-100/90 mb-3">
-                  Bu işlem geri alınamaz. Tüm harcamalar ve fotoğraflar cihazındaki localStorage'dan temizlenecek.
-                </p>
-              </div>
-            </div>
-            <div class="mt-3 flex items-center justify-end gap-2">
-              <button type="button" id="cancel-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-slate-900/80 text-xs text-slate-100 border border-slate-600 hover:bg-slate-900">
-                Vazgeç
-              </button>
-              <button type="button" id="confirm-clear-all-btn" class="px-3 py-1.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 text-xs text-white hover:from-rose-500 hover:to-red-600">
-                Evet, sil
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderChartModal() {
-      return `
-        <div id="chart-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/60 backdrop-blur-sm">
-          <div id="chart-modal" class="w-full max-w-md max-h-[80vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl flex flex-col border border-slate-200/80">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div class="flex items-center gap-2">
-                <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-500 text-white flex items-center justify-center shadow-sm shadow-sky-500/40">
-                  ${ICONS.chart}
-                </div>
-                <div>
-                  <h3 class="text-sm font-semibold text-slate-900">Harcama Dağılımı</h3>
-                  <p class="text-[11px] text-slate-500">Kategorilere göre toplam tutarların dağılımı</p>
-                </div>
-              </div>
-              <button type="button" id="close-chart-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-                ${ICONS.x}
-              </button>
-            </div>
-            <div class="px-5 pt-4 pb-5 flex-1 flex flex-col">
-              <div class="relative h-40 md:h-52">
-                <canvas id="expenseChart"></canvas>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderDataModal() {
-      const data = {
-        expenses: state.expenses,
-        checklistItems: state.checklistItems,
-        checklistCategories: getChecklistCategories(),
-        budget: {
-          currency: state.budgetCurrency,
-          amount: state.budgetAmount
-        }
-      };
-      const json = escapeHtml(JSON.stringify(data, null, 2));
-
-      return `
-        <div id="data-modal-overlay" class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/70 backdrop-blur-sm">
-          <div id="data-modal" class="w-full max-w-xl max-h-[90vh] bg-gradient-to-br from-slate-50 via-white to-slate-50 rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div>
-                <h3 class="text-sm md:text-base font-semibold text-slate-900">Veri Yedekleme & Paylaşım</h3>
-                <p class="text-[11px] md:text-xs text-slate-500">Harcamalar ve check list verilerini JSON olarak dışa aktarabilir veya içe alabilirsin.</p>
-              </div>
-              <button type="button" id="close-data-modal-btn" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200">
-                ${ICONS.x}
-              </button>
-            </div>
-            <div class="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-4">
-              <section class="space-y-2">
-                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                  <span>Verileri Dışa Aktar</span>
-                </h4>
-                <p class="text-[11px] text-slate-500">Aşağıdaki JSON'u kopyalayıp WhatsApp / e-posta ile paylaşabilirsin. Karşı taraf bu JSON'u "Verileri İçeri Al" kısmından yükleyebilir.</p>
-                <textarea id="export-json" readonly class="w-full h-40 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 whitespace-pre overflow-auto scrollbar-thin">${json}</textarea>
-                <div class="flex justify-end">
-                  <button type="button" id="copy-export-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-900 text-[11px] font-medium text-slate-50 border border-slate-900 hover:bg-slate-800">
-                    Kopyala
-                  </button>
-                </div>
-              </section>
-              <section class="space-y-2">
-                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span>Verileri İçeri Al</span>
-                </h4>
-                <p class="text-[11px] text-slate-500">Buraya daha önce dışa aktarılan JSON'u yapıştırıp veriyi bu cihaza yükleyebilirsin. Mevcut verinin üstüne yazılır.</p>
-                <textarea id="import-json-input" class="w-full h-32 rounded-2xl border border-slate-200 bg-slate-900/5 px-3 py-2 text-[11px] font-mono text-slate-800 placeholder-slate-400 whitespace-pre overflow-auto scrollbar-thin" placeholder='{"expenses":[...],"checklistItems":[...],...}'>${escapeHtml(state.importJsonText || '')}</textarea>
-                <div class="flex justify-end gap-2">
-                  <button type="button" id="apply-import-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
-                    Yükle
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderLightboxModal() {
-      if (!state.lightboxPhotoSrc) return '';
-      return `
-        <div id="lightbox-overlay" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4 py-6">
-          <div class="relative max-w-3xl max-h-[90vh]">
-            <button type="button" id="close-lightbox-btn" class="absolute -top-4 -right-4 inline-flex items-center justify-center w-8 h-8 rounded-full bg-black/80 text-slate-100 hover:bg-black">
-              ${ICONS.x}
-            </button>
-            <img src="${state.lightboxPhotoSrc}" alt="Fotoğraf" class="max-w-full max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl" />
-          </div>
-        </div>
-      `;
-    }
-
-    function renderFab() {
-      return `
-        <button id="add-expense-fab" class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-white shadow-xl shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-900">
-          ${ICONS.plus}
-        </button>
-      `;
-    }
-
-    function renderChecklistCategorySection(cat, itemsInCat) {
-      const total = itemsInCat.length;
-      const done = itemsInCat.filter(i => i.done).length;
-      const hasItems = total > 0;
-      const progressText = hasItems ? `${done} / ${total} tamamlandı` : 'Henüz madde yok';
-      const isOpen = state.openChecklistCategories[cat.id] === true;
-
-      const itemsHtml = hasItems
-        ? itemsInCat.map(item => `
-            <div class="flex items-center gap-2">
-              <label class="flex items-center gap-2 text-xs text-slate-100 flex-1">
-                <input type="checkbox" data-check-item-id="${item.id}"
-                       class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70"
-                       ${item.done ? 'checked' : ''} />
-                <span class="${item.done ? 'line-through text-slate-500' : ''}">
-                  ${escapeHtml(item.label)}
-                </span>
-              </label>
-              <button type="button" data-remove-check-item="${item.id}"
-                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
-                ${ICONS.trash}
-              </button>
-            </div>
-          `).join('')
-        : `<p class="text-[11px] text-slate-500 italic">Bu kategoride henüz madde yok.</p>`;
-
-      return `
-        <details class="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-3.5 py-3" ${isOpen ? 'open' : ''}>
-          <summary data-checklist-cat-id="${cat.id}" class="flex items-center justify-between gap-2 cursor-pointer list-none">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-xl bg-slate-950 border border-slate-700 flex items-center justify-center text-base">
-                ${escapeHtml(cat.icon)}
-              </div>
-              <div>
-                <div class="text-xs font-semibold text-slate-50">${escapeHtml(cat.label)}</div>
-                <div class="text-[11px] text-slate-400">${progressText}</div>
-              </div>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button type="button" data-remove-category="${cat.id}"
-                      class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-300 border border-slate-600 hover:bg-slate-800">
-                ${ICONS.trash}
-              </button>
-              <span class="text-[11px] text-slate-500">${isOpen ? '▲' : '▼'}</span>
-            </div>
+      <!-- Yeni Kategori Ekleme Paneli -->
+      <div class="mt-6 border-t border-slate-800 pt-4">
+        <details class="group bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden">
+          <summary class="flex items-center justify-between p-4 cursor-pointer list-none hover:bg-slate-800/50 transition">
+            <span class="text-sm font-medium text-slate-400 flex items-center gap-2">${ICONS.plus} Yeni Kategori Ekle</span>
+            <span class="text-slate-600 group-open:rotate-180 transition">${ICONS.down}</span>
           </summary>
-          <div class="mt-2 flex items-center justify-end gap-2">
-            <button type="button" data-uncheck-all-category="${cat.id}"
-                    class="text-[11px] text-slate-300 px-2 py-1 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 ${hasItems ? '' : 'opacity-40 cursor-default'}"
-                    ${hasItems ? '' : 'disabled'}>
-              Hepsini kaldır
-            </button>
-            <button type="button" data-check-all-category="${cat.id}"
-                    class="text-[11px] text-slate-200 px-2 py-1 rounded-xl bg-slate-800 border border-slate-600 hover:bg-slate-700 ${hasItems ? '' : 'opacity-40 cursor-default'}"
-                    ${hasItems ? '' : 'disabled'}>
-              Hepsini işaretle
-            </button>
-          </div>
-          <div class="mt-2 space-y-1.5">
-            ${itemsHtml}
+          <div class="p-4 pt-0 flex flex-col gap-3">
+            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
+            <input id="new-cat-icon" placeholder="Emoji İkonu (Örn: 🏖️)" class="w-24 bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200 text-center">
+            <button data-act="add-cat" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-500 transition">Kategori Ekle</button>
           </div>
         </details>
-      `;
-    }
+      </div>
+    `;
+  }
 
-    function renderChecklistView() {
-      const items = state.checklistItems || [];
-      const categories = getChecklistCategories();
+  function renderForm(){
+    const f = state.form;
+    const trips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
 
-      const addItemOpenAttr = state.showAddItemPanel ? 'open' : '';
-      const addCatOpenAttr = state.showAddCategoryPanel ? 'open' : '';
-
-      let html = `
-        <section class="mt-3 md:mt-4">
-          <div class="mb-2 flex items-center justify-end">
-            <label class="inline-flex items-center gap-1.5 text-[11px] text-slate-200">
-              <input id="show-only-unchecked" type="checkbox" class="h-4 w-4 rounded border-slate-500 bg-slate-950 text-emerald-400 focus:ring-emerald-500/70" ${state.showOnlyUnchecked ? 'checked' : ''} />
-              <span>Sadece eksikler</span>
-            </label>
-          </div>
-          <div class="rounded-2xl bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-slate-700/80 px-3.5 py-3.5 md:px-4 md:py-4">
-            <div class="space-y-3 md:space-y-4">
-      `;
-      categories.forEach(cat => {
-        const itemsInCat = items.filter(item =>
-          item.category === cat.id &&
-          (!state.showOnlyUnchecked || !item.done)
-        );
-        html += renderChecklistCategorySection(cat, itemsInCat);
-      });
-
-      html += `
-              <div class="mt-2 rounded-2xl bg-slate-950/90 border border-slate-700/80 px-3.5 py-3.5 space-y-3">
-                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addItemOpenAttr}>
-                  <summary id="toggle-add-item-panel" class="flex items-center justify-between cursor-pointer list-none">
-                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      <span>Yeni madde ekle</span>
-                    </div>
-                    <span class="text-[11px] text-slate-500">${state.showAddItemPanel ? '▲' : '▼'}</span>
-                  </summary>
-                  <div class="mt-2 space-y-2">
-                    <div class="grid grid-cols-3 gap-2">
-                      <input id="new-check-label" type="text" placeholder="Örn. Powerbank, Kulaklık"
-                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80" />
-                      <select id="new-check-category"
-                              class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/80 focus:border-emerald-500/80">
-                        ${categories.map(cat => `<option value="${cat.id}">${escapeHtml(cat.label)}</option>`).join('')}
-                      </select>
-                    </div>
-                    <p class="text-[11px] text-slate-500">Virgül kullanarak aynı anda birden fazla madde ekleyebilirsin.</p>
-                    <div class="flex justify-end">
-                      <button type="button" id="add-check-item-btn"
-                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-[11px] font-medium text-white shadow-sm shadow-emerald-500/40 hover:from-emerald-400 hover:to-teal-500">
-                        + Madde Ekle
-                      </button>
-                    </div>
-                  </div>
-                </details>
-
-                <details class="rounded-2xl bg-slate-950/90 border border-slate-800 px-3 py-3" ${addCatOpenAttr}>
-                  <summary id="toggle-add-category-panel" class="flex items-center justify-between cursor-pointer list-none">
-                    <div class="text-xs font-medium text-slate-200 flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                      <span>Yeni kategori ekle</span>
-                    </div>
-                    <span class="text-[11px] text-slate-500">${state.showAddCategoryPanel ? '▲' : '▼'}</span>
-                  </summary>
-                  <div class="mt-2 space-y-2">
-                    <div class="grid grid-cols-3 gap-2">
-                      <input id="new-category-label" type="text" placeholder="Kategori adı"
-                             class="col-span-2 rounded-2xl bg-slate-900/90 border border-slate-700 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
-                      <input id="new-category-icon" type="text" placeholder="Örn. 🎒"
-                             class="col-span-1 rounded-2xl bg-slate-900/90 border border-slate-700 px-2 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/80 focus:border-sky-500/80" />
-                    </div>
-                    <div class="flex justify-end">
-                      <button type="button" id="add-category-btn"
-                              class="mt-1 inline-flex items-center justify-center px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-[11px] font-medium text-white shadow-sm shadow-sky-500/40 hover:from-sky-400 hover:to-indigo-500">
-                        + Kategori Ekle
-                      </button>
-                    </div>
-                  </div>
-                </details>
-              </div>
+    return `
+      <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 mt-2 shadow-2xl animate-[fadeIn_0.3s]">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="font-bold text-lg text-white">Yeni Kayıt</h2>
+          <button data-act="cancel" class="text-slate-400 hover:text-white transition">${ICONS.x}</button>
+        </div>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Seyahat</label>
+            <div class="relative">
+               <input id="i-trip" list="dl-trip" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
+               <datalist id="dl-trip">${trips.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
             </div>
           </div>
-        </section>
-      `;
-      return html;
-    }
 
-    function renderApp() {
-      const root = document.getElementById('app-root');
-      if (!root) return;
-
-      const visibleExpenses = getVisibleExpenses();
-
-      let html = `
-        <div class="relative bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 border border-white/10 backdrop-blur-xl rounded-3xl shadow-[0_24px_80px_rgba(15,23,42,0.9)] p-4 md:p-5 overflow-hidden">
-          <div class="pointer-events-none absolute -top-24 -right-10 w-56 h-56 rounded-full bg-sky-500/20 blur-3xl"></div>
-          <div class="pointer-events-none absolute -bottom-24 -left-10 w-60 h-60 rounded-full bg-indigo-500/20 blur-3xl"></div>
-          <div class="relative z-10">
-            ${renderHeader()}
-            ${renderError(state.error)}
-            ${
-              state.activeTab === 'expenses'
-                ? renderSummaryCard(visibleExpenses)
-                : renderChecklistSummaryCard()
-            }
-            ${renderTabs()}
-            ${
-              state.activeTab === 'expenses'
-                ? (
-                    state.view === 'list'
-                      ? `
-                        ${renderFilterBar(state.expenses, visibleExpenses, state.filterCategory, state.searchQuery, state.tripFilter)}
-                        <div id="expense-list-container">
-                          ${renderCityList(visibleExpenses)}
-                        </div>
-                      `
-                      : `${renderFormView()}`
-                  )
-                : renderChecklistView()
-            }
+          <div class="grid grid-cols-2 gap-3">
+             <div>
+               <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Şehir</label>
+               <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
+               <datalist id="dl-city">${[...new Set(state.exp.map(x=>x.city))].sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+             </div>
+             <div>
+               <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">Mekan</label>
+               <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Mekan" value="${esc(f.place)}">
+             </div>
           </div>
+
+          <div class="grid grid-cols-2 gap-3">
+             <div class="col-span-1 relative">
+                <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
+                <select id="i-cur" class="absolute right-1 top-1 bottom-1 bg-slate-700 text-slate-200 rounded-lg text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
+                   ${['TRY','EUR','USD','GBP'].map(c=>`<option ${f.cur===c?'selected':''}>${c}</option>`).join('')}
+                </select>
+             </div>
+             <div class="col-span-1 flex items-center bg-slate-800 border border-slate-700 rounded-xl px-3">
+                <span class="text-slate-500 text-xs mr-2">Kişi:</span>
+                <input id="i-ppl" type="number" min="1" class="w-full bg-transparent text-sm text-slate-200 outline-none text-center" value="${f.ppl}">
+             </div>
+          </div>
+          
+          <div>
+             <input id="i-date" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none" value="${f.date}">
+          </div>
+
+          <div>
+             <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Kategori</label>
+             <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+               ${Object.values(CATS).map(c=>`
+                 <button type="button" data-act="set-cat" data-val="${c.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-xl border transition ${f.cat===c.id ? 'bg-blue-600/20 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-500'}">
+                   <span class="text-xl mb-1">${c.i}</span><span class="text-[9px] font-bold">${c.l}</span>
+                 </button>`).join('')}
+             </div>
+          </div>
+
+          <textarea id="i-desc" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
+
+          <div class="flex items-center gap-3">
+            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs px-4 py-3 rounded-xl transition flex-1 text-center">
+              + Fotoğraf Ekle <input type="file" id="i-img" hidden accept="image/*" multiple>
+            </label>
+            ${f.imgs.length ? `<div class="flex gap-2">${f.imgs.map((s,i)=>`<div class="relative w-10 h-10 rounded-lg overflow-hidden group"><img src="${s}" class="w-full h-full object-cover"><button type="button" data-act="del-img" data-val="${i}" class="absolute inset-0 bg-black/50 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100">x</button></div>`).join('')}</div>` : ''}
+          </div>
+
+          <button type="button" data-act="save" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
         </div>
-        ${state.activeTab === 'expenses' && state.view === 'list' ? renderFab() : ''}
-        ${state.showDetailModal ? renderDetailModal(getSelectedExpense()) : ''}
-        ${state.showConfirmClear ? renderConfirmClearModal() : ''}
-        ${state.showChartModal ? renderChartModal() : ''}
-        ${state.showDataModal ? renderDataModal() : ''}
-        ${state.lightboxPhotoSrc ? renderLightboxModal() : ''}
+      </div>`;
+  }
+
+  function renderModal(type){
+    if(type==='detail'){
+      const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
+      const cat=CATS[x.cat]||CATS.other;
+      const ppl = parseInt(x.ppl)||1;
+      const perP = x.amt/ppl;
+      const cityColor = getCityColor(x.city);
+      const allTrips = [...new Set(state.exp.map(z=>z.trip).filter(Boolean))].sort();
+      
+      const pplBadge = `
+        <div class="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700 shadow-sm">
+           <div class="flex -space-x-1.5 overflow-hidden">
+              ${Array(Math.min(ppl, 3)).fill(0).map(()=>`<div class="w-5 h-5 rounded-full bg-slate-600 border border-slate-800 flex items-center justify-center text-[10px] text-white">${ICONS.person}</div>`).join('')}
+              ${ppl>3 ? `<div class="w-5 h-5 rounded-full bg-slate-700 border border-slate-800 flex items-center justify-center text-[8px] text-white font-bold">+${ppl-3}</div>` : ''}
+           </div>
+           <span class="text-xs font-bold text-slate-300 ml-1">${ppl} Kişi</span>
+        </div>
       `;
 
-      root.innerHTML = html;
+      return `
+        <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 animate-[fadeIn_0.2s]" data-act="close-mod" data-val="overlay">
+          <div class="bg-slate-900 w-full max-w-md md:rounded-3xl rounded-t-3xl overflow-hidden shadow-2xl relative border border-slate-800">
+             
+             <!-- Dinamik Renkli Header -->
+             <div class="relative p-6 pb-8 overflow-hidden transition-colors duration-500" style="background: linear-gradient(135deg, ${cityColor}22 0%, ${cityColor}66 100%)">
+                <div class="absolute inset-0 backdrop-blur-[2px]"></div>
+                
+                <div class="relative z-10 flex justify-between items-start mb-4">
+                  <div class="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border border-white/10 backdrop-blur-md text-white">
+                     <span>${cat.i}</span><span class="text-xs font-bold uppercase">${cat.l}</span>
+                  </div>
+                  <button data-act="close-mod" class="bg-black/20 hover:bg-black/40 text-white rounded-full p-2 transition backdrop-blur-md">${ICONS.x}</button>
+                </div>
+
+                <div class="relative z-10 text-center mt-2">
+                   <h2 class="text-2xl font-bold text-white mb-1 leading-tight drop-shadow-md">${esc(x.place)}</h2>
+                   <div class="flex items-center justify-center gap-2 text-white/80 text-sm font-medium">
+                      <span>${esc(x.city)}</span>
+                      <span class="w-1 h-1 rounded-full bg-white/60"></span>
+                      <span>${fmtDate(x.date)}</span>
+                   </div>
+                </div>
+
+                <div class="relative z-10 mt-6 flex justify-center">
+                   <div class="bg-black/20 border border-white/10 px-6 py-3 rounded-2xl backdrop-blur-md shadow-inner">
+                      <div class="text-3xl font-bold text-white tracking-tight text-center">${fmtNum(x.amt)} <span class="text-lg font-medium opacity-70">${x.cur}</span></div>
+                   </div>
+                </div>
+             </div>
+
+             <!-- Body -->
+             <div class="bg-slate-900 p-5 space-y-4">
+               <div class="flex justify-center -mt-8 relative z-20 mb-2">
+                  ${pplBadge}
+               </div>
+
+               <div class="grid grid-cols-2 gap-3">
+                 <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Seyahat Adı</div>
+                    <div class="text-sm font-medium text-slate-200 truncate">${esc(x.trip||'Genel')}</div>
+                 </div>
+                 <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Kişi Başı</div>
+                    <div class="text-sm font-medium text-slate-200">${fmtNum(perP)} ${x.cur}</div>
+                 </div>
+               </div>
+               
+               <!-- Seyahat Taşıma -->
+               <div class="bg-slate-800/30 rounded-xl p-3 border border-slate-700/50">
+                 <div class="flex items-center gap-2 mb-2">
+                   <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                   <span class="text-xs font-bold text-slate-400">Seyahate Taşı</span>
+                 </div>
+                 <div class="flex gap-2">
+                   <div class="relative flex-1">
+                      <select id="move-trip-sel" class="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2 outline-none text-slate-300 appearance-none">
+                        <option value="">Mevcut Seyahat Seç...</option>
+                        ${allTrips.map(t=>`<option>${esc(t)}</option>`).join('')}
+                      </select>
+                      <div class="absolute right-2 top-2.5 text-slate-500 pointer-events-none">${ICONS.down}</div>
+                   </div>
+                   <input id="move-trip-inp" placeholder="Veya yeni ad gir..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg text-xs py-2 px-2 outline-none text-slate-300 placeholder-slate-600">
+                   <button data-act="move-trip" class="bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 rounded-lg text-xs font-bold hover:bg-blue-600 hover:text-white transition">Taşı</button>
+                 </div>
+               </div>
+
+               <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 min-h-[60px]">
+                 <div class="text-xs font-bold text-slate-500 mb-1 uppercase">Notlar</div>
+                 <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(x.desc) || '<span class="italic text-slate-600">Not eklenmemiş.</span>'}</p>
+               </div>
+
+               ${x.imgs.length ? `
+               <div>
+                  <div class="text-xs font-bold text-slate-500 mb-2 uppercase">Fotoğraflar</div>
+                  <div class="grid grid-cols-3 gap-2">
+                    ${x.imgs.map(img => `<div class="aspect-square rounded-xl overflow-hidden border border-slate-700 bg-slate-800"><img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300"></div>`).join('')}
+                  </div>
+               </div>` : ''}
+
+               <div class="flex gap-3 pt-2">
+                 <button data-act="del-exp-detail" class="flex-1 py-3 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition flex items-center justify-center gap-2">
+                   ${ICONS.trash} Sil
+                 </button>
+                 <button data-act="edit" class="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-2">
+                   ${ICONS.edit} Düzenle
+                 </button>
+               </div>
+             </div>
+          </div>
+        </div>`;
     }
-
-    function resizeImageToDataURL(file) {
-      const maxSize = 1280;
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            let width = img.width;
-            let height = img.height;
-            if (width > height) {
-              if (width > maxSize) {
-                height = Math.round((height * maxSize) / width);
-                width = maxSize;
-              }
-            } else {
-              if (height > maxSize) {
-                width = Math.round((width * maxSize) / height);
-                height = maxSize;
-              }
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            resolve(dataUrl);
-          };
-          img.onerror = (e) => reject(e);
-          img.src = event.target.result;
-        };
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(file);
-      });
+    
+    if(type==='chart'){
+       return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-800 p-6 shadow-2xl relative"><button data-act="close-mod" class="absolute top-4 right-4 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-2 text-center">Harcama Dağılımı (${state.prefCur})</h3><div class="h-64"><canvas id="chartCv"></canvas></div><div class="text-center text-xs text-slate-500 mt-2">Dönüşümler tahmini kur ile yapılmıştır.</div></div></div>`;
     }
-
-    function handlePhotoInputChange(e) {
-      const files = Array.from(e.target.files || []);
-      if (!files.length) return;
-      const existingPhotos = state.form.photos || [];
-      const remainingSlots = 3 - existingPhotos.length;
-      if (remainingSlots <= 0) {
-        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin.' });
-        e.target.value = '';
-        return;
-      }
-      const filesToUse = files.slice(0, remainingSlots);
-      if (files.length > remainingSlots) {
-        setState({ error: 'En fazla 3 fotoğraf ekleyebilirsin. Fazladan seçilenler alınmadı.' });
-      }
-      Promise.all(filesToUse.map(resizeImageToDataURL))
-        .then((newPhotos) => {
-          const nextPhotos = existingPhotos.concat(newPhotos);
-          const newForm = Object.assign({}, state.form, { photos: nextPhotos });
-          state.form = newForm;
-          setState({ form: newForm, error: '' });
-        })
-        .catch((err) => {
-          console.error(err);
-          setState({ error: 'Fotoğraflar işlenirken bir hata oluştu.' });
-        })
-        .finally(() => {
-          e.target.value = '';
-        });
+    if(type==='data'){
+      return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-800 p-6 shadow-2xl relative"><button data-act="close-mod" class="absolute top-4 right-4 text-slate-500 hover:text-white">${ICONS.x}</button><h3 class="font-bold text-white mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-black/50 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-400 mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,bud:state.bud})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-xl font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold">Yükle</button></div></div></div>`;
     }
+    return '';
+  }
 
-    function renderExpenseChart() {
-      const canvas = document.getElementById('expenseChart');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const expenses = getVisibleExpenses();
-      if (!expenses.length) return;
-
-      const totals = {};
-      expenses.forEach(exp => {
-        const catId = exp.category || 'other';
-        const amount = Number(exp.amount) || 0;
-        if (!amount) return;
-        if (!totals[catId]) totals[catId] = 0;
-        totals[catId] += amount;
-      });
-      const catIds = Object.keys(totals);
-      if (!catIds.length) return;
-
-      const labels = catIds.map(id => getCategoryMeta(id).label);
-      const data = catIds.map(id => totals[id]);
-      const colors = catIds.map(id => getCategoryMeta(id).chartColor);
-
-      if (expenseChartInstance) {
-        expenseChartInstance.destroy();
-        expenseChartInstance = null;
-      }
-
-      expenseChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels,
-          datasets: [
-            {
-              data,
-              backgroundColor: colors,
-              borderWidth: 1,
-              borderColor: 'rgba(15,23,42,0.08)'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: '60%',
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                color: '#0f172a',
-                font: { size: 11 }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function (context) {
-                  const label = context.label || '';
-                  const value = context.parsed || 0;
-                  return label + ': ' + value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function openNewExpenseForm() {
-      resetForm();
-      const formWithTrip = Object.assign({}, state.form);
-      if (state.tripFilter) {
-        formWithTrip.tripName = state.tripFilter;
-      }
-      state.form = formWithTrip;
-      setState({
-        view: 'form',
-        selectedExpenseId: null,
-        showDetailModal: false,
-        error: '',
-        activeTab: 'expenses'
-      });
-    }
-
-    function handleFormSubmit(e) {
-      e.preventDefault();
-      const f = state.form;
-
-      const trimmedTrip = (f.tripName || '').trim() || (state.tripFilter || '').trim();
-      const trimmedCity = (f.city || '').trim();
-      const trimmedPlace = (f.place || '').trim();
-      const amountNum = parseFloat(f.amount);
-      const peopleNum = parseInt(f.peopleCount || '1', 10) || 1;
-
-      const errors = [];
-      if (!trimmedCity) errors.push('Şehir alanı zorunludur.');
-      if (!trimmedPlace) errors.push('Mekan / başlık alanı zorunludur.');
-      if (!f.date) errors.push('Tarih seçmelisin.');
-      if (!f.currency) errors.push('Para birimi seçmelisin.');
-      if (!f.category) errors.push('Kategori seçmelisin.');
-      if (!amountNum || amountNum <= 0) errors.push('Tutar 0\'dan büyük olmalıdır.');
-
-      if (errors.length) {
-        setState({ error: errors[0] });
-        return;
-      }
-
-      const normalizedTrip = trimmedTrip ? toTitleCase(trimmedTrip) : '';
-      const normalizedCity = toTitleCase(trimmedCity);
-      const normalizedPlace = toTitleCase(trimmedPlace);
-
-      const expense = {
-        id: f.id || generateId(),
-        tripName: normalizedTrip,
-        city: normalizedCity,
-        place: normalizedPlace,
-        amount: amountNum,
-        currency: f.currency,
-        date: f.date,
-        category: f.category,
-        description: (f.description || '').trim(),
-        peopleCount: peopleNum,
-        photos: (f.photos || []).slice()
-      };
-
-      let newExpenses;
-      if (f.id) {
-        newExpenses = state.expenses.map(exp => exp.id === f.id ? Object.assign({}, exp, expense) : exp);
-      } else {
-        newExpenses = state.expenses.concat(expense);
-      }
-      state.expenses = newExpenses;
-
-      const newExpanded = Object.assign({}, state.expandedCities, { [normalizedCity]: false });
-      state.expandedCities = newExpanded;
-
-      saveExpenses();
-      resetForm();
-      setState({
-        view: 'list',
-        error: '',
-        activeTab: 'expenses'
-      });
-    }
-
-    function handleDeleteExpense() {
-      const exp = getSelectedExpense();
-      if (!exp) return;
-      const filtered = state.expenses.filter(e => e.id !== exp.id);
-      state.expenses = filtered;
-      const remainingForCity = filtered.filter(e => e.city === exp.city);
-      const expanded = Object.assign({}, state.expandedCities);
-      if (!remainingForCity.length && expanded.hasOwnProperty(exp.city)) {
-        delete expanded[exp.city];
-      }
-      state.expandedCities = expanded;
-      saveExpenses();
-      setState({
-        showDetailModal: false,
-        selectedExpenseId: null,
-        error: ''
-      });
-    }
-
-    function addChecklistItem() {
-      const labelInput = document.getElementById('new-check-label');
-      const categorySelect = document.getElementById('new-check-category');
-      if (!labelInput) return;
-      const raw = (labelInput.value || '');
-      const labels = raw.split(',').map(s => s.trim()).filter(Boolean);
-      const category = categorySelect ? (categorySelect.value || 'other') : 'other';
-
-      if (!labels.length) {
-        setState({ error: 'Lütfen eklenecek maddenin adını yaz.' });
-        return;
-      }
-
-      const itemsToAdd = labels.map(label => ({
-        id: generateId(),
-        label,
-        category,
-        done: false
-      }));
-
-      const newItems = (state.checklistItems || []).concat(itemsToAdd);
-      state.checklistItems = newItems;
-      saveChecklist();
-      labelInput.value = '';
-      setState({ checklistItems: newItems, error: '', showAddItemPanel: true });
-    }
-
-    function addChecklistCategory() {
-      const labelInput = document.getElementById('new-category-label');
-      const iconInput = document.getElementById('new-category-icon');
-      if (!labelInput) return;
-      const label = (labelInput.value || '').trim();
-      let icon = iconInput ? (iconInput.value || '').trim() : '';
-      if (!label) {
-        setState({ error: 'Lütfen kategori adını yaz.' });
-        return;
-      }
-      if (!icon) icon = '⭐';
-      const currentCategories = getChecklistCategories().slice();
-      const newCategory = {
-        id: 'cat_' + generateId(),
-        label,
-        icon
-      };
-      currentCategories.push(newCategory);
-      state.checklistCategories = currentCategories;
-      saveChecklist();
-      labelInput.value = '';
-      if (iconInput) iconInput.value = '';
-      setState({ checklistCategories: currentCategories, error: '', showAddCategoryPanel: true });
-    }
-
-    function importDataFromJson(jsonText) {
-      let obj;
-      try {
-        obj = JSON.parse(jsonText);
-      } catch (err) {
-        setState({ error: 'JSON parse edilemedi. Formatı kontrol et.', importJsonText: jsonText });
-        return;
-      }
-      const expenses = Array.isArray(obj.expenses) ? obj.expenses : [];
-      const checklistItems = Array.isArray(obj.checklistItems) ? obj.checklistItems : [];
-      const checklistCategories =
-        Array.isArray(obj.checklistCategories) && obj.checklistCategories.length
-          ? obj.checklistCategories
-          : DEFAULT_CHECKLIST_CATEGORIES.slice();
-
-      state.expenses = expenses;
-      state.checklistItems = checklistItems;
-      state.checklistCategories = checklistCategories;
-
-      const expandedCities = {};
-      expenses.forEach(exp => {
-        if (exp.city) expandedCities[exp.city] = false;
-      });
-      state.expandedCities = expandedCities;
-
-      if (obj.budget) {
-        state.budgetCurrency = obj.budget.currency || state.budgetCurrency;
-        state.budgetAmount = obj.budget.amount != null ? String(obj.budget.amount) : state.budgetAmount;
-        saveBudget();
-      }
-
-      saveExpenses();
-      saveChecklist();
-
-      setState({
-        showDataModal: false,
-        importJsonText: '',
-        error: ''
-      });
-    }
-
-    function updateExpenseListOnly() {
-      const container = document.getElementById('expense-list-container');
-      if (!container) return;
-      const visibleExpenses = getVisibleExpenses();
-      container.innerHTML = renderCityList(visibleExpenses);
-      attachExpenseListListeners();
-    }
-
-    function attachExpenseListListeners() {
-      const expenseCards = document.querySelectorAll('[data-expense-id]');
-      expenseCards.forEach(card => {
-        card.addEventListener('click', () => {
-          const id = card.getAttribute('data-expense-id');
-          setState({
-            selectedExpenseId: id,
-            showDetailModal: true,
-            error: '',
-            activeTab: 'expenses'
-          });
+  function renderApp(){
+    try {
+        const root=document.getElementById('app-root');
+        const exp=state.exp.filter(x=>{
+          if(state.tripFilter && x.trip!==state.tripFilter) return false;
+          if(state.catFilter && x.cat!==state.catFilter) return false;
+          if(state.search){const q=state.search.toLowerCase(); return (x.city||'').toLowerCase().includes(q)||(x.place||'').toLowerCase().includes(q);}
+          return true;
         });
-      });
 
-      const cityHeaders = document.querySelectorAll('[data-city-toggle]');
-      cityHeaders.forEach(header => {
-        header.addEventListener('click', () => {
-          const city = header.getAttribute('data-city-toggle');
-          const isExpanded = state.expandedCities[city] === true;
-          const updated = Object.assign({}, state.expandedCities, { [city]: !isExpanded });
-          state.expandedCities = updated;
-          setState({ expandedCities: updated });
-        });
-      });
-    }
+        let h = renderHeader();
+        if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-xl mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
 
-    function attachEventListeners() {
-      const categoryFilter = document.getElementById('category-filter');
-      if (categoryFilter) {
-        categoryFilter.addEventListener('change', (e) => {
-          setState({ filterCategory: e.target.value });
-        });
-      }
-
-      const tripFilterSelect = document.getElementById('trip-filter');
-      if (tripFilterSelect) {
-        tripFilterSelect.addEventListener('change', (e) => {
-          setState({ tripFilter: e.target.value });
-        });
-      }
-
-      // 🔹 Özet kartındaki seyahat filtresi
-      const summaryTripFilter = document.getElementById('summary-trip-filter');
-      if (summaryTripFilter) {
-        summaryTripFilter.addEventListener('change', (e) => {
-          setState({ tripFilter: e.target.value });
-        });
-      }
-
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-          state.searchQuery = e.target.value;
-          updateExpenseListOnly();
-        });
-      }
-
-      const openChartBtn = document.getElementById('open-chart-modal-btn');
-      if (openChartBtn) {
-        openChartBtn.addEventListener('click', () => {
-          if (getVisibleExpenses().length === 0) return;
-          setState({ showChartModal: true });
-        });
-      }
-
-      const closeChartBtn = document.getElementById('close-chart-modal-btn');
-      if (closeChartBtn) {
-        closeChartBtn.addEventListener('click', () => {
-          if (expenseChartInstance) {
-            expenseChartInstance.destroy();
-            expenseChartInstance = null;
-          }
-          setState({ showChartModal: false });
-        });
-      }
-
-      const chartOverlay = document.getElementById('chart-modal-overlay');
-      if (chartOverlay) {
-        chartOverlay.addEventListener('click', (e) => {
-          if (e.target === chartOverlay) {
-            if (expenseChartInstance) {
-              expenseChartInstance.destroy();
-              expenseChartInstance = null;
-            }
-            setState({ showChartModal: false });
-          }
-        });
-      }
-
-      const chartCanvas = document.getElementById('expenseChart');
-      if (chartCanvas && state.showChartModal) {
-        renderExpenseChart();
-      }
-
-      const clearBtn = document.getElementById('clear-all-btn');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-          setState({ showConfirmClear: true });
-        });
-      }
-
-      const clearChecklistBtn = document.getElementById('clear-checklist-btn');
-      if (clearChecklistBtn) {
-        clearChecklistBtn.addEventListener('click', () => {
-          const items = (state.checklistItems || []).map(item =>
-            Object.assign({}, item, { done: false })
-          );
-          state.checklistItems = items;
-          saveChecklist();
-          setState({ checklistItems: items, error: '' });
-        });
-      }
-
-      const confirmClearBtn = document.getElementById('confirm-clear-all-btn');
-      if (confirmClearBtn) {
-        confirmClearBtn.addEventListener('click', () => {
-          clearAllExpenses();
-          setState({ showConfirmClear: false, error: '' });
-        });
-      }
-
-      const cancelClearBtn = document.getElementById('cancel-clear-all-btn');
-      if (cancelClearBtn) {
-        cancelClearBtn.addEventListener('click', () => {
-          setState({ showConfirmClear: false });
-        });
-      }
-
-      const fab = document.getElementById('add-expense-fab');
-      if (fab) {
-        fab.addEventListener('click', () => {
-          openNewExpenseForm();
-        });
-      }
-
-      const backBtn = document.getElementById('back-to-list-btn');
-      if (backBtn) {
-        backBtn.addEventListener('click', () => {
-          resetForm();
-          setState({ view: 'list', error: '', activeTab: 'expenses' });
-        });
-      }
-
-      const closeFormBtn = document.getElementById('close-form-btn');
-      if (closeFormBtn) {
-        closeFormBtn.addEventListener('click', () => {
-          resetForm();
-          setState({ view: 'list', error: '', activeTab: 'expenses' });
-        });
-      }
-
-      const formEl = document.getElementById('expense-form');
-      if (formEl) {
-        formEl.addEventListener('submit', handleFormSubmit);
-      }
-
-      const tripInput = document.getElementById('tripName');
-      if (tripInput) {
-        tripInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { tripName: e.target.value });
-        });
-      }
-
-      const cityInput = document.getElementById('city');
-      if (cityInput) {
-        cityInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { city: e.target.value });
-        });
-      }
-
-      const placeInput = document.getElementById('place');
-      if (placeInput) {
-        placeInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { place: e.target.value });
-        });
-      }
-
-      const amountInput = document.getElementById('amount');
-      if (amountInput) {
-        amountInput.addEventListener('input', (e) => {
-          let val = e.target.value || '';
-          val = val.replace(',', '.');
-          val = val.replace(/[^0-9.]/g, '');
-          const parts = val.split('.');
-          if (parts.length > 2) {
-            val = parts[0] + '.' + parts.slice(1).join('');
-          }
-          e.target.value = val;
-          state.form = Object.assign({}, state.form, { amount: val });
-        });
-      }
-
-      const currencySelect = document.getElementById('currency');
-      if (currencySelect) {
-        currencySelect.addEventListener('change', (e) => {
-          state.form = Object.assign({}, state.form, { currency: e.target.value });
-        });
-      }
-
-      const dateInput = document.getElementById('date');
-      if (dateInput) {
-        dateInput.addEventListener('change', (e) => {
-          state.form = Object.assign({}, state.form, { date: e.target.value });
-        });
-      }
-
-      const peopleInput = document.getElementById('peopleCount');
-      if (peopleInput) {
-        peopleInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { peopleCount: e.target.value });
-        });
-      }
-
-      const descInput = document.getElementById('description');
-      if (descInput) {
-        descInput.addEventListener('input', (e) => {
-          state.form = Object.assign({}, state.form, { description: e.target.value });
-        });
-      }
-
-      const categoryButtons = document.querySelectorAll('[data-category]');
-      categoryButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const catId = btn.getAttribute('data-category');
-          const newForm = Object.assign({}, state.form, { category: catId });
-          state.form = newForm;
-          setState({ form: newForm, error: '' });
-        });
-      });
-
-      const photoInput = document.getElementById('photo-input');
-      if (photoInput) {
-        photoInput.addEventListener('change', handlePhotoInputChange);
-      }
-
-      const thumbDeleteBtns = document.querySelectorAll('[data-remove-photo]');
-      thumbDeleteBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const idx = parseInt(btn.getAttribute('data-remove-photo'), 10);
-          const photos = (state.form.photos || []).slice();
-          if (idx >= 0 && idx < photos.length) {
-            photos.splice(idx, 1);
-            const newForm = Object.assign({}, state.form, { photos });
-            state.form = newForm;
-            setState({ form: newForm });
-          }
-        });
-      });
-
-      const detailCloseBtn = document.getElementById('close-detail-modal-btn');
-      const detailOverlay = document.getElementById('detail-modal-overlay');
-      if (detailCloseBtn) {
-        detailCloseBtn.addEventListener('click', () => {
-          setState({ showDetailModal: false, selectedExpenseId: null });
-        });
-      }
-      if (detailOverlay) {
-        detailOverlay.addEventListener('click', (e) => {
-          if (e.target === detailOverlay) {
-            setState({ showDetailModal: false, selectedExpenseId: null });
-          }
-        });
-      }
-
-      const editExpenseBtn = document.getElementById('edit-expense-btn');
-      if (editExpenseBtn) {
-        editExpenseBtn.addEventListener('click', () => {
-          const exp = getSelectedExpense();
-          if (!exp) return;
-          state.form = {
-            id: exp.id,
-            tripName: exp.tripName || '',
-            city: exp.city || '',
-            place: exp.place || '',
-            amount: String(exp.amount),
-            currency: exp.currency || 'TRY',
-            date: exp.date || new Date().toISOString().slice(0, 10),
-            category: exp.category || '',
-            description: exp.description || '',
-            peopleCount: exp.peopleCount != null ? String(exp.peopleCount) : '1',
-            photos: (exp.photos || []).slice()
-          };
-          setState({
-            view: 'form',
-            showDetailModal: false,
-            error: '',
-            activeTab: 'expenses'
-          });
-        });
-      }
-
-      const duplicateExpenseBtn = document.getElementById('duplicate-expense-btn');
-      if (duplicateExpenseBtn) {
-        duplicateExpenseBtn.addEventListener('click', () => {
-          const exp = getSelectedExpense();
-          if (!exp) return;
-          state.form = {
-            id: null,
-            tripName: exp.tripName || '',
-            city: exp.city || '',
-            place: exp.place || '',
-            amount: String(exp.amount),
-            currency: exp.currency || 'TRY',
-            date: new Date().toISOString().slice(0, 10),
-            category: exp.category || '',
-            description: exp.description || '',
-            peopleCount: exp.peopleCount != null ? String(exp.peopleCount) : '1',
-            photos: (exp.photos || []).slice()
-          };
-          setState({
-            view: 'form',
-            showDetailModal: false,
-            error: '',
-            activeTab: 'expenses'
-          });
-        });
-      }
-
-      const deleteExpenseBtn = document.getElementById('delete-expense-btn');
-      if (deleteExpenseBtn) {
-        deleteExpenseBtn.addEventListener('click', () => {
-          handleDeleteExpense();
-        });
-      }
-
-      const moveTripBtn = document.getElementById('move-expense-trip-btn');
-      if (moveTripBtn) {
-        moveTripBtn.addEventListener('click', () => {
-          const exp = getSelectedExpense();
-          if (!exp) return;
-          const select = document.getElementById('detail-trip-select');
-          const input = document.getElementById('detail-trip-input');
-          const rawSelect = select ? (select.value || '').trim() : '';
-          const rawInput = input ? (input.value || '').trim() : '';
-          const raw = rawSelect || rawInput;
-          const newTrip = raw ? toTitleCase(raw) : '';
-
-          const updatedExpenses = state.expenses.map(e =>
-            e.id === exp.id ? Object.assign({}, e, { tripName: newTrip }) : e
-          );
-          state.expenses = updatedExpenses;
-          saveExpenses();
-          setState({ expenses: updatedExpenses, error: '', showDetailModal: true });
-        });
-      }
-
-      const tabButtons = document.querySelectorAll('[data-tab]');
-      tabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const tab = btn.getAttribute('data-tab');
-          if (tab === 'expenses') {
-            setState({ activeTab: 'expenses' });
-          } else if (tab === 'checklist') {
-            setState({ activeTab: 'checklist', view: 'list', showDetailModal: false });
-          }
-        });
-      });
-
-      const addCheckItemBtn = document.getElementById('add-check-item-btn');
-      if (addCheckItemBtn) {
-        addCheckItemBtn.addEventListener('click', () => {
-          addChecklistItem();
-        });
-      }
-
-      const addCategoryBtn = document.getElementById('add-category-btn');
-      if (addCategoryBtn) {
-        addCategoryBtn.addEventListener('click', () => {
-          addChecklistCategory();
-        });
-      }
-
-      const toggleAddItemPanel = document.getElementById('toggle-add-item-panel');
-      if (toggleAddItemPanel) {
-        toggleAddItemPanel.addEventListener('click', (e) => {
-          e.preventDefault();
-          setState({ showAddItemPanel: !state.showAddItemPanel });
-        });
-      }
-
-      const toggleAddCategoryPanel = document.getElementById('toggle-add-category-panel');
-      if (toggleAddCategoryPanel) {
-        toggleAddCategoryPanel.addEventListener('click', (e) => {
-          e.preventDefault();
-          setState({ showAddCategoryPanel: !state.showAddCategoryPanel });
-        });
-      }
-
-      const checkboxes = document.querySelectorAll('[data-check-item-id]');
-      checkboxes.forEach(ch => {
-        ch.addEventListener('change', () => {
-          const id = ch.getAttribute('data-check-item-id');
-          const items = (state.checklistItems || []).map(item =>
-            item.id === id ? Object.assign({}, item, { done: ch.checked }) : item
-          );
-          state.checklistItems = items;
-          saveChecklist();
-          setState({ checklistItems: items });
-        });
-      });
-
-      const checkAllButtons = document.querySelectorAll('[data-check-all-category]');
-      checkAllButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const catId = btn.getAttribute('data-check-all-category');
-          const items = (state.checklistItems || []).map(item =>
-            item.category === catId ? Object.assign({}, item, { done: true }) : item
-          );
-          state.checklistItems = items;
-          saveChecklist();
-          setState({ checklistItems: items });
-        });
-      });
-
-      const uncheckAllButtons = document.querySelectorAll('[data-uncheck-all-category]');
-      uncheckAllButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const catId = btn.getAttribute('data-uncheck-all-category');
-          const items = (state.checklistItems || []).map(item =>
-            item.category === catId ? Object.assign({}, item, { done: false }) : item
-          );
-          state.checklistItems = items;
-          saveChecklist();
-          setState({ checklistItems: items });
-        });
-      });
-
-      const removeItemButtons = document.querySelectorAll('[data-remove-check-item]');
-      removeItemButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-remove-check-item');
-          const items = (state.checklistItems || []).filter(item => item.id !== id);
-          state.checklistItems = items;
-          saveChecklist();
-          setState({ checklistItems: items });
-        });
-      });
-
-      const removeCategoryButtons = document.querySelectorAll('[data-remove-category]');
-      removeCategoryButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const catId = btn.getAttribute('data-remove-category');
-          const ok = window.confirm('Bu kategoriyi ve içindeki tüm maddeleri silmek istiyor musun?');
-          if (!ok) return;
-          deleteChecklistCategory(catId);
-        });
-      });
-
-      const checklistSummaries = document.querySelectorAll('[data-checklist-cat-id]');
-      checklistSummaries.forEach(summary => {
-        summary.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const catId = summary.getAttribute('data-checklist-cat-id');
-          const current = state.openChecklistCategories[catId] === true;
-          const updated = Object.assign({}, state.openChecklistCategories, { [catId]: !current });
-          state.openChecklistCategories = updated;
-          setState({ openChecklistCategories: updated });
-        });
-      });
-
-      const showOnlyUncheckedCb = document.getElementById('show-only-unchecked');
-      if (showOnlyUncheckedCb) {
-        showOnlyUncheckedCb.addEventListener('change', (e) => {
-          setState({ showOnlyUnchecked: e.target.checked });
-        });
-      }
-
-      const openDataModalBtn = document.getElementById('open-data-modal-btn');
-      if (openDataModalBtn) {
-        openDataModalBtn.addEventListener('click', () => {
-          setState({ showDataModal: true, importJsonText: '' });
-        });
-      }
-
-      const closeDataModalBtn = document.getElementById('close-data-modal-btn');
-      const dataOverlay = document.getElementById('data-modal-overlay');
-      if (closeDataModalBtn) {
-        closeDataModalBtn.addEventListener('click', () => {
-          setState({ showDataModal: false });
-        });
-      }
-      if (dataOverlay) {
-        dataOverlay.addEventListener('click', (e) => {
-          if (e.target === dataOverlay) {
-            setState({ showDataModal: false });
-          }
-        });
-      }
-
-      const copyExportBtn = document.getElementById('copy-export-btn');
-      if (copyExportBtn) {
-        copyExportBtn.addEventListener('click', () => {
-          const ta = document.getElementById('export-json');
-          if (!ta) return;
-          const text = ta.value;
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).catch(() => {});
+        if(state.view==='list'){
+          h += renderTabs();
+          if(state.tab==='exp'){
+            h+= renderDashboardHeader(exp);
+            h+= renderFilters(exp.length);
+            h+= renderExpenseList(exp);
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus}</button>`;
           } else {
-            ta.select();
-            document.execCommand('copy');
+            h+= renderChecklist();
           }
-        });
-      }
+        } else {
+          h+= renderForm();
+        }
 
-      const applyImportBtn = document.getElementById('apply-import-btn');
-      if (applyImportBtn) {
-        applyImportBtn.addEventListener('click', () => {
-          const ta = document.getElementById('import-json-input');
-          if (!ta) return;
-          const text = ta.value || '';
-          state.importJsonText = text;
-          importDataFromJson(text);
-        });
-      }
+        if(state.modals.detail) h+=renderModal('detail');
+        if(state.modals.chart) h+=renderModal('chart');
+        if(state.modals.data) h+=renderModal('data');
+        if(state.lightbox) h+=`<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
 
-      const budgetCurrencySelect = document.getElementById('budget-currency');
-      if (budgetCurrencySelect) {
-        budgetCurrencySelect.addEventListener('change', (e) => {
-          state.budgetCurrency = e.target.value;
-          saveBudget();
+        root.innerHTML=h;
+        
+        if(state.modals.chart){
+           const ctx=document.getElementById('chartCv');
+           if(chartInst) chartInst.destroy();
+           const d={}; 
+           exp.forEach(x=> {
+             const val = convert(Number(x.amt), x.cur, state.prefCur);
+             d[x.cat]=(d[x.cat]||0)+val;
+           });
+           chartInst=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(d).map(k=>(CATS[k]||CATS.other).l),datasets:[{data:Object.values(d),backgroundColor:Object.keys(d).map(k=>(CATS[k]||CATS.other).c),borderWidth:0}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{family:'Inter',size:11}}}},cutout:'70%'}});
+        }
+    } catch(e) { console.error(e); }
+  }
+
+  document.addEventListener('click',e=>{
+    const t=e.target.closest('[data-act]'); 
+    if(!t) {if(e.target.closest('[data-id]') && !e.target.closest('[data-act]')) return; else return;}
+    const act=t.dataset.act, val=t.dataset.val, id=t.dataset.id;
+    
+    if(!['set-cat','save','chk'].includes(act)) e.preventDefault();
+    
+    // Navigation
+    if(act==='tab'){state.tab=val; renderApp();}
+    if(act==='new'){state.form=getEmptyForm(); if(state.tripFilter)state.form.trip=state.tripFilter; state.view='form'; renderApp();}
+    if(act==='cancel'){state.view='list'; state.err=''; renderApp();}
+    
+    // Temizleme (Harcama)
+    if(act==='clean-all-exp'){if(confirm('DİKKAT: Tüm harcamalar kalıcı olarak silinecek!')){state.exp=[]; save(); renderApp();}}
+    
+    // Şehir Silme
+    if(act==='del-city'){
+      const cityToDelete = val;
+      if(confirm(`${cityToDelete} şehrine ait tüm ${state.exp.filter(x => x.city === cityToDelete).length} harcama kaydı silinecek. Onaylıyor musun?`)){
+          state.exp = state.exp.filter(x => x.city !== cityToDelete);
+          delete state.expandedCities[cityToDelete];
+          save();
           renderApp();
-          attachEventListeners();
-        });
       }
-
-      const budgetAmountInput = document.getElementById('budget-amount');
-      if (budgetAmountInput) {
-        budgetAmountInput.addEventListener('input', (e) => {
-          let val = e.target.value || '';
-          val = val.replace(',', '.');
-          val = val.replace(/[^0-9.]/g, '');
-          const parts = val.split('.');
-          if (parts.length > 2) {
-            val = parts[0] + '.' + parts.slice(1).join('');
-          }
-          e.target.value = val;
-          state.budgetAmount = val;
-          saveBudget();
-          renderApp();
-          attachEventListeners();
-        });
-      }
-
-      const lightboxThumbs = document.querySelectorAll('[data-lightbox-src]');
-      lightboxThumbs.forEach(el => {
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const src = el.getAttribute('data-lightbox-src');
-          setState({ lightboxPhotoSrc: src });
-        });
-      });
-
-      const lightboxOverlay = document.getElementById('lightbox-overlay');
-      const closeLightboxBtn = document.getElementById('close-lightbox-btn');
-      if (closeLightboxBtn) {
-        closeLightboxBtn.addEventListener('click', () => {
-          setState({ lightboxPhotoSrc: null });
-        });
-      }
-      if (lightboxOverlay) {
-        lightboxOverlay.addEventListener('click', (e) => {
-          if (e.target === lightboxOverlay) {
-            setState({ lightboxPhotoSrc: null });
-          }
-        });
-      }
-
-      attachExpenseListListeners();
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const expenses = loadExpenses();
-      const checklistData = loadChecklist();
-      const budget = loadBudget();
-      const { categories, items } = checklistData;
+    // Checklist İşlemleri
+    if(act==='reset-chk'){
+        if(confirm('Mevcut liste SİLİNECEK ve varsayılan listeye dönülecek. Onaylıyor musun?')){
+             state.chk.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
+             state.chk.cats = [...DEF_CATS];
+             state.openChkCats = {}; state.chk.cats.forEach(x=>state.openChkCats[x.id]=false); // Kategorileri kapat
+             save(); renderApp();
+        }
+    }
+    if(act==='del-chk'){
+        if(id) {
+           state.chk.items = state.chk.items.filter(x => x.id !== id);
+           save(); renderApp();
+        }
+    }
+    if(act==='add-chk'){
+        const el = document.getElementById('new-chk-'+val);
+        const raw = el.value;
+        if(raw){
+            raw.split(',').forEach(part => {
+                const clean = part.trim();
+                if(clean) state.chk.items.push({id:genId(), cat:val, val:clean, done:false});
+            });
+            el.value = ''; // Inputu temizle
+            save(); renderApp();
+        }
+    }
+    if(act==='tog-chk-cat'){state.openChkCats[val]=!state.openChkCats[val]; renderApp();}
+    
+    // Yeni Kategori Ekleme
+    if(act==='add-cat'){
+        const nameInput = document.getElementById('new-cat-name');
+        const iconInput = document.getElementById('new-cat-icon');
+        const name = nameInput.value.trim();
+        const icon = iconInput.value.trim() || '📦';
+        if(name){
+            const newId = 'c'+genId().slice(0, 8);
+            const newCat = {id: newId, l: name, i: icon};
+            state.chk.cats.push(newCat);
+            state.openChkCats[newId] = true; // Yeni eklenen kategori açık başlar
+            nameInput.value = '';
+            iconInput.value = '';
+            save(); renderApp();
+        } else {
+            alert('Lütfen bir kategori adı girin.');
+        }
+    }
+    
+    // Kategori Silme
+    if(act === 'del-chk-cat-confirm') {
+         if (id && confirm('Bu kategori ve İÇİNDEKİ TÜM MADDELER silinecek. Onaylıyor musun?')) {
+             state.chk.cats = state.chk.cats.filter(c => c.id !== id);
+             state.chk.items = state.chk.items.filter(i => i.cat !== id);
+             delete state.openChkCats[id];
+             save();
+             renderApp();
+         }
+     }
+    
+    // Form
+    if(act==='set-cat'){state.form.cat=val; renderApp();}
+    if(act==='del-img'){state.form.imgs.splice(val,1); renderApp();}
+    if(act==='save'){
+       const f=state.form;
+       if(!f.city || !f.place || !f.amt || !f.cat) { state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).'; renderApp(); return; }
+       const rec={...f, id:f.id||genId(), city:titleCase(f.city), place:titleCase(f.place), trip:titleCase(f.trip)};
+       if(f.id) state.exp=state.exp.map(x=>x.id===f.id?rec:x); else state.exp=[...state.exp,rec];
+       state.expandedCities[rec.city]=true; 
+       save(); state.err=''; state.view='list'; renderApp();
+    }
+    
+    // Liste
+    if(act==='tog-city'){
+        // Eğer silme butonuna tıklanmadıysa (event bubble önlenmeli)
+        if(e.target.closest('[data-act="del-city"]')) return; 
+        state.expandedCities[val]=!state.expandedCities[val]; renderApp();
+    }
+    if(act==='detail'){state.selExp=id; state.modals.detail=true; renderApp();}
+    
+    // Modal
+    if(act==='close-mod'){if(val==='overlay'&&e.target!==t)return; state.modals={detail:false,chart:false,data:false}; renderApp();}
+    
+    // Harcama Detayı Silme
+    if(act==='del-exp-detail'){
+      if(state.selExp && confirm('Bu kayıt silinsin mi?')){
+        state.exp=state.exp.filter(x=>x.id!==state.selExp); 
+        save(); state.modals.detail=false; renderApp();
+      }
+    }
+    
+    // Harcama Detayı Düzenleme
+    if(act==='edit'){const x=state.exp.find(e=>e.id===state.selExp); if(x){state.form={...x,imgs:[...x.imgs]}; state.modals.detail=false; state.view='form'; renderApp();}}
+    
+    // Seyahat Taşıma
+    if(act==='move-trip'){
+       const sel = document.getElementById('move-trip-sel').value;
+       const inp = document.getElementById('move-trip-inp').value;
+       const newT = titleCase(inp || sel);
+       if(newT && state.selExp){
+         state.exp = state.exp.map(x=>x.id===state.selExp ? {...x, trip:newT} : x);
+         save(); 
+         state.modals.detail = false; // Modalı kapat
+         renderApp();
+       } else {
+           alert('Lütfen geçerli bir seyahat seçin veya adını girin.');
+       }
+    }
+    
+    // Diğer
+    if(act==='lb'){state.lightbox=e.target.src; renderApp();}
+    if(act==='close-lb'){state.lightbox=null; renderApp();}
+    if(act==='open-chart'){state.modals.chart=true; renderApp();}
+    if(act==='data'){state.modals.data=true; renderApp();}
+    if(act==='imp'){try{const d=JSON.parse(document.getElementById('io-txt').value);state.exp=d.exp||[];state.chk=d.chk||state.chk;state.prefCur=d.prefCur||'TRY';save();state.modals.data=false;renderApp();}catch{alert('JSON Hatalı')}}
+    if(act==='copy-json'){navigator.clipboard.writeText(document.getElementById('io-txt').value);}
+  });
 
-      const expandedCities = {};
-      expenses.forEach(exp => {
-        if (exp.city) expandedCities[exp.city] = false;
-      });
+  document.addEventListener('change',e=>{
+    const t = e.target;
+    if(t.dataset.act==='chk'){
+        const i=state.chk.items.find(x=>x.id===t.dataset.id); 
+        if(i){i.done=t.checked; save(); renderApp();}
+    }
+    if(t.dataset.act==='flt-trip'){state.tripFilter=t.value; renderApp();}
+    if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
+    if(t.dataset.act==='set-pref-cur'){state.prefCur=t.value; save(); renderApp();}
+  });
 
-      state.expenses = expenses;
-      state.checklistCategories = categories;
-      state.checklistItems = items;
-      state.expandedCities = expandedCities;
-      state.budgetCurrency = budget.currency;
-      state.budgetAmount = budget.amount;
+  document.addEventListener('input',e=>{
+    if(e.target.dataset.act==='search'){state.search=e.target.value; renderApp();}
+    const f=state.form; const m={'i-trip':v=>f.trip=v,'i-city':v=>f.city=v,'i-place':v=>f.place=v,'i-amt':v=>f.amt=v.replace(',','.').replace(/[^0-9.]/g,''),'i-cur':v=>f.cur=v,'i-ppl':v=>f.ppl=v,'i-date':v=>f.date=v,'i-desc':v=>f.desc=v};
+    if(m[e.target.id]) m[e.target.id](e.target.value);
+    if(e.target.id==='i-img'){
+       const fl=[...e.target.files].slice(0,3-f.imgs.length);
+       Promise.all(fl.map(file=>new Promise(r=>{const rd=new FileReader();rd.onload=ev=>{const i=new Image();i.onload=()=>{const c=document.createElement('canvas'),mx=800,sc=Math.min(mx/i.width,mx/i.height,1);c.width=i.width*sc;c.height=i.height*sc;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',0.7))};i.src=ev.target.result};rd.readAsDataURL(file)})))
+       .then(res=>{f.imgs=[...f.imgs,...res]; renderApp();});
+    }
+  });
 
-      renderApp();
-      attachEventListeners();
-    });
-  })();
-  </script>
+  initState(); renderApp();
+})();
+</script>
 </body>
 </html>
