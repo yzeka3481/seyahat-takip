@@ -1141,7 +1141,7 @@ input[type="date"]{
             <div class="grid grid-cols-2 gap-3">
                <div class="col-span-1 relative">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">${isFuelActive ? 'Ödenen Tutar' : 'Toplam Tutar'}</label>
-                  <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
+                  <input id="i-amt" type="number" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
                   <select id="i-cur" class="absolute right-1 top-[28px] bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
                      ${AVAILABLE_CURRENCIES.map(c=>`<option value="${c}" ${f.cur===c?'selected':''}>${c}</option>`).join('')}
                   </select>
