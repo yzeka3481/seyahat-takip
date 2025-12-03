@@ -1880,6 +1880,10 @@ html, body {
                           value="${f.ppl}"
                           ${isIndividualActive ? '
             </div>
+            disabled' : ''}>
+                  </div>
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
+               </div>
             
             <div>
                <input id="i-date" type="date" class="w-full theme-input border rounded-lg p-3 text-sm outline-none" value="${f.date}">
