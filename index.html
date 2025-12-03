@@ -1878,10 +1878,7 @@ html, body {
                       <!-- Kişi sayısı: Bireysel ise disabled, değeri 1 olmalı -->
                       <input id="i-ppl" type="number" inputmode="numeric" min="1" class="w-full bg-transparent text-sm text-[var(--text-color)] outline-none text-center ${isIndividualActive ? 'opacity-50 cursor-not-allowed' : ''}" 
                           value="${f.ppl}"
-                          ${isIndividualActive ? 'disabled' : ''}>
-                  </div>
-                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
-               </div>
+                          ${isIndividualActive ? '
             </div>
             
             <div>
