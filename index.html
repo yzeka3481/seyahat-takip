@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"><title>Seyahat Cüzdanı</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* --- TEMA YÖNETİMİ: CSS DEĞİŞKENLERİ --- */
+:root {
+    /* Varsayılan (Koyu Tema) */
+    --bg-primary: #0F111A;
+    --bg-card: #1e293b;
+    --bg-card-light: #334155;
+    --bg-card-light-hover: #475569;
+    --text-color: #e2e8f0; /* slate-200 */
+    --text-muted: #94a3b8; /* slate-400 */
+    --border-color: #334155; /* slate-700 */
+    --input-bg: #1e293b; /* slate-800 */
+    --input-border: #334155; /* slate-700 */
+    --glass-bg: rgba(30, 41, 59, 0.7);
+    --expense-card-bg: #f8fafc; /* slate-50 */
+    --expense-card-text: #0f172a; /* slate-900 */
+    --expense-card-border: #cbd5e1; /* slate-300 */
+    --expense-card-hover: #e2e8f0; /* slate-200 */
+}
+
+/* Açık Tema Değişkenleri */
+[data-theme="light"] {
+    --bg-primary: #f1f5f9; /* slate-100 */
+    --bg-card: #ffffff; /* white */
+    --bg-card-light: #f8fafc; /* slate-50 */
+    --bg-card-light-hover: #e2e8f0; /* slate-200 */
+    --text-color: #0f172a; /* slate-900 */
+    --text-muted: #475569; /* slate-600 */
+    --border-color: #e2e8f0; /* slate-200 */
+    --input-bg: #f8fafc; /* slate-50 */
+    --input-border: #cbd5e1; /* slate-300 */
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --expense-card-bg: #0f172a; /* slate-900 */
+    --expense-card-text: #f8fafc; /* slate-50 */
+    --expense-card-border: #334155; /* slate-700 */
+    --expense-card-hover: #1e293b; /* slate-800 */
+}
+
+body{
+    font-family:'Inter',sans-serif;
+    background-color: var(--bg-primary); /* Temel arka plan rengi */
+    color: var(--text-color); /* Temel metin rengi */
+}
+/* KRİTİK DÜZELTME: Sayfa kaymasını kesinlikle engeller */
+html, body {
+    overflow-x: hidden !important; 
+    width: 100%; 
+    max-width: 100vw; 
+    height: 100%;
+}
+#app-root {
+    width: 100%;
+    max-width: 100%;
+}
+/* Diğer stiller */
+.scrl::-webkit-scrollbar{width:6px;height:6px}
+.scrl::-webkit-scrollbar-thumb{background:rgba(71,85,105,0.5);border-radius:99px}
+.scrl::-webkit-scrollbar-track{background:transparent}
+
+/* Checkbox custom style (Renkler korundu) */
+.custom-checkbox:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg>"); border-color: transparent; background-color: #10b981; }
+
+/* Glass Panel için dinamik renkler */
+.glass-panel { 
+    background: var(--glass-bg); 
+    backdrop-filter: blur(12px); 
+    border: 1px solid rgba(255,255,255,0.08); 
+    /* Açık temada kenarlık rengini ayarla */
+    border: 1px solid var(--border-color);
+}
+
+/* HARCAMA DETAYI MODAL BAŞLIĞI: GRADIENT KORUNDU *a/
+.fixed-gradient-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* YENİ KAYIT EKRANI İÇİN MODAL SARIYICI */
+.form-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45; 
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(5px);
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+}
+
+/* Form içeriği için max-height ayarı */
+.form-content-box {
+    max-height: 95vh; 
+    overflow-y: auto; 
+    overflow-x: hidden; 
+    background-color: var(--bg-card); /* Modal arka planı */
+}
+
+/* Form alanları ve diğer bileşenler için dinamik renkler */
+.theme-input {
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    color: var(--text-color);
+}
+.theme-input::placeholder {
+    color: var(--text-muted);
+}
+.theme-modal-bg {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+.theme-sidebar-bg {
+    background-color: var(--bg-card-light);
+    border-color: var(--border-color);
+}
+.theme-sidebar-bg-hover:hover {
+    background-color: var(--bg-card-light-hover);
+}
+</style>
+</head>
+<!-- TEMA DEĞİŞKENİ BURADA YÖNETİLİR -->
+<body class="min-h-screen flex justify-center p-4 selection:bg-blue-500/30" data-theme="dark">
+<div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
+
+<script>
+(()=>{
+  // --- Sabitler ---
+  const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget', PREF:'travel_pref', NOTES:'travel_notes', TICKET:'travel_tickets', THEME:'app_theme'}; 
+  const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
+  
+  // YENİ FOTOĞRAF SABİTLERİ
+  const MAX_IMAGES = 3; // Maksimum fotoğraf adedi
+  const MAX_IMAGE_WIDTH = 800; // Maksimum yeniden boyutlandırma genişliği (Piksel)
+  
+  let chartInst=null, state={};
+
+  // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
+  function getChartDataset(expenses = state.exp){
+    // state.exp veya dışarıdan gelen (rapor için) harcamaları kullan
+    const base = (state._visibleExp && state._visibleExp.length && expenses === state.exp) 
+        ? state._visibleExp 
+        : expenses;
+    
+    const allExp = base.filter(x => !isNaN(Number(x.amt)) && Number(x.amt) > 0);
+
+    if(!allExp.length){
+      return {labels:[], data:[], colors:[], currency:'', total:0, trips:[], currencies:[]};
+    }
+
+    const currencies = [...new Set(allExp.map(x => x.cur || 'TRY'))];
+    let cur = state.chartCurrency || currencies[0];
+    if(!currencies.includes(cur)) cur = currencies[0];
+    // SADECE HARCAMA SEKMESİNDEYKEN state.chartCurrency'yi güncelle
+    if (expenses === state.exp) state.chartCurrency = cur;
+
+    const filtered = allExp.filter(x => (x.cur || 'TRY') === cur);
+
+    const perCat = {};
+    filtered.forEach(x=>{
+        const cat = x.cat || 'other';
+        const amt = Number(x.amt) || 0;
+        perCat[cat] = (perCat[cat] || 0) + amt;
+    });
+
+    const keys = Object.keys(perCat);
+    const labels = keys.map(id => (CATS[id] && CATS[id].l) || id);
+    // Renkleri temaya duyarlı hale getirmek için sadece tonları (örneğin blue, red) tutmalı ve CSS'te ayarlamalıyız.
+    // Şimdilik gradientler aynı kalsın.
+    const data = keys.map(id => perCat[id]);
+    const colors = keys.map(id => (CATS[id] && CATS[id].c) || 'rgba(148,163,184,0.8)');
+    const trips = [...new Set(filtered.map(x=> x.trip || 'Genel'))];
+    const total = data.reduce((a,b)=>a+b,0);
+
+    return {labels,data,colors,currency:cur,currencies,total,trips, perCat};
+  }
+  
+  // Rapor için harcama listesini getirir
+  function getTripExpenses(tripName) {
+      if (!tripName) return [];
+      // Sadece seçili seyahatin harcamalarını getir
+      return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
+  }
+
+  // --- HARCAMA GRAFİĞİ ÇİZİM ---
+  function renderExpenseChart(){
+    try{
+      if(typeof Chart === 'undefined') return;
+      const canvas = document.getElementById('exp-chart');
+      if(!canvas) return;
+      const ds = getChartDataset();
+      if(!ds.labels.length){
+        if(chartInst){ chartInst.destroy(); chartInst=null; }
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if(chartInst){ chartInst.destroy(); chartInst=null; }
+      chartInst = new Chart(ctx, {
+        type:'doughnut',
+        data:{
+          labels: ds.labels,
+          datasets:[{
+            data: ds.data,
+            backgroundColor: ds.colors,
+            borderWidth: 0
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{
+            legend:{
+              position:'bottom',
+              labels:{
+                // Temaya göre legend rengi ayarla
+                color: state.theme === 'dark' ? '#cbd5f5' : '#475569', 
+                font:{size:11}
+              }
+            },
+            tooltip:{
+              callbacks:{
+                label:(ctx)=>{
+                  const label = ctx.label || '';
+                  const value = ctx.parsed || 0;
+                  return `${label}: ${fmtNum(value)} ${ds.currency}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }catch(err){
+      console.error('Chart render error', err);
+    }
+  }
+
+
+  let timeInterval = null; 
+  
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  
+  const fmtNum=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2, minimumFractionDigits:2});
+  const fmtDate=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d};
+  const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+  
+  // Hata Düzeltme: Kelimenin boş olup olmadığını kontrol etmek için titleCase fonksiyonu güncellendi.
+  // Bu, çift boşluk gibi durumların neden olduğu "w[0] is undefined" hatasını engeller.
+  const titleCase=s=>s?s.toLowerCase().split(' ').map(w=>w.length>0?w[0].toUpperCase()+w.slice(1):w).join(' '):'';
+  
+  const getCityColor = (str) => {
+    let hash = 0; if (!str) return 'hsl(210, 100%, 50%)'; 
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return `hsl(${Math.abs(hash)%360}, 70%, 55%)`; 
+  };
+  
+  // Zenginleştirilmiş Zaman Dilimi Listesi
+  const TIMEZONES = [
+      {id: 'auto', name: '— Otomatik (Cihaz Saati) —'},
+      {id: 'Europe/Istanbul', name: 'Türkiye (İstanbul)'},
+      {id: 'Europe/London', name: 'İngiltere (Londra)'},
+      {id: 'Europe/Paris', name: 'Fransa (Paris)'},
+      {id: 'Europe/Berlin', name: 'Almanya (Berlin)'},
+      {id: 'America/New_York', name: 'ABD (New York)'},
+      {id: 'America/Los_Angeles', name: 'ABD (Los Angeles)'},
+      {id: 'Asia/Dubai', name: 'BAE (Dubai)'},
+      {id: 'Asia/Tokyo', name: 'Japonya (Tokyo)'},
+      {id: 'Asia/Shanghai', name: 'Çin (Şanghay)'},
+      {id: 'Australia/Sydney', name: 'Avustralya (Sydney)'},
+      {id: 'Asia/Kolkata', name: 'Hindistan (Kolkata)'},
+      {id: 'America/Sao_Paulo', name: 'Brezilya (Sao Paulo)'}
+  ];
+  
+  // Saat Formatlama
+  const formatTime = (timezone) => {
+      const now = new Date();
+      const effectiveTimezone = timezone === 'auto' || !TIMEZONES.some(tz => tz.id === timezone) ? 
+          Intl.DateTimeFormat().resolvedOptions().timeZone : 
+          timezone;
+
+      try {
+          const time = now.toLocaleTimeString('tr-TR', {
+              timeZone: effectiveTimezone,
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+          });
+          const zoneItem = TIMEZONES.find(z => z.id === timezone);
+          const zoneName = zoneItem ? zoneItem.name : effectiveTimezone.split('/').pop().replace('_', ' ');
+          return { time, zoneName };
+      } catch (e) {
+          return { time: 'Hata', zoneName: 'Bilinmeyen Bölge' };
+      }
+  };
+
+  // SVG İkonları
+  const mkSvg=(d,s=4)=>`<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICONS={
+    wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',6),
+    trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
+    info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+    plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+    x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+    chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
+    clock: mkSvg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 4), // Saat ikonu
+    edit: mkSvg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
+    down: mkSvg('<polyline points="6 9 12 15 18 9"/>'),
+    search: mkSvg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    person: mkSvg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+    briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="22"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
+    compass: mkSvg('<circle cx="12" cy="12" r="10"/><polygon points="16 16 12 12 8 16 12 8 16 16"/>',4),
+    hospital: mkSvg('<path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/><circle cx="12" cy="12" r="10"/>',4),
+    location: mkSvg('<path d="M12 21.7C17.3 17 22 13.3 22 10a10 10 0 0 0-20 0c0 3.3 4.7 7 10 11.7z"/><circle cx="12" cy="10" r="3"/>',4),
+    // Ulaşım için otobüs yerine daha genel bir araba/taksi sembolü kullanıldı.
+    bus: mkSvg('<rect x="1" y="5" width="22" height="14" rx="2"/><path d="M10 16h4M3 9h18M5 19v2M19 19v2M6 19v2M18 19v2M7 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM17 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',4),
+    // Eski car ikonu kaldırıldı ve yerine yeni taxi ikonu eklendi (Görsele uygun bir kişi çağırma teması)
+    taxi: mkSvg('<path d="M17 10H7c-2.2 0-4 1.8-4 4v5h18v-5c0-2.2-1.8-4-4-4z"/><path d="M15 10V6c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v4"/><path d="M15 10c1.7 0 3 1.3 3 3H6c0-1.7 1.3-3 3-3z"/><path d="M12 2l2 2m-2-2l-2 2"/><rect x="5" y="19" width="4" height="2"/><rect x="15" y="19" width="4" height="2"/><path d="M12 10V4"/>', 4),
+    pharmacy: mkSvg('<path d="M12 22s-8-4.5-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 5.5-8 10-8 10z"/><path d="M12 9v6m-3-3h6"/>', 4),
+    restaurant: mkSvg('<path d="M12 22s-8-4-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 6-8 10-8 10zM12 4a4 4 0 0 0 0 8 4 4 0 0 0 0-8z"/>', 4),
+    bed: mkSvg('<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4H2z"/><path d="M2 16h20M7 12V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6"/>', 4),
+    police: mkSvg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 18V12m-3 3h6"/>', 4),
+    key: mkSvg('<path d="M21 2l-2 2m-7 7l-2 2m-7 7l-2 2"/><path d="M15 11l-2 2m-7 7l-2 2"/><path d="M16 12l2-2m-7 7l-2 2"/><path d="M14 10l2-2m-7 7l-2 2"/><path d="M13 9l2-2m-7 7l-2 2"/><path d="M12 8l2-2m-7 7l-2 2"/><path d="M11 7l2-2m-7 7l-2 2"/><path d="M10 6l2-2m-7 7l-2 2"/><path d="M9 5l2-2m-7 7l-2 2"/><path d="M8 4l2-2m-7 7l-2 2"/><path d="M7 3l2-2m-7 7l-2 2"/><path d="M6 2l2-2m-7 7l-2 2"/><path d="M5 1l2-2m-7 7l-2 2"/><path d="M4 0l2-2m-7 7l-2 2"/><path d="M3 23l-2 2m-7 7l-2 2"/>', 4),
+    mapPin: mkSvg('<path d="M12 22s-8-4-8-10c0-4.4 3.6-8 8-8s8 3.6 8 8c0 6-8 10-8 10z"/><circle cx="12" cy="10" r="3"/>', 4),
+    // Uçak ikonu sadece rapor için tutulacak
+    flight: mkSvg('<path d="M19 17h-2l-1-2H8l-1 2H5l1-2H2l2-4 1-2h4l1 2h4l1-2h4l1 2 2 4h-3z"/><path d="M14 11l-2-2M10 11l2-2M12 2v3M12 16v6M12 12V6"/>', 6),
+    // Bilet ikonu
+    ticket: mkSvg('<path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/><path d="M12 10v4M10 12h4"/>', 4),
+    // YENİ İKON: Yakıt Pompası
+    fuel: mkSvg('<path d="M14 3v4a2 2 0 0 1-2 2h-1a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1a2 2 0 0 0 2 2v4M5 7h14M5 13h14M5 19h14M12 3v4M12 10v4M12 17v4"/>', 4),
+    // YENİ İKON: Harita / Rota
+    route: mkSvg('<polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M21 15.5H3M12 2L12 10M12 14L12 22"/>', 5),
+    // YENİ İKON: Rapor / Özet
+    report: mkSvg('<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="12" y2="16"/><line x1="7" y1="8" x2="7" y2="16"/>',5),
+    // YENİ İKON: Tema (Güneş/Ay)
+    sun: mkSvg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>', 4),
+    moon: mkSvg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 4)
+  };
+
+  // Harcama Kategorileri (fuel eklendi)
+  const CATS={
+    food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
+    stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
+    transport:{id:'transport',l:'Ulaşım/Seyahat',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
+    fuel:{id:'fuel',l:'Yakıt/Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
+    shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
+    activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
+    other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
+  };
+  
+  // Varsayılan Check List Kategorileri ve Maddeleri
+  const DEF_CATS=[{id:'docs',l:'Belgeler',i:'📄'},{id:'clth',l:'Giyim',i:'👕'},{id:'elec',l:'Elektronik',i:'🔌'},{id:'hlth',l:'Sağlık',i:'💊'},{id:'otr',l:'Diğer',i:'⭐'}];
+  
+  const DEF_ITEMS = [
+    {cat:'docs', val:'Pasaport'}, {cat:'docs', val:'Kimlik / Ehliyet'}, {cat:'docs', val:'Uçak Biletleri'}, {cat:'docs', val:'Otel Rezervasyonları'}, {cat:'docs', val:'Seyahat Sigortası'},
+    // Uçuş bilgileri kontrolü check list maddesi.
+    {cat:'docs', val:'Uçuş Bilgileri Kontrolü (Kapı/Saat)'},
+    
+    {cat:'clth', val:'Tişörtler'}, {cat:'clth', val:'Pantolon / Şort'}, {cat:'clth', val:'İç Çamaşırı'}, {cat:'clth', val:'Çoraplar'}, {cat:'clth', val:'Rahat Ayakkabı'}, {cat:'clth', val:'Pijama'},
+    {cat:'elec', val:'Şarj Aleti'}, {cat:'elec', val:'Powerbank'}, {cat:'elec', val:'Kulaklık'}, {cat:'elec', val:'Priz Dönüştürücü'},
+    {cat:'hlth', val:'Ağrı Kesici'}, {cat:'hlth', val:'Yara Bandı'}, {cat:'hlth', val:'Kişisel İlaçlar'}, {cat:'hlth', val:'El Dezenfektanı'},
+    {cat:'otr', val:'Güneş Gözlüğü'}, {cat:'otr', val:'Diş Fırçası & Macunu'}, {cat:'otr', val:'Şampuan & Duş Jeli'}
+  ];
+  
+  // Harcama formu artık yakıt ve yolculuk bilgileri içeriyor (isIndividual EKLENDİ)
+  const getEmptyForm=()=>({
+    id:null,
+    trip:'',
+    city:'',
+    place:'',
+    amt:'',
+    cur:'TRY',
+    date:new Date().toISOString().slice(0,10),
+    cat:'',
+    desc:'',
+    ppl:'1',
+    imgs:[],
+    isFuel: false,
+    startKm: '', 
+    endKm: '', 
+    fuelAmount: '', 
+    isIndividual: false, // YENİ EKLENDİ
+  });
+  
+  // YENİ: Basitleştirilmiş Bilet/Rezervasyon formu yapısı
+  const getEmptyTicketForm = () => ({
+      id: null,
+      trip: '',
+      type: 'flight', // flight, train, bus, hotel, other
+      name: '', // Örneğin: TK1951, Hilton Istanbul Bosphorus
+      location: '', // YENİ ALAN: Mekan/Adres bilgisi (Harita için)
+      date: new Date().toISOString().slice(0,10), // Rezervasyon/kalkış tarihi
+      time: '12:00', // Kalkış/Check-in saati
+      url: 'https://', // DÜZELTME: URL varsayılan olarak "https://" ile başlasın
+      details: '', // PNR, koltuk, notlar birleştirildi
+  });
+  
+  // Bilet türü bilgileri
+  const ticketTypes = {
+      flight: { i: ICONS.flight.replace('w-6 h-6', 'w-4 h-4'), l: 'Uçak Bileti', c: 'text-sky-400', g: 'from-sky-500/20 to-sky-900/40' },
+      train: { i: '🚂', l: 'Tren Bileti', c: 'text-amber-400', g: 'from-amber-500/20 to-amber-900/40' },
+      bus: { i: ICONS.bus.replace('w-4 h-4', 'w-4 h-4'), l: 'Otobüs/Vasıta', c: 'text-emerald-400', g: 'from-emerald-500/20 to-emerald-900/40' },
+      hotel: { i: ICONS.bed.replace('w-4 h-4', 'w-4 h-4'), l: 'Otel/Konaklama', c: 'text-violet-400', g: 'from-violet-500/20 to-violet-900/40' },
+      other: { i: ICONS.ticket.replace('w-4 h-4', 'w-4 h-4'), l: 'Diğer Rezervasyon', c: 'text-slate-400', g: 'from-slate-500/20 to-slate-900/40' },
+  };
+
+  
+  function initState(){
+    let initialTZ = 'auto'; 
+    try {
+        const browserTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (TIMEZONES.some(tz => tz.id === browserTZ)) {
+            initialTZ = browserTZ;
+        }
+    } catch(e) {
+        console.error("Zaman dilimi tespiti başarısız oldu:", e);
+    }
+    
+    let e=[], c={cats:[...DEF_CATS],items:[]}, prefTZ = initialTZ; 
+    let criticalNotes = []; 
+    // YENİ: Bilet listesi eklendi
+    let travelTickets = []; 
+    let selectedNoteTrip = ''; 
+    let theme = 'dark'; // Varsayılan Tema
+
+    try{e=JSON.parse(localStorage.getItem(K.EXP)||'[]');}catch(err){}
+    try{const l=JSON.parse(localStorage.getItem(K.LIST)); 
+        if(l){
+            c.items=l.items||[]; 
+            c.cats=l.cats||[...DEF_CATS];
+            if(c.cats.length === 0) c.cats = [...DEF_CATS]; 
+        }
+    }catch(err){}
+    
+    // Kayıtlı tercihleri yükle
+    try{prefTZ=localStorage.getItem(K.PREF+'_tz')||initialTZ;}catch(err){}
+    // KRİTİK NOTLARI YÜKLE
+    try{criticalNotes=JSON.parse(localStorage.getItem(K.NOTES)||'[]');}catch(err){criticalNotes = [];}
+    // YENİ: BİLETLERİ YÜKLE
+    try{travelTickets=JSON.parse(localStorage.getItem(K.TICKET)||'[]');}catch(err){travelTickets = [];}
+    // TEMA YÜKLE
+    try{theme=localStorage.getItem(K.THEME)||'dark';}catch(err){theme='dark';}
+    
+    if(!c.items || c.items.length === 0) {
+        c.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
+    }
+    
+    // Harcama kayıtlarında yeni alanları ekle (eski veriyi korumak için)
+    e = e.map(item => {
+        // isIndividual ve tripRoute, fuelLocation alanlarını kaldır/güncelle
+        delete item.tripRoute;
+        delete item.fuelLocation;
+        
+        return { 
+            ...item, 
+            imgs: item.imgs || [],
+            isFuel: item.isFuel || false,
+            startKm: item.startKm || '',
+            endKm: item.endKm || '', 
+            fuelAmount: item.fuelAmount || '',
+            isIndividual: typeof item.isIndividual === 'boolean' ? item.isIndividual : false, // YENİ: Varsayılan olarak Ortak kabul et
+            ppl: item.ppl || '1'
+        };
+    });
+    
+    // Bilet kayıtlarında yeni alanları ekle (location)
+    travelTickets = travelTickets.map(item => ({
+        ...item,
+        location: item.location || '', // YENİ: location alanı ekle
+    }));
+
+
+    const allTrips = [...new Set((e || []).map(x=>x.trip).filter(Boolean))].sort();
+    if(allTrips.length > 0) {
+        selectedNoteTrip = allTrips[0];
+    } else {
+        // Eğer hiç harcama yoksa, "Genel" olarak başla
+        selectedNoteTrip = 'Genel';
+    }
+
+    state={
+        exp:e,
+        chk:c,
+        view:'list',
+        tab:'exp', // exp, chk, helpers
+        tripFilter:'',
+        routeTrip:'',
+        catFilter:'',
+        individualFilter: '', // YENİ: 'individual', 'shared'
+        search:'',
+        selExp:null,
+        modals:{detail:false,chart:false,data:false, tzSelect: false}, 
+        form:getEmptyForm(),
+        ticketForm: getEmptyTicketForm(), // Yeni bilet formu state'i
+        selectedTicketId: null, // Düzenlenecek veya detay gösterilecek biletin id'si
+        
+        expandedCities:{},
+        lightbox:null,
+        err:'',
+        draggedItemId: null, 
+        targetTimezone: prefTZ, 
+        currentTime: formatTime(prefTZ).time,
+        location: null, 
+        locationLoading: false,
+        locationName: 'Bilinmiyor', 
+        helpersAccordion: {
+            critical: false, 
+            places: false, 
+            health: false,
+            transport: false,
+            flightCheck: false,
+            route: false, 
+            report: false,
+            tickets: true, // Başlangıçta biletler sekmesi açık olsun
+        },
+        criticalNotes: criticalNotes, 
+        travelTickets: travelTickets, // Yeni bilet listesi
+        selectedNoteTrip: selectedNoteTrip, 
+        newCriticalNote: '', 
+        selectedReportTrip: selectedNoteTrip, 
+        ticketTripFilter: '', // Biletler için seyahat filtresi
+        theme: theme, // Tema eklendi
+    };
+    
+    // Check List Kategorileri: Açık/Kapalı Durumu
+    state.openChkCats={}; 
+    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); 
+  }
+
+  function setState(p){state={...state,...p}; renderApp();}
+  
+  const save=()=>{
+    localStorage.setItem(K.EXP,JSON.stringify(state.exp));
+    localStorage.setItem(K.LIST,JSON.stringify(state.chk));
+    localStorage.setItem(K.PREF+'_tz', state.targetTimezone); 
+    // KRİTİK NOTLARI KAYDET
+    localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
+    // YENİ BİLETLERİ KAYDET
+    localStorage.setItem(K.TICKET, JSON.stringify(state.travelTickets));
+    // TEMA KAYDET
+    localStorage.setItem(K.THEME, state.theme);
+  };
+  
+  // --- RESİM YENİDEN BOYUTLANDIRMA VE BASE64'E DÖNÜŞTÜRME YARDIMCISI ---
+  const resizeAndConvertImage = (file) => {
+      // Dosya Boyutu Kontrolü KALDIRILDI. Sadece otomatik boyutlandırma ve sıkıştırma uygulanacak.
+
+      return new Promise((resolve, reject) => { // reject eklendi
+          const reader = new FileReader();
+          reader.onload = (readerEvent) => {
+              const image = new Image();
+              image.onload = (imageEvent) => {
+                  let canvas = document.createElement('canvas'),
+                      max_size = MAX_IMAGE_WIDTH,
+                      width = image.width,
+                      height = image.height;
+
+                  // Yeniden Boyutlandırma Gerekli mi?
+                  if (width > height) {
+                      if (width > max_size) {
+                          height *= max_size / width;
+                          width = max_size;
+                      }
+                  } else {
+                      if (height > max_size) {
+                          width *= max_size / height;
+                          height = max_size;
+                      }
+                  }
+                  
+                  canvas.width = width;
+                  canvas.height = height;
+                  canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+
+                  // JPEG formatında ve daha düşük kalitede Base64'e dönüştür (Daha küçük dosya için)
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Kaliteyi %70'e düşürdük
+                  resolve(dataUrl);
+              };
+              // FileReader başarısız olursa diye hata yakalama eklendi
+              image.onerror = () => {
+                reject(new Error("Resim formatı desteklenmiyor veya bozuk."));
+              };
+              image.src = readerEvent.target.result;
+          };
+          reader.onerror = () => { // FileReader hatasını yakala
+            reject(new Error("Dosya okuma hatası. Dosya bozuk olabilir."));
+          };
+          reader.readAsDataURL(file);
+      });
+  };
+
+  // --- KONUM YÖNETİMİ ---
+  const handleGeolocation = () => {
+    // Zaten yükleniyorsa veya alındıysa tekrar çalıştırma
+    if (state.locationLoading || state.location) return;
+
+    if (!navigator.geolocation) {
+        setState({ 
+            err: 'Tarayıcınız Konum Servislerini desteklemiyor.', 
+            locationLoading: false, 
+            location: null,
+            locationName: 'Bilinmiyor'
+        });
+        return;
+    }
+
+    setState({ locationLoading: true, err: '', locationName: 'Alınıyor...' });
+
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const name = "Konum Başarıyla Alındı";
+
+            setState({
+                location: { 
+                    lat: position.coords.latitude, 
+                    lon: position.coords.longitude 
+                },
+                locationLoading: false,
+                locationName: name,
+                err: ''
+            });
+        },
+        (error) => {
+            let message = 'Konum bilgisi alınamadı.';
+            if (error.code === error.PERMISSION_DENIED) {
+                message = 'Konum erişimi reddedildi. İzin vermeyi deneyin.';
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+                message = 'Konum bilgisi mevcut değil.';
+            } else if (error.code === error.TIMEOUT) {
+                message = 'Konum bilgisi zaman aşımına uğradı.';
+            }
+            
+            setState({ 
+                err: message, 
+                locationLoading: false, 
+                location: null,
+                locationName: 'Bilinmiyor'
+            });
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
+  // --- YARDIMCI FONKSİYON: Rota Oluşturma Linki (MEKAN BAZLI) ---
+  const getRouteUrl = (tripName) => {
+      // İlgili seyahate ait tüm harcamaları tarih sırasına göre al
+      const tripExpenses = state.exp
+          .filter(x => x.trip === tripName)
+          .sort((a, b) => (a.date || '').localeCompare(b.date));
+
+      // Harcama noktalarını (Mekan, Şehir) al ve ardışık tekrar edenleri filtrele
+      let uniquePoints = [];
+      tripExpenses.forEach(x => {
+          // Mekan ve Şehir'i birleştirerek benzersiz bir nokta oluştur
+          const point = x.place.trim() + ', ' + x.city.trim();
+          
+          if (x.place.trim() && x.city.trim() && (uniquePoints.length === 0 || uniquePoints[uniquePoints.length - 1] !== point)) {
+              uniquePoints.push(point);
+          }
+      });
+
+      if (uniquePoints.length < 2) {
+          // Rota için en az iki farklı nokta (mekan + şehir) olmalı
+          return { url: '', points: uniquePoints, error: 'Rota için en az 2 farklı Mekan kaydı gerekiyor.' };
+      }
+
+      const origin = uniquePoints[0];
+      const destination = uniquePoints[uniquePoints.length - 1];
+      
+      // Google Maps URL formatı: https://www.google.com/maps/dir/Origin/Waypoint1/Waypoint2/Destination
+      const url = `https://www.google.com/maps/dir/${uniquePoints.map(p => encodeURIComponent(p)).join('/')}`;
+      
+      return { url, points: uniquePoints, error: '' };
+  };
+  
+  
+  // YENİ FONKSİYON: BİLET/REZERVASYON DETAY MODALI
+  function renderTicketDetailModal(){
+    const t = state.travelTickets.find(x => x.id === state.selectedTicketId);
+    if (!t) return '';
+    
+    const typeInfo = ticketTypes[t.type] || ticketTypes.other;
+    const isPassed = new Date(`${t.date}T${t.time}:00`) < new Date();
+    
+    // Haritada göster butonu için
+    const hasLocation = t.location && t.location.trim().length > 0;
+    const mapQuery = encodeURIComponent(t.location);
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
+    
+    // URL butonu için aksiyon (Yeni aksiyon kullanıldı)
+    const urlAction = t.url && t.url !== 'https://' ? `data-act="open-url" data-val="${t.url}"` : '';
+    
+    const badgeCls = 'flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full text-white';
+
+    return `
+      <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="ticketDetailOverlay">
+          <div class="theme-modal-bg w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border" data-act="noop">
+             
+             <!-- SABİT GRADIENT BAŞLIK -->
+             <div class="relative p-4 pb-10 overflow-hidden fixed-gradient-header">
+                <div class="absolute inset-0 backdrop-blur-[2px]"></div>
+                
+                <div class="relative z-10 flex justify-between items-start mb-2">
+                  <div class="flex items-center gap-2">
+                     <!-- TÜR -->
+                     <div class="${badgeCls} text-xs font-bold uppercase">${typeInfo.i} ${typeInfo.l}</div>
+                     <!-- SEYAHAT -->
+                     <div class="${badgeCls} text-xs font-bold">${esc(t.trip || 'Genel')}</div>
+                  </div>
+                  <button data-act="close-mod" data-val="ticketDetail" class="bg-black/20 hover:bg-black/40 text-white rounded-full p-1.5 transition backdrop-blur-md">${ICONS.x}</button>
+                </div>
+
+                <div class="relative z-10 mt-1">
+                   <h2 class="text-xl font-bold text-white mb-1 leading-tight drop-shadow-md">${esc(t.name)}</h2>
+                   
+                   <div class="flex items-center gap-2 text-white/80 text-xs font-medium mt-1">
+                      <span class="bg-black/20 px-2 py-0.5 rounded-full text-[10px]">${fmtDate(t.date)} ${esc(t.time)}</span>
+                      ${isPassed ? '<span class="text-rose-300 font-bold bg-rose-900/40 px-2 py-0.5 rounded-full text-[10px]">GEÇMİŞ REZ.</span>' : ''}
+                   </div>
+                   
+                   <div class="relative z-10 mt-4">
+                       <div class="inline-block">
+                           <div class="text-[10px] text-white/80 font-medium">Mekan/Adres Bilgisi</div>
+                           <div class="text-sm font-bold text-white">${esc(t.location) || '<span class="text-slate-400 font-normal italic">Adres girilmemiş</span>'}</div>
+                       </div>
+                   </div>
+                </div>
+             </div>
+
+             <!-- Body -->
+             <div class="theme-modal-bg p-4 space-y-3 overflow-y-auto max-h-[70vh]">
+               
+               <!-- DETAYLAR/NOTLAR -->
+               <div class="theme-sidebar-bg rounded-lg p-3 border border-[var(--border-color)]/70 min-h-[50px]">
+                 <div class="text-xs font-bold text-slate-500 mb-1 uppercase">PNR, Koltuk, Notlar vb.</div>
+                 <p class="text-sm text-[var(--text-muted)] leading-relaxed">${esc(t.details) || '<span class="italic text-[var(--text-muted)]/50">Ek detay eklenmemiş.</span>'}</p>
+               </div>
+               
+               <!-- GOOGLE MAPS LİNKİ (KOŞULLU GÖSTERİM) -->
+               ${hasLocation ? `
+               <button data-act="open-url" data-val="${mapUrl}" class="flex items-center justify-center gap-2 theme-sidebar-bg theme-sidebar-bg-hover p-3 rounded-lg border border-[var(--border-color)]/70 transition cursor-pointer w-full">
+                  ${ICONS.mapPin.replace('w-5 h-5', 'w-4 h-4')}
+                  <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Haritada Göster: ${esc(t.location)}</span>
+               </button>` : ''}
+               
+               <!-- URL LİNKİ (DÜZELTME: Sadece https:// değilse göster) -->
+               ${t.url && t.url !== 'https://' ? `
+               <button ${urlAction} class="flex items-center justify-center gap-2 theme-sidebar-bg theme-sidebar-bg-hover p-3 rounded-lg border border-[var(--border-color)]/70 transition cursor-pointer w-full">
+                  ${ICONS.globe.replace('w-5 h-5', 'w-4 h-4')}
+                  <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Rezervasyon Web Sitesini Aç</span>
+               </button>` : ''}
+
+
+               <div class="flex gap-3 pt-2">
+                 <button data-act="del-ticket-detail" data-id="${t.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                   ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
+                 </button>
+                 <button data-act="edit-ticket-detail" data-id="${t.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm theme-sidebar-bg text-[var(--text-color)] border border-[var(--border-color)] hover:bg-[var(--bg-card-light-hover)] transition flex items-center justify-center gap-1.5">
+                   ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
+                 </button>
+               </div>
+             </div>
+          </div>
+      </div>
+    `;
+  }
+  
+  
+  // YENİ FONKSİYON: BİLETLER AKORDİYON İÇERİĞİ
+  const renderTicketsContent = () => {
+    // Harcaması olan tüm seyahatleri al 
+    const allTrips = [...new Set(state.exp.map(x=>x.trip).concat(state.travelTickets.map(x=>x.trip)).filter(Boolean))].sort();
+    
+    let tickets = state.travelTickets.slice().sort((a, b) => {
+        // Tarih ve saat bazında sırala (en yakın tarih/saat üste çıksın)
+        const dtA = new Date(`${a.date}T${a.time}:00`);
+        const dtB = new Date(`${b.date}T${b.time}:00`);
+        return dtA - dtB;
+    });
+
+    // Filtreleme
+    if (state.ticketTripFilter) {
+        tickets = tickets.filter(t => t.trip === state.ticketTripFilter);
+    }
+
+    const tripOptions = allTrips.map(t=>`<option value="${esc(t)}" ${state.ticketTripFilter===t?'selected':''}>${esc(t)}</option>`).join('');
+
+    // Check-in zamanı kontrolü
+    const now = new Date();
+    
+    
+    return `
+        <div class="space-y-4 pt-3">
+            
+            <!-- SEYAHAT SEÇİMİ VE YENİ EKLE BUTONU -->
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                   <select data-act="flt-ticket-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                     <option value="">Tüm Seyahatler</option>
+                     ${tripOptions}
+                   </select>
+                   <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                </div>
+                <button data-act="open-ticket-form" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg text-sm font-bold transition flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                    ${ICONS.plus.replace('w-4 h-4', 'w-4 h-4')}
+                </button>
+            </div>
+
+            <!-- BİLETLER LİSTESİ -->
+            <div class="space-y-2 max-h-80 overflow-y-auto scrl">
+                ${tickets.length > 0 ? tickets.map(t => {
+                    const typeInfo = ticketTypes[t.type] || ticketTypes.other;
+                    const isPassed = new Date(`${t.date}T${t.time}:00`) < now;
+                    const passedClass = isPassed ? 'opacity-50 line-through' : '';
+
+                    return `
+                        <!-- DETAY KARTINI AÇMAK İÇİN TIKLANABİLİR KART YAPILDI -->
+                        <div data-act="open-ticket-detail" data-id="${t.id}" class="bg-gradient-to-br ${typeInfo.g} rounded-lg p-3 border border-[var(--border-color)]/50 shadow-md transition ${isPassed ? 'bg-[var(--bg-card-light)]/20 border-[var(--border-color)]/50' : 'hover:bg-[var(--bg-card-light)]/50 cursor-pointer'}">
+                            <div class="flex justify-between items-start gap-3">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-xs font-bold text-[var(--text-muted)] uppercase flex items-center gap-1 mb-1">
+                                        ${typeInfo.i} ${typeInfo.l} · ${esc(t.trip || 'Genel')}
+                                    </div>
+                                    <div class="text-sm font-bold text-[var(--text-color)] ${passedClass}">${esc(t.name)}</div>
+                                    ${t.location ? `<div class="text-[10px] text-[var(--text-muted)] mt-1 line-clamp-1">
+                                        Mekan: <span class="text-[var(--text-color)]">${esc(t.location)}</span>
+                                    </div>` : ''}
+                                </div>
+                                <div class="text-right flex-shrink-0">
+                                    <div class="text-sm font-bold text-[var(--text-color)] ${passedClass}">${fmtDate(t.date)}</div>
+                                    <div class="text-xs text-[var(--text-muted)] ${passedClass}">${esc(t.time)}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- ALT DÜĞMELER -->
+                            <div class="flex justify-end gap-2 mt-3 pt-3 border-t border-[var(--border-color)]/50">
+                                <button data-act="open-ticket-form" data-id="${t.id}" data-stop-propagation="true" class="text-[var(--text-muted)] hover:text-[var(--text-color)] text-[11px] font-bold transition flex items-center gap-1">
+                                    ${ICONS.edit.replace('w-4 h-4', 'w-3 h-3')} Düzenle
+                                </button>
+                                <button data-act="del-ticket" data-id="${t.id}" data-stop-propagation="true" class="text-red-400 hover:text-red-300 text-[11px] font-bold transition flex items-center gap-1">
+                                    ${ICONS.trash.replace('w-4 h-4', 'w-3 h-3')} Sil
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('') : `
+                    <div class="text-center py-6 theme-sidebar-bg border border-[var(--border-color)] rounded-xl text-[var(--text-muted)] text-sm">
+                        <div class="mb-2 text-2xl">🎟️</div>
+                        Kayıtlı bilet veya rezervasyon bulunmamaktadır.
+                    </div>
+                `}
+            </div>
+            <!-- BİLETLER LİSTESİ BİTİŞ -->
+        </div>
+    `;
+  };
+  
+  // YENİ FONKSİYON: RAPOR AKORDİYONU İÇERİĞİ
+  function renderReportContent() {
+      // Harcama seyahatlerini alırken (bilet verisi artık yok)
+      const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
+      let selectedTrip = state.selectedReportTrip;
+      
+      // Eğer seçili seyahat artık mevcut değilse, ilk mevcut seyahati seç
+      if (!allTrips.includes(selectedTrip)) {
+          selectedTrip = allTrips[0] || 'Genel';
+          state.selectedReportTrip = selectedTrip;
+      }
+      
+      const tripExpenses = getTripExpenses(selectedTrip);
+      
+      const tripOptions = allTrips.map(t=>`<option value="${esc(t)}" ${selectedTrip===t?'selected':''}>${esc(t)}</option>`).join('');
+
+      if (!tripExpenses.length) {
+          return `
+              <div class="space-y-4 pt-3">
+                  <!-- SEYAHAT SEÇİMİ -->
+                  <div>
+                     <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Raporlanacak Seyahat Seçimi</label>
+                     <div class="relative">
+                       <select data-act="set-report-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                         ${tripOptions}
+                       </select>
+                       <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                     </div>
+                  </div>
+                  <div class="text-center py-6 theme-sidebar-bg border border-[var(--border-color)] rounded-xl text-[var(--text-muted)] text-sm">
+                      <div class="mb-2 text-2xl">📝</div>
+                      Seçilen seyahat için harcama kaydı bulunmamaktadır.
+                  </div>
+              </div>
+          `;
+      }
+      
+      // 1. Toplam Harcama (Para Cinsi Bazında)
+      const totalsByCurrency = {};
+      tripExpenses.forEach(x => {
+          const cur = x.cur || 'TRY'; 
+          const amt = Number(x.amt) || 0;
+          totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
+      });
+      const totalSummary = Object.entries(totalsByCurrency)
+          .sort((a, b) => b[1] - a[1]) // En yüksek tutardan başla
+          .map(([cur, amt]) => `<span class="bg-violet-700/50 px-3 py-1 rounded-full text-sm font-bold">${fmtNum(amt)} <span class="text-xs font-normal">${cur}</span></span>`)
+          .join('');
+
+      // 2. En Çok Harcama Yapılan 3 Kategori
+      const categoryData = getChartDataset(tripExpenses);
+      const topCategories = Object.entries(categoryData.perCat || {})
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([catId, amt], index) => {
+              const catInfo = CATS[catId] || CATS.other;
+              return `
+                  <div class="flex items-center justify-between p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg">
+                      <span class="text-sm font-medium text-[var(--text-color)] flex items-center gap-2">
+                          ${catInfo.i} ${esc(catInfo.l)}
+                      </span>
+                      <span class="font-bold text-[var(--text-color)]">${fmtNum(amt)} ${categoryData.currency}</span>
+                  </div>
+              `;
+          }).join('');
+
+      // 3. En Çok Para Bırakılan 3 Şehir/Mekan
+      const cityPlaceTotals = {};
+      tripExpenses.forEach(x => {
+          const key = `${x.city} / ${x.place}`;
+          const amt = Number(x.amt) || 0;
+          cityPlaceTotals[key] = (cityPlaceTotals[key] || 0) + amt;
+      });
+      const topLocations = Object.entries(cityPlaceTotals)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([key, amt], index) => {
+              const [city, place] = key.split(' / ');
+              return `
+                  <div class="flex items-center justify-between p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg">
+                      <span class="text-sm font-medium text-[var(--text-color)]">
+                          <span class="font-bold text-[var(--text-color)]">${esc(place)}</span> <span class="text-[var(--text-muted)]">(${esc(city)})</span>
+                      </span>
+                      <span class="font-bold text-[var(--text-color)]">${fmtNum(amt)} ${categoryData.currency}</span>
+                  </div>
+              `;
+          }).join('');
+
+      // 4. Eklediğin Fotoğrafların Minik Önizlemesi
+      const allImages = tripExpenses
+          .flatMap(x => x.imgs || [])
+          .filter(Boolean); // Boş dizeleri temizle
+
+      const uniqueImages = [...new Set(allImages)].slice(0, 10); // İlk 10 benzersiz fotoğraf
+
+      const imagePreview = uniqueImages.length > 0 ? `
+          <div class="grid grid-cols-5 gap-2">
+              ${uniqueImages.map(img => `
+                  <div class="aspect-square rounded-lg overflow-hidden border border-[var(--border-color)] theme-sidebar-bg">
+                      <img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300">
+                  </div>
+              `).join('')}
+          </div>
+      ` : '<p class="text-sm text-[var(--text-muted)] italic">Bu seyahatte eklenmiş fotoğraf bulunmamaktadır.</p>';
+
+      // 5. Notlar (En Kritik Madde Madde)
+      const notesForTrip = state.criticalNotes
+          .filter(n => n.trip === selectedTrip)
+          .map(n => `<li class="text-sm text-[var(--text-color)] list-disc ml-4">${esc(n.note)}</li>`).join('');
+
+      return `
+          <div class="space-y-4 pt-3">
+              
+              <!-- SEYAHAT SEÇİMİ -->
+              <div>
+                 <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Raporlanacak Seyahat Seçimi</label>
+                 <div class="relative">
+                   <select data-act="set-report-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                     ${tripOptions}
+                   </select>
+                   <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                 </div>
+              </div>
+
+              <div class="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-700/50 rounded-xl p-4">
+                  <h3 class="text-lg font-bold text-white mb-2">${selectedTrip} Seyahat Özeti</h3>
+                  <p class="text-xs text-slate-400">Veriler, seçilen seyahat için filtrelenmiştir. Toplam ${tripExpenses.length} harcama kaydı.</p>
+              </div>
+              
+              <!-- 1. Toplam Harcama -->
+              ${tripExpenses.length > 0 ? `
+              <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-xl p-4 space-y-3">
+                  <h4 class="text-sm font-bold text-[var(--text-color)] uppercase flex items-center gap-2">
+                     ${ICONS.wallet.replace('w-6 h-6', 'w-4 h-4')} Para Birimi Bazında Toplam Harcama
+                  </h4>
+                  <div class="flex flex-wrap gap-2">
+                      ${totalSummary || '<span class="text-[var(--text-muted)]">Harcama Yok</span>'}
+                  </div>
+              </div>` : ''}
+
+              <!-- 2. En Çok Harcama Yapılan 3 Kategori -->
+              ${topCategories ? `
+              <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-xl p-4 space-y-3">
+                  <h4 class="text-sm font-bold text-[var(--text-color)] uppercase flex items-center gap-2">
+                     ${ICONS.chart.replace('w-4 h-4', 'w-4 h-4')} En Çok Harcanan Kategoriler (${categoryData.currency})
+                  </h4>
+                  <div class="space-y-2">
+                    ${topCategories}
+                  </div>
+              </div>` : ''}
+
+              <!-- 3. En Çok Para Bırakılan 3 Şehir/Mekan -->
+              ${topLocations ? `
+              <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-xl p-4 space-y-3">
+                  <h4 class="text-sm font-bold text-[var(--text-color)] uppercase flex items-center gap-2">
+                     ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')} En Çok Para Bırakılan 3 Mekan (${categoryData.currency})
+                  </h4>
+                  <div class="space-y-2">
+                    ${topLocations}
+                  </div>
+              </div>` : ''}
+
+              <!-- 5. Notlar -->
+              <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-xl p-4 space-y-3">
+                  <h4 class="text-sm font-bold text-[var(--text-color)] uppercase flex items-center gap-2">
+                     ${ICONS.key.replace('w-4 h-4', 'w-4 h-4')} Kritik Seyahat Notları
+                  </h4>
+                  <ul class="list-none space-y-1 p-0 m-0">
+                      ${notesForTrip || '<p class="text-sm text-[var(--text-muted)] italic">Bu seyahat için kritik not bulunmamaktadır.</p>'}
+                  </ul>
+              </div>
+
+              <!-- 4. Fotoğraf Önizlemesi -->
+              <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-xl p-4 space-y-3">
+                  <h4 class="text-sm font-bold text-[var(--text-color)] uppercase flex items-center gap-2">
+                     📸 Eklenen Fotoğraflar (İlk 10)
+                  </h4>
+                  ${imagePreview}
+              </div>
+          </div>
+      `;
+  }
+  
+  // YENİ FONKSİYON: Rota Planlayıcı İçeriğini Oluştur (MEKAN BAZLI)
+  function renderRoutePlanner() {
+      const selectedTrip = state.routeTrip || state.tripFilter; 
+
+      if (!selectedTrip || selectedTrip === "") {
+          return `
+              <div class="text-center py-4 theme-sidebar-bg rounded-lg text-sm text-[var(--text-muted)]">
+                  Lütfen yukarıdan bir seyahat seçin.
+              </div>
+          `;
+      }
+      
+      // Şimdi getRouteUrl'den point'leri alıyoruz
+      const routeData = getRouteUrl(selectedTrip);
+
+      if (routeData.error) {
+           return `
+              <div class="text-center py-4 bg-red-900/30 border border-red-800 rounded-lg text-sm text-red-300">
+                  ${routeData.error}
+              </div>
+          `;
+      }
+
+      // uniqueCities yerine uniquePoints kullanılıyor
+      const pointsList = routeData.points.map((point, index) => {
+          let icon = '📍'; // Varsayılan ara nokta
+          if (index === 0) icon = '🛫'; // Başlangıç
+          else if (index === routeData.points.length - 1) icon = '🏁'; // Bitiş
+          
+          // Mekan ve Şehir ayrımını göstermek için
+          const [place, city] = point.split(',').map(s => s.trim());
+
+          return `
+              <li class="flex items-start gap-2 text-sm text-[var(--text-color)] border-l border-[var(--border-color)]/50 ml-3 pl-3 py-1 -my-1">
+                  <span class="w-5 flex-shrink-0 text-center -ml-5 pt-1">${icon}</span> 
+                  <div>
+                      <div class="font-bold text-[var(--text-color)]">${esc(place)}</div>
+                      <div class="text-[10px] text-[var(--text-muted)]">${esc(city)}</div>
+                  </div>
+              </li>
+          `;
+      }).join('');
+      
+      return `
+          <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-lg p-3 space-y-3">
+              <h4 class="text-sm font-bold text-[var(--text-color)]">Oluşturulan Rota Sırası (Mekan Bazlı):</h4>
+              <ul class="list-none space-y-1 p-0 m-0 max-h-40 overflow-y-auto scrl">
+                  ${pointsList}
+              </ul>
+              
+              <a href="${routeData.url}" target="_blank" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg text-sm font-bold transition w-full">
+                 ${ICONS.globe.replace('w-5 h-5', 'w-4 h-4')} Rota Haritasını Aç (Google Maps)
+              </a>
+          </div>
+      `;
+  }
+  
+  // YENİ FONKSİYON: Basitleştirilmiş Bilet Ekle/Düzenle Formu
+  function renderTicketForm(){
+      const f = state.ticketForm;
+      const allTrips = [...new Set(state.exp.map(x=>x.trip).concat(state.travelTickets.map(x=>x.trip)).filter(Boolean))].sort();
+      
+      // Bilet türleri için butonlar
+      const types = [
+          {id:'flight', l:'Uçak', i:ICONS.flight.replace('w-6 h-6', 'w-4 h-4')}, 
+          {id:'train', l:'Tren', i:'🚂'}, 
+          {id:'hotel', l:'Otel', i:ICONS.bed.replace('w-4 h-4', 'w-4 h-4')},
+          {id:'other', l:'Diğer', i:'🎟️'},
+      ];
+
+      return `
+          <div class="form-modal-overlay">
+              <div class="theme-modal-bg w-full max-w-lg md:rounded-xl rounded-t-xl form-content-box p-4 border shadow-2xl self-start mt-0 md:mt-4 mb-4">
+                  <div class="flex justify-between items-center mb-4 sticky top-0 theme-modal-bg pt-1 pb-3 z-10 border-b border-[var(--border-color)] -mx-4 px-4">
+                      <h2 class="font-bold text-lg text-[var(--text-color)]">${f.id ? 'Rezervasyonu Düzenle' : 'Yeni Rezervasyon/Bilet Kaydı'}</h2>
+                      <button data-act="cancel-ticket-form" class="text-[var(--text-muted)] hover:text-[var(--text-color)] transition">${ICONS.x}</button>
+                  </div>
+                  
+                  <div class="space-y-3">
+                      
+                      <!-- SEYAHAT SEÇİMİ -->
+                      <div>
+                        <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Seyahat (Hangi seyahate ait?)</label>
+                        <div class="relative">
+                           <input id="i-ticket-trip" list="dl-ticket-trip" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
+                           <datalist id="dl-ticket-trip">${allTrips.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+                        </div>
+                      </div>
+
+                      <!-- İSİM / BAŞLIK -->
+                      <div>
+                         <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Ad / Başlık (Örn: TK1951 Uçuşu, Hilton Rezervasyon)</label>
+                         <input id="i-ticket-name" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Biletin veya Rezervasyonun Adı" value="${esc(f.name)}">
+                      </div>
+                      
+                      <!-- YENİ ALAN: MEKAN / ADRES BİLGİSİ (Harita için) -->
+                      <div>
+                         <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Mekan / Adres Bilgisi (Harita İçin)</label>
+                         <input id="i-ticket-location" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Örn: Istanbul Airport, Taksim Meydanı" value="${esc(f.location)}">
+                      </div>
+
+
+                      <!-- BİLET TÜRÜ -->
+                      <div>
+                           <label class="block text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Bilet/Rezervasyon Türü</label>
+                           <div class="flex gap-2 overflow-x-auto pb-2 scrl">
+                             ${types.map(t=>`
+                               <button type="button" data-act="set-ticket-type" data-val="${t.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-20 h-16 rounded-lg border transition ${f.type===t.id ? 'bg-blue-600/20 border-blue-500 text-[var(--text-color)] shadow-lg shadow-blue-500/20' : 'theme-sidebar-bg border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-color)]'}">
+                                 <span class="text-xl mb-1">${t.i}</span><span class="text-[9px] font-bold">${t.l}</span>
+                               </button>`).join('')}
+                           </div>
+                      </div>
+                      
+                      <!-- TARİH VE SAAT -->
+                      <div class="grid grid-cols-2 gap-3">
+                          <div>
+                              <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Tarih (Kalkış/Check-in)</label>
+                              <input id="i-ticket-date" type="date" class="w-full theme-input border rounded-lg p-3 text-sm outline-none" value="${f.date}">
+                          </div>
+                          <div>
+                              <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Saat</label>
+                              <input id="i-ticket-time" type="time" class="w-full theme-input border rounded-lg p-3 text-sm outline-none" value="${f.time}">
+                          </div>
+                      </div>
+
+                      <!-- URL -->
+                      <div>
+                          <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Rezervasyon/Check-in URL'si (Opsiyonel)</label>
+                          <!-- DÜZELTME: URL varsayılan olarak f.url (yani "https://") ile geliyor -->
+                          <input id="i-ticket-url" type="url" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="https://" value="${esc(f.url)}">
+                      </div>
+                      
+                      <!-- BASİTLEŞTİRİLMİŞ DETAYLAR -->
+                      <textarea id="i-ticket-details" rows="3" class="w-full theme-input border rounded-lg p-3 text-sm outline-none resize-none" placeholder="PNR Kodu, Koltuk Numarası, Özel Notlar, Bagaj Bilgisi vb. Detaylar...">${esc(f.details)}</textarea>
+
+
+                      <button type="button" data-act="save-ticket" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
+                  </div>
+              </div>
+          </div>`;
+  }
+  
+  // --- HEADER RENDER FONKSİYONU BAŞLANGIÇ ---
+  function renderHeader(){
+    const timeInfo = formatTime(state.targetTimezone);
+    const isDark = state.theme === 'dark';
+    
+    // Temaya duyarlı renkler
+    const themeIcon = isDark ? ICONS.sun : ICONS.moon;
+    const themeBtnCls = isDark 
+        ? "bg-slate-800/70 hover:bg-slate-700/90 border border-slate-600/60 text-yellow-300" 
+        : "bg-gray-200/70 hover:bg-gray-300/90 border border-gray-400/60 text-slate-800";
+
+    
+    return `
+      <div class="glass-panel rounded-xl p-3 mb-4 flex flex-col md:flex-row items-center justify-between shadow-lg gap-3 bg-[var(--glass-bg)]">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+           <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
+              <div class="absolute inset-0 bg-gradient-to-br from-blue-700 to-purple-600 rounded-lg rotate-6 opacity-30"></div>
+              <div class="absolute inset-0 bg-gradient-to-tl from-blue-500 to-purple-400 rounded-lg -rotate-3 opacity-80 shadow-xl"></div>
+              <div class="relative text-white drop-shadow-md">${ICONS.wallet}</div>
+           </div>
+           <div>
+              <h1 class="text-lg font-bold text-[var(--text-color)] tracking-tight">Seyahat Cüzdanı</h1>
+              <div class="flex items-center gap-1 text-xs text-emerald-400">
+                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Takip & Planlama
+              </div>
+           </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end mt-2 md:mt-0">
+           
+           <!-- TEMA DEĞİŞTİRME BUTONU -->
+           <button data-act="toggle-theme" class="${themeBtnCls} rounded-lg p-1.5 flex items-center justify-center transition" title="${isDark ? 'Açık Temaya Geç' : 'Koyu Temaya Geç'}">
+               ${themeIcon}
+           </button>
+           <!-- /TEMA DEĞİŞTİRME BUTONU -->
+           
+           <!-- YEREL SAAT GÖSTERİMİ (Tıklanabilir) -->
+           <button data-act="open-tz-modal" class="flex items-center bg-[var(--bg-card)]/80 hover:bg-[var(--bg-card-light-hover)] transition rounded-lg p-1 border border-[var(--border-color)] min-w-[120px] justify-center cursor-pointer">
+              <span class="text-xs text-[var(--text-muted)] mr-2">${ICONS.clock.replace('w-4 h-4', 'w-3.5 h-3.5')}</span>
+              <div id="local-time-container">
+                  <div id="local-time" class="text-sm font-bold text-[var(--text-color)] leading-none">${state.currentTime}</div>
+                  <div class="text-[9px] text-[var(--text-muted)] leading-none">${timeInfo.zoneName.replace(' (Varsayılan)', '').replace('Europe/Istanbul', 'İstanbul')}</div>
+              </div>
+           </button>
+           <!-- /YEREL SAAT GÖSTERİMİ -->
+           
+           ${state.tab==='exp' ? `
+             <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
+               ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} <span class="hidden sm:inline">Tümünü Sil</span>
+             </button>
+             <button data-act="open-chart" class="bg-[var(--bg-card)]/70 hover:bg-[var(--bg-card-light-hover)] border border-[var(--border-color)]/60 rounded-lg p-1.5 flex items-center justify-center transition" title="Harcama Grafiği">
+               ${ICONS.chart.replace('w-4 h-4','w-3.5 h-3.5')}
+             </button>
+           ` : ''}
+           
+           ${state.tab==='chk' ? `
+             <button data-act="reset-chk" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
+               ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} <span class="hidden sm:inline">Listeyi Sıfırla</span>
+             </button>
+           ` : ''}
+           
+           <button data-act="data" class="bg-[var(--bg-card)]/70 hover:bg-[var(--bg-card-light-hover)] text-[var(--text-muted)] border border-[var(--border-color)]/50 px-2 py-1.5 rounded-lg transition">${ICONS.info.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
+        </div>
+      </div>
+    `;
+  }
+  // --- HEADER RENDER FONKSİYONU BİTİŞ ---
+  
+  // --- YENİ KONUM: TABLAR RENDER FONKSİYONU ---
+  function renderTabs(){
+    // RAPOR SEKMESİ KALDIRILDI, SADECE 3 SEKME KALDI
+    const t = state.tab;
+    const btnCls = "flex-1 py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 border";
+    const active = "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30";
+    // Pasif buton temaya duyarlı hale getirildi
+    const passive = "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-card-light)]/50 hover:text-[var(--text-color)]";
+    
+    return `
+      <!-- TAB SAYISI 3'E DÜŞÜRÜLDÜ -->
+      <div class="glass-panel p-1 rounded-xl mb-4 flex gap-1 overflow-x-auto scrl">
+        <button data-act="tab" data-val="exp" class="${btnCls} ${t==='exp'?active:passive}">${ICONS.wallet.replace('w-6 h-6', 'w-4 h-4')} Harcamalar</button>
+        <button data-act="tab" data-val="chk" class="${btnCls} ${t==='chk'?active:passive}">${ICONS.briefcase.replace('w-6 h-6', 'w-4 h-4')} Check List</button>
+        <button data-act="tab" data-val="helpers" class="${btnCls} ${t==='helpers'?active:passive}">${ICONS.compass} Yardımcılar</button>
+      </div>
+    `;
+  }
+  
+  // --- YENİ KONUM: FİLTRELER RENDER FONKSİYONU ---
+  function renderFilters(){
+      
+    // Yeni Harcama Tipi Filtre Seçenekleri
+    const individualFilterOptions = [
+        {id: '', l: 'Tüm Harcama Tipleri', c: 'slate'},
+        {id: 'shared', l: 'Ortak Harcamalar', c: 'emerald'},
+        {id: 'individual', l: 'Bireysel Harcamalar', c: 'sky'},
+    ];
+    
+    const individualFilterSelect = individualFilterOptions.map(f => `
+        <option value="${f.id}" ${state.individualFilter===f.id?'selected':''}>${f.l}</option>
+    `).join('');
+
+    return `
+      <div class="flex flex-col gap-3 mb-3">
+         
+         <!-- ÜST SATIR: Arama ve Harcama Tipi Filtresi -->
+         <div class="flex gap-2 overflow-x-auto pb-1 scrl">
+           <div class="relative flex-1 min-w-[150px]">
+              <span class="absolute left-3 top-2.5 text-[var(--text-muted)] w-4 h-4">${ICONS.search}</span>
+              <input data-act="search" value="${esc(state.search)}" class="w-full theme-input border rounded-lg py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 transition" placeholder="Mekan veya Not Ara...">
+           </div>
+           
+           ${state.tab === 'exp' ? `
+             <!-- Harcama Tipi Filtresi -->
+             <div class="relative w-40 flex-shrink-0">
+                <select data-act="flt-individual-type" class="w-full theme-input border rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                  ${individualFilterSelect}
+                </select>
+                <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
+             </div>
+           ` : ''}
+         </div>
+         
+         <!-- YENİ SATIR: Kategori Filtresi (Önceden Bireysel/Ortak butonlarının olduğu yerde) -->
+         ${state.tab === 'exp' ? `
+             <div class="relative w-full">
+                <select data-act="flt-cat" class="w-full theme-input border rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                  <option value="">Tüm Kategoriler</option>
+                  ${Object.values(CATS).map(c=>`<option value="${c.id}" ${state.catFilter===c.id?'selected':''}>${c.l}</option>`).join('')}
+                </select>
+                <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
+             </div>
+         ` : ''}
+      </div>
+    `;
+  }
+  
+  // --- YENİ KONUM: DASHBOARD HEADER RENDER FONKSİYONU ---
+  function renderDashboardHeader(visibleExp){
+    // Toplamı para birimine göre hesapla (Orijinal hali)
+    const totals = {};
+    visibleExp.forEach(x => {
+        // Harcama tutarı her zaman harcama kaydındaki 'amt' olacaktır.
+        const amt = Number(x.amt) || 0; 
+        const cur = x.cur || 'TRY'; 
+        totals[cur] = (totals[cur] || 0) + amt;
+    });
+
+    // En yüksek tutardan başlayarak özet metni oluştur (Orijinal hali)
+    const totalSummary = Object.entries(totals)
+        .sort((a, b) => b - a)
+        .map(([cur, amt]) => `${fmtNum(amt)} ${cur}`)
+        .join(' · ');
+        
+    // Filtre etiketi basitleştirildi.
+    const filterLabel = 'Filtrelenen';
+
+
+    return `
+      <!-- TOPLAM HARCAMA ALANI -->
+      <div class="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-500 border border-indigo-700/50 rounded-xl p-4 mb-3 shadow-xl relative overflow-hidden group">
+         <div class="absolute -right-8 -top-8 w-60 h-60 bg-white/20 rounded-full blur-3xl group-hover:bg-white/30 transition duration-1000"></div>
+         
+         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+               <div class="text-[10px] uppercase tracking-widest text-white/80 font-bold mb-1">Toplam Harcama (${filterLabel} Kayıtlar)</div>
+               <!-- ÇOKLU KUR ÖZETİ (Orijinal hali) -->
+               <div class="text-sm font-bold text-white leading-tight mt-1">
+                  ${totalSummary || '0.00 TRY'} 
+               </div>
+               <!-- /ÇOKLU KUR ÖZETİ -->
+               <div class="text-xs text-white/70 mt-2 font-medium">${visibleExp.length} işlem</div>
+            </div>
+            
+            <div class="flex flex-col gap-1 min-w-[150px]">
+               <label class="text-[10px] text-white/80 font-bold uppercase ml-1">Seyahat Seçimi</label>
+               <div class="relative">
+                 <select data-act="flt-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                   <option value="">Tüm Seyahatler</option>
+                   ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${state.tripFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
+                 </select>
+                 <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+               </div>
+            </div>
+         </div>
+      </div>
+    `;
+  }
+  
+  // --- YENİ KONUM: HARCAMA LİSTESİ RENDER FONKSİYONU ---
+  function renderExpenseList(exp){
+    if(!exp.length) return `<div class="text-center py-8 text-[var(--text-muted)] text-sm border border-dashed border-[var(--border-color)] rounded-xl">Kayıt bulunamadı.</div>`;
+
+    
+    const grp={}; exp.forEach(x=>{const c=x.city||'Genel'; if(!grp[c])grp[c]=[]; grp[c].push(x)});
+    
+    return `<div class="space-y-3 pb-24">${Object.keys(grp).sort().map(city=>{
+      const lst=grp[city].sort((a,b)=>(b.date||'').localeCompare(a.date));
+      const expd=state.expandedCities[city];
+      
+      // Şehir toplamı (Çoklu kur hesaplama)
+      const sum = {};
+      lst.forEach(x => sum[x.cur] = (sum[x.cur] || 0) + Number(x.amt));
+      const sumTxt = Object.entries(sum).map(([c, v]) => fmtNum(v) + ' ' + c).join(' · ');
+      
+      const cityColor = getCityColor(city);
+      
+      // Temaya duyarlı renkler
+      const cardBg = state.theme === 'dark' ? 'bg-slate-800/40' : 'bg-white/70';
+      const cardBorder = 'border border-[var(--border-color)]/50';
+      const detailBg = 'bg-[var(--expense-card-bg)]';
+      const detailHover = 'hover:bg-[var(--expense-card-hover)]';
+      const detailText = 'text-[var(--expense-card-text)]';
+      const detailMuted = 'text-[var(--text-muted)]';
+      
+      return `
+        <!-- ANA KUTU: Temaya duyarlı arka plan -->
+        <div class="${cardBg} ${cardBorder} rounded-2xl overflow-hidden relative group">
+          <button data-act="tog-city" data-val="${esc(city)}" data-city-name="${esc(city)}" class="w-full flex items-center p-3 hover:bg-[var(--bg-card-light)]/50 transition relative">
+            <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color:${cityColor}"></div>
+            
+            <!-- Şehir Adı ve Toplamlar -->
+            <div class="pl-3 text-left flex-1 min-w-0 pr-16">
+              <div class="font-bold text-sm text-[var(--text-color)]" style="color:${cityColor}">${esc(city)}</div>
+              <div class="text-[10px] text-[var(--text-muted)] mt-0.5">${lst.length} harcama · ${sumTxt||'0.00'}</div>
+            </div>
+            
+            <!-- Sağ Taraf Kontrol Alanı (Sadece Silme İkonu - Temaya duyarlı ikon rengi) -->
+            <div data-act="del-city" role="button" tabindex="0" data-val="${esc(city)}" class="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-[var(--text-muted)] hover:text-red-400 hover:bg-[var(--bg-card-light)] rounded-full transition z-20">
+                ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
+            </div>
+            
+          </button>
+          
+          <!-- Detay Kartı (Açılan Kısım - Temaya duyarlı) -->
+          <div class="${detailBg} border-t border-[var(--expense-card-border)] ${expd?'rounded-b-2xl':''}">
+            ${expd ? lst.map((x, index) => {
+                const catInfo = CATS[x.cat] || CATS.other;
+                const isLast = index === lst.length - 1;
+                const separatorClass = isLast ? '' : 'border-b border-[var(--expense-card-border)]/50'; 
+                
+                const isIndividual = x.isIndividual;
+                const ppl = parseInt(x.ppl||1); 
+                const statusBadge = isIndividual
+                   ? `<span title="Bireysel Harcama" class="text-xs text-sky-600 font-bold bg-sky-100 px-1.5 py-0.5 rounded-full">Bireysel</span>`
+                   : (ppl > 1
+                       ? `<span title="Ortak Harcama" class="text-xs text-emerald-600 font-bold bg-emerald-100 px-1.5 py-0.5 rounded-full">Ortak (${ppl} Kişi)</span>`
+                       : `<span title="Tek Kişi Harcaması" class="text-xs text-slate-600 font-bold bg-slate-100 px-1.5 py-0.5 rounded-full">Tek Kişi</span>`);
+
+                return `
+                <div data-act="detail" data-id="${x.id}" class="p-3 pl-6 flex justify-between items-center ${detailHover} cursor-pointer transition border-l-[3px] border-transparent hover:border-blue-400 ${separatorClass}">
+                  
+                   <!-- SOL: Mekan / Seyahat / Şehir -->
+                   <div class="flex-1 min-w-0 pr-2">
+                       <div class="text-sm font-bold ${detailText} line-clamp-1">${esc(x.place)}</div>
+                       <div class="text-[10px] ${detailMuted} line-clamp-1 flex items-center gap-2">${esc(x.city)} · ${esc(x.trip || 'Genel')} ${statusBadge}</div>
+                   </div>
+
+                   <!-- ORTA: Kategori / Kişi / Tarih -->
+                   <div class="flex-shrink-0 w-32 text-[10px] pr-2">
+                       <div class="flex items-center gap-1.5 justify-end">
+                           <span class="text-xs ${detailMuted}">${catInfo.i}</span>
+                           <span class="${detailMuted} font-medium">${catInfo.l}</span>
+                       </div>
+                       <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                           <span class="${detailMuted}">${fmtDate(x.date)}</span>
+                           <span class="${detailMuted} font-medium">(${x.ppl} Kişi)</span>
+                       </div>
+                   </div>
+
+                   <!-- SAĞ: Tutar -->
+                   <div class="text-right flex-shrink-0 w-16">
+                      <div class="text-sm font-bold ${detailText}">${fmtNum(x.amt)}</div>
+                      <div class="text-[10px] ${detailMuted}">${x.cur}</div>
+                   </div>
+                </div>`;
+            }).join('') : ''}
+          </div>
+        </div>`;
+    }).join('')}</div>`;
+  }
+  
+  // --- YENİ KONUM: CHECKLIST RENDER FONKSİYONU ---
+  function renderChecklist(){
+    const done=state.chk.items.filter(i=>i.done).length, total=state.chk.items.length;
+    const pct=total?Math.round((done*100)/total):0;
+    
+    // Kategori Sıralama: "Diğer" (otr) her zaman en altta kalsın
+    const sortedCats = [...state.chk.cats].sort((a, b) => {
+        if (a.id === 'otr') return 1;
+        if (b.id === 'otr') return -1;
+        return a.l.localeCompare(b.l);
+    });
+
+    return `
+      <!-- SIFIRLAMA BUTONU ÜST BAŞLIĞA TAŞINDI -->
+
+      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
+        <div class="flex justify-between items-end mb-2">
+          <div><div class="text-[9px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
+          <div class="text-xl font-bold text-white">${pct}%</div>
+        </div>
+        <div class="h-2 bg-slate-900/50 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-700" style="width:${pct}%"></div></div>
+      </div>
+
+      <div class="pb-24 space-y-3">
+        ${sortedCats.map(c => {
+          const its = state.chk.items.filter(i => i.cat === c.id);
+          const isOpen = state.openChkCats[c.id];
+          
+          return `
+            <div class="theme-sidebar-bg border border-[var(--border-color)]/50 rounded-xl overflow-hidden">
+              <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-[var(--bg-card-light-hover)]/50 transition">
+                
+                <!-- Tüm Alanı Tıklanabilir Yapmak için ayrı bir kapsayıcı -->
+                <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center gap-3 flex-1 min-w-0 p-1 -m-1 focus:outline-none rounded-md cursor-pointer">
+                   <div class="theme-input w-8 h-8 rounded flex items-center justify-center">${c.i}</div>
+                   <div>
+                       <div class="flex items-center gap-2">
+                           <div class="text-sm font-bold text-[var(--text-color)]">${esc(c.l)}</div>
+                           <div class="text-[var(--text-muted)] transform transition ${isOpen?'rotate-180':''}">${ICONS.down}</div>
+                       </div>
+                       <div class="text-xs text-[var(--text-muted)]">${its.filter(i=>i.done).length}/${its.length}</div>
+                   </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <!-- Silme butonu artık her zaman görünür (Tüm kategoriler silinebilir) -->
+                    <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-[var(--text-muted)] hover:text-red-400 transition p-2 rounded-full hover:bg-[var(--bg-card-light)]/50 flex-shrink-0 z-10">
+                        ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                    </button>
+                </div>
+              </div>
+              ${isOpen ? `<div class="bg-[var(--bg-card-light)]/30 border-t border-[var(--border-color)]/50 p-2 space-y-1" data-cat-id="${c.id}">
+                 ${its.map(i=>`<div data-id="${i.id}" data-cat="${i.cat}" class="flex items-center gap-3 p-2 hover:bg-[var(--bg-card-light-hover)]/30 rounded-lg">
+                     <!-- Taşıma (Drag) İkonu ve Özellikleri Kaldırıldı -->
+                     <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done?'checked':''} class="custom-checkbox w-4 h-4 rounded border-[var(--border-color)] theme-input">
+                     <span class="flex-1 text-sm text-[var(--text-color)] ${i.done?'line-through opacity-50':''}">${esc(i.val)}</span>
+                     <button data-act="del-chk" data-id="${i.id}" class="text-[var(--text-muted)] hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
+                  </div>`).join('')}
+                 <div class="mt-2 flex gap-2 pt-2 border-t border-[var(--border-color)]/50"><input id="new-chk-${c.id}" placeholder="Madde 1, Madde 2..." class="theme-input border rounded-lg px-3 py-2 text-xs w-full outline-none"><button data-act="add-chk" data-val="${c.id}" class="bg-slate-700 text-emerald-400 border border-slate-600 px-3 rounded-lg hover:bg-emerald-500 hover:text-white transition">+</button></div>
+              </div>` : ''}
+            </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Yeni Kategori Ekleme Paneli -->
+      <div class="mt-4 border-t border-[var(--border-color)] pt-3">
+        <details class="group theme-sidebar-bg border border-[var(--border-color)]/50 rounded-xl overflow-hidden">
+          <summary class="flex items-center justify-between p-3 cursor-pointer list-none hover:bg-[var(--bg-card-light-hover)]/50 transition">
+            <span class="text-sm font-medium text-[var(--text-muted)] flex items-center gap-2">${ICONS.plus} Yeni Kategori Ekle</span>
+            <span class="text-[var(--text-muted)] group-open:rotate-180 transition">${ICONS.down}</span>
+          </summary>
+          <div class="p-3 pt-0 flex flex-col gap-3">
+            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 theme-input border rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+            <input id="new-cat-icon" placeholder="Emoji İkonu (Örn: 🏖️)" class="w-24 theme-input border rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-center">
+            <button data-act="add-cat" class="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-blue-500 transition">Kategori Ekle</button>
+          </div>
+        </details>
+      </div>
+    `;
+  }
+  
+  // --- YENİ KONUM: YARDIMCILAR RENDER FONKSİYONU ---
+  function renderHelpers() {
+    const loc = state.location;
+    const isReady = loc && loc.lat && loc.lon;
+    const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
+    
+    // Google Haritalar URL'leri
+    const baseSearchUrl = 'https://www.google.com/maps/search/';
+    const locationQuery = isReady ? `@${loc.lat},${loc.lon},15z` : '';
+
+    const touristPlacesUrl = `${baseSearchUrl}Turistik+Yerler/${locationQuery}`;
+    const cafeRestaurantUrl = `${baseSearchUrl}yüksek+puanlı+cafe+restoran/${locationQuery}`;
+    const hotelUrl = `${baseSearchUrl}otel+konaklama/${locationQuery}`;
+    const hospitalUrl = `${baseSearchUrl}Hastane/${locationQuery}`;
+    const pharmacyUrl = `${baseSearchUrl}Eczane/${locationQuery}`;
+    const policeUrl = `${baseSearchUrl}Polis+Karakolu/${locationQuery}`; 
+    
+    // TÜM SEYAHATLERİ ÇEK
+    const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
+    // Harcaması olmayanlar için de "Genel" seçeneğini ekle
+    if (!allTrips.includes('Genel')) {
+        allTrips.unshift('Genel');
+    }
+    
+    // GÖSTERİLECEK NOTLARI FİLTRELE
+    const notesForTrip = state.criticalNotes.filter(n => n.trip === state.selectedNoteTrip);
+
+
+    // Konum tabanlı aramalar için ayrı bir div oluştur
+    const locSearchDisabledClass = isReady ? '' : 'opacity-40 pointer-events-none';
+    const loadingClass = state.locationLoading ? 'animate-pulse' : '';
+
+    const accordionItem = (id, icon, title, content, disableLocation=false) => { // disableLocation parametresi eklendi
+        const isOpen = state.helpersAccordion[id];
+        const disabledClass = !disableLocation && !isReady ? 'opacity-40 pointer-events-none' : '';
+        // max-height değeri, içeriğin tam sığması için tahmin edilmeli
+        const maxHeight = (id === 'critical') ? '450px' : (id === 'route' ? '400px' : (id === 'report' ? '900px' : (id === 'tickets' ? '450px' : '500px'))); // Biletler için max-height eklendi
+
+        return `
+            <div class="theme-sidebar-bg rounded-xl border border-[var(--border-color)]/50 shadow-lg overflow-hidden ${disabledClass}">
+                <button data-act="tog-accordion" data-val="${id}" class="w-full flex justify-between items-center p-4 hover:bg-[var(--bg-card-light-hover)]/80 transition focus:outline-none">
+                    <h3 class="flex items-center gap-3 text-base font-bold text-[var(--text-color)]">
+                        ${icon} ${title}
+                    </h3>
+                    <span class="text-[var(--text-muted)] transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">
+                        ${ICONS.down.replace('w-4 h-4', 'w-4 h-4')}
+                    </span>
+                </button>
+                <div class="transition-all duration-300 ease-in-out overflow-hidden" style="max-height: ${isOpen ? maxHeight : '0'};">
+                    <div class="p-4 pt-0">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    const routeContent = renderRoutePlanner();
+
+
+    return `
+      <div class="space-y-4 pb-24">
+        
+        <!-- KONUM BİLGİ PANELİ (Sadeleştirilmiş - Üstte Sabit) -->
+        <div class="glass-panel p-3 rounded-xl border border-[var(--border-color)]/50 shadow-lg flex justify-between items-center ${loadingClass}">
+            <div class="flex items-center gap-2 text-sm">
+                ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')}
+                <span class="text-[var(--text-color)] font-bold">${locationName}</span>
+                <span class="text-[10px] text-[var(--text-muted)] hidden sm:inline-block">${isReady ? 'Konum bilgisi alındı.' : state.err || 'Konumunuzu otomatik alıyor...'}</span>
+            </div>
+            
+            <button data-act="get-location" class="bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg text-sm transition flex items-center justify-center" ${state.locationLoading ? 'disabled' : ''}>
+                ${state.locationLoading ? `<svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : ICONS.compass.replace('w-4 h-4', 'w-4 h-4')}
+            </button>
+        </div>
+        
+        <!-- AKORDİYONLAR BAŞLANGIÇ -->
+        
+        <!-- YENİ AKORDİYON: REZERVASYONLAR VE BİLETLER -->
+        ${accordionItem('tickets', ICONS.ticket, 'Rezervasyonlar & Biletler', renderTicketsContent(), true)}
+
+        <!-- ROTA PLANLAYICI -->
+        ${accordionItem('route', ICONS.route, 'Yol Güzergahı Haritası (Hızlı Rota)', `
+            <div class="space-y-3 pt-3">
+                <p class="text-xs text-[var(--text-muted)]">Kayıtlı harcamalarınızdaki **mekan ve şehirleri** kronolojik sıraya göre birleştirerek hızlıca Google Haritalar'da yol güzergahı oluşturur.</p>
+
+                <!-- SEYAHAT SEÇİMİ -->
+                <div>
+                   <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Harcamaları Olan Seyahati Seç</label>
+                   <div class="relative">
+                     <select id="route-trip-select" data-act="set-route-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                       <option value="">-- Seyahat Seçin --</option>
+                       ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${(state.routeTrip||state.tripFilter)===t?'selected':''}>${esc(t)}</option>`).join('')}
+                     </select>
+                     <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                   </div>
+                </div>
+
+                <div id="route-output-box">
+                    ${routeContent}
+                </div>
+            </div>
+        `, true)}
+        
+        <!-- UÇUŞ KONTROLÜ -->
+        ${accordionItem('flightCheck', ICONS.flight.replace('w-6 h-6', 'w-5 h-5'), 'Uçuş Takibi ve Kontrolü', `
+            <div class="grid grid-cols-2 gap-3 pt-3">
+                
+                <a href="https://www.google.com/flights" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    <div class="text-xl mb-1">✈️</div>
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Google Flights (Arama)</span>
+                </a>
+                <a href="https://www.flightradar24.com/" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    <div class="text-xl mb-1">📡</div>
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Canlı Uçuş Takibi</span>
+                </a>
+            </div>
+        `, true)}
+
+        <!-- KRİTİK BİLGİLER AKORDİYONU (SEYAHAT SEÇİMLİ) -->
+        ${accordionItem('critical', ICONS.key, 'Kritik Bilgiler (Notlar)', `
+            <div class="space-y-4 pt-3">
+                <!-- SEYAHAT SEÇİMİ -->
+                <div>
+                   <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Seyahat Seçimi</label>
+                   <div class="relative">
+                     <select data-act="set-note-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                       ${allTrips.map(t=>`<option value="${esc(t)}" ${state.selectedNoteTrip===t?'selected':''}>${esc(t)}</option>`).join('')}
+                     </select>
+                     <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                   </div>
+                </div>
+                
+                <!-- NOT EKLEME -->
+                <div>
+                    <h4 class="text-sm font-bold text-[var(--text-color)] mb-2">Yeni Not Ekle (${esc(state.selectedNoteTrip)})</h4>
+                    <div class="flex gap-2">
+                        <textarea data-act="update-new-note" id="new-note-input" class="w-full h-16 theme-input border rounded-lg p-2 text-sm outline-none resize-none" placeholder="Otel kodu, adres veya önemli bilgi...">${esc(state.newCriticalNote)}</textarea>
+                        <button data-act="add-note" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg text-sm font-bold transition flex-shrink-0 w-10 h-10 flex items-center justify-center">
+                            ${ICONS.plus.replace('w-4 h-4', 'w-4 h-4')}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- MEVCUT NOTLAR -->
+                <div>
+                    <h4 class="text-sm font-bold text-[var(--text-color)] mb-2">Mevcut Notlar (${esc(state.selectedNoteTrip)})</h4>
+                    <div class="space-y-2 max-h-40 overflow-y-auto scrl">
+                        ${notesForTrip.length > 0 ? notesForTrip.map((note, index) => `
+                            <div class="theme-input/70 border border-[var(--border-color)] rounded-lg p-3 text-sm text-[var(--text-color)] flex justify-between items-start gap-3">
+                                <span class="flex-1 whitespace-pre-wrap">${esc(note.note)}</span>
+                                <button data-act="del-note" data-id="${note.id}" class="text-[var(--text-muted)] hover:text-rose-400 transition p-1 -m-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
+                            </div>
+                        `).join('') : '<p class="text-sm text-[var(--text-muted)] italic">Bu seyahat için kritik not bulunmamaktadır.</p>'}
+                    </div>
+                </div>
+            </div>
+        `, true)}
+        <!-- KRİTİK BİLGİLER BİTİŞ -->
+
+        ${accordionItem('places', ICONS.location, 'Yakındaki Yerler', `
+            <div class="grid grid-cols-3 gap-3 pt-3">
+                <a href="${touristPlacesUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.mapPin.replace('w-5 h-5', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Gezilecek Yerler</span>
+                </a>
+                <a href="${cafeRestaurantUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.restaurant.replace('w-4 h-4', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Cafe & Restoran</span>
+                </a>
+                <a href="${hotelUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.bed.replace('w-4 h-4', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Otel / Konaklama</span>
+                </a>
+            </div>
+        `)}
+
+        ${accordionItem('health', ICONS.hospital, 'Sağlık ve Güvenlik', `
+            <div class="grid grid-cols-3 gap-3 pt-3">
+                <a href="${hospitalUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.hospital.replace('w-4 h-4', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Hastane</span>
+                </a>
+                <a href="${pharmacyUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.pharmacy.replace('w-4 h-4', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Eczane</span>
+                </a>
+                <a href="${policeUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.police.replace('w-4 h-4', 'w-6 h-6')}
+                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Polis / Güvenlik</span>
+                </a>
+            </div>
+        `)}
+        
+        ${accordionItem('transport', ICONS.bus, 'Ulaşım ve Haritalar', `
+            <div class="grid grid-cols-3 gap-3 pt-3">
+                <a href="https://maps.google.com/maps?output=classic" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.mapPin.replace('w-5 h-5', 'w-6 h-6')}
+                    <div class="text-[10px] font-bold text-[var(--text-color)]">Google Haritalar</div>
+                </a>
+                <a href="https://moovitapp.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    <div class="text-xl mb-1">🚌</div>
+                    <div class="text-[10px] font-bold text-[var(--text-color)]">Moovit</div>
+                </a>
+                <a href="https://www.uber.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
+                    ${ICONS.taxi.replace('w-4 h-4', 'w-6 h-6')}
+                    <div class="text-[10px] font-bold text-[var(--text-color)]">Uber / Taksi</div>
+                </a>
+            </div>
+        `)}
+        
+        <!-- YENİ AKORDİYON: SEYAHAT RAPORU -->
+        ${accordionItem('report', ICONS.report.replace('w-5 h-5', 'w-4 h-4'), 'Seyahat Özet Raporu (Tek Bakışta Tablo)', renderReportContent(), true)}
+        
+        <!-- AKORDİYONLAR BİTİŞ -->
+      </div>
+    `;
+  }
+  
+  // --- YENİ KONUM: HARCAMA FORMU RENDER FONKSİYONU ---
+  function renderForm(){
+    const f = state.form;
+    const trips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
+    
+    // Fotoğraf ekleme butonu için durumlar
+    const imagesCount = f.imgs ? f.imgs.length : 0;
+    const isImageLimitReached = imagesCount >= MAX_IMAGES;
+    
+    // Yakıt takibi aktif mi?
+    const isFuelActive = f.isFuel;
+    // Bireysel harcama aktif mi?
+    const isIndividualActive = f.isIndividual;
+    
+    // Harcama formunu modal içinde döndür
+    return `
+      <div class="form-modal-overlay">
+        <!-- form-content-box sınıfı eklendi -->
+        <div class="theme-modal-bg w-full max-w-lg md:rounded-xl rounded-t-xl form-content-box p-4 border shadow-2xl self-start mt-0 md:mt-4 mb-4">
+          <div class="flex justify-between items-center mb-4 sticky top-0 theme-modal-bg pt-1 pb-3 z-10 border-b border-[var(--border-color)] -mx-4 px-4">
+            <h2 class="font-bold text-lg text-[var(--text-color)]">${f.id ? 'Harcamayı Düzenle' : 'Yeni Kayıt'}</h2>
+            <button data-act="cancel" class="text-[var(--text-muted)] hover:text-[var(--text-color)] transition">${ICONS.x}</button>
+          </div>
+          
+          <div class="space-y-3">
+            
+            <!-- YENİ EKLENDİ: BİREYSEL HARCAMA CHECKBOX'I -->
+            <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-lg p-3 flex items-center justify-between">
+                <label for="i-is-individual" class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                    ${ICONS.person.replace('w-4 h-4', 'w-4 h-4')} BİREYSEL HARCAMA
+                </label>
+                <input type="checkbox" id="i-is-individual" data-act="is-individual-toggle" ${isIndividualActive ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-[var(--border-color)] theme-input focus:ring-sky-500">
+            </div>
+
+            <!-- YAKIT HARCAMASI CHECKBOX'I -->
+            <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-lg p-3 flex items-center justify-between">
+                <label for="i-is-fuel" class="text-sm font-bold text-red-400 flex items-center gap-2">
+                    ${CATS.fuel.i} YAKIT HARCAMASI TAKİBİ
+                </label>
+                <input type="checkbox" id="i-is-fuel" data-act="is-fuel-toggle" ${isFuelActive ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-[var(--border-color)] theme-input focus:ring-red-500">
+            </div>
+
+            <!-- YAKIT VE KİLOMETRE ALANLARI (SADECE isFuel ACTIVE İSE GÖSTER) -->
+            ${isFuelActive ? `
+                <div class="theme-sidebar-bg border border-red-500/30 rounded-lg p-3 space-y-3">
+                    
+                    <!-- Başlangıç ve Bitiş KM -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Başlangıç Km</label>
+                            <input id="i-start-km" type="number" inputmode="numeric" class="w-full theme-input/70 border rounded-lg p-3 text-sm outline-none focus:border-red-500" placeholder="Km Girişi" value="${esc(f.startKm)}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Bitiş Km</label>
+                            <input id="i-end-km" type="number" inputmode="numeric" class="w-full theme-input/70 border rounded-lg p-3 text-sm outline-none focus:border-red-500" placeholder="Km Girişi" value="${esc(f.endKm)}">
+                        </div>
+                    </div>
+                    
+                    <!-- Yakıt Litre ve Tutar (Amt zaten kullanılıyor) -->
+                    <div>
+                        <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Alınan Yakıt Miktarı (Litre)</label>
+                        <input id="i-fuel-amount" type="text" inputmode="decimal" class="w-full theme-input/70 border rounded-lg p-3 text-sm outline-none focus:border-red-500" placeholder="Örn: 45.5 L" value="${esc(f.fuelAmount)}">
+                    </div>
+
+                    <!-- YAKIT ALIM KONUMU KALDIRILDI -->
+                </div>
+            ` : ``}
+            <!-- YAKIT HARCAMASI ALANLARI BİTİŞ -->
+
+            <!-- SEYAHAT, ŞEHİR, MEKAN (Tüm harcamalar için geçerli) -->
+            <div>
+              <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Seyahat</label>
+              <div class="relative">
+                 <input id="i-trip" list="dl-trip" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
+                 <datalist id="dl-trip">${trips.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+               <div>
+                 <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Şehir</label>
+                 <input id="i-city" list="dl-city" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
+                 <datalist id="dl-city">${[...new Set(state.exp.map(x=>x.city))].sort().map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+               </div>
+               <div>
+                 <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Mekan</label>
+                 <!-- PLACEHOLDER DÜZELTİLDİ -->
+                 <input id="i-place" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Mekan Adı (Örn: Restoran, Müze, Akaryakıt İstasyonu)" value="${esc(f.place)}">
+               </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+               <div class="col-span-1 relative">
+                  <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">${isFuelActive ? 'Ödenen Tutar' : 'Toplam Tutar'}</label>
+                  <input id="i-amt" type="text" inputmode="decimal" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
+                  <select id="i-cur" class="absolute right-1 top-[28px] bottom-1 bg-[var(--bg-card-light)] text-[var(--text-color)] rounded-md text-xs px-2 outline-none border-l border-[var(--border-color)] cursor-pointer">
+                     ${AVAILABLE_CURRENCIES.map(c=>`<option value="${c}" ${f.cur===c?'selected':''}>${c}</option>`).join('')}
+                  </select>
+               </div>
+               <div class="col-span-1 flex flex-col">
+                  <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Kişi Sayısı</label>
+                  <div class="flex items-center theme-sidebar-bg border border-[var(--border-color)] rounded-lg px-3 flex-1">
+                      <span class="text-[var(--text-muted)] text-xs mr-2">Kişi:</span>
+                      <!-- Kişi sayısı: Bireysel ise disabled, değeri 1 olmalı -->
+                      <input id="i-ppl" type="number" inputmode="numeric" min="1" class="w-full bg-transparent text-sm text-[var(--text-color)] outline-none text-center ${isIndividualActive ? 'opacity-50 cursor-not-allowed' : ''}" 
+                          value="${f.ppl}"
+                          ${isIndividualActive ? 'disabled' : ''}>
+                  </div>
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
+               </div>
+            </div>
+            
+            <div>
+               <input id="i-date" type="date" class="w-full theme-input border rounded-lg p-3 text-sm outline-none" value="${f.date}">
+            </div>
+
+            <div>
+               <label class="block text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Kategori</label>
+               <div class="flex gap-2 overflow-x-auto pb-2 scrl">
+                 <!-- Yakıt aktifse sadece Yakıt gösterilir, değilse diğerleri -->
+                 ${Object.values(CATS).filter(c => isFuelActive ? c.id === 'fuel' : c.id !== 'fuel').map(c=>`
+                   <button type="button" data-act="set-cat" data-val="${c.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-lg border transition ${f.cat===c.id ? 'bg-blue-600/20 border-blue-500 text-[var(--text-color)] shadow-lg shadow-blue-500/20' : 'theme-sidebar-bg border-[var(--border-color)] text-[var(--text-muted)] hover:border-blue-500'}">
+                     <span class="text-xl mb-1">${c.i}</span><span class="text-[9px] font-bold">${c.l}</span>
+                   </button>`).join('')}
+               </div>
+            </div>
+
+            <textarea id="i-desc" rows="2" class="w-full theme-input border rounded-lg p-3 text-sm outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
+
+            <!-- FOTOĞRAF EKLEME ALANI -->
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center gap-3">
+                  <label class="cursor-pointer theme-sidebar-bg ${isImageLimitReached ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-card-light-hover)]'} border border-[var(--border-color)] text-[var(--text-color)] text-xs px-4 py-3 rounded-lg transition flex-1 text-center">
+                      ${isImageLimitReached ? `Maksimum ${MAX_IMAGES} Fotoğrafa Ulaşıldı` : `+ Fotoğraf Ekle (${imagesCount}/${MAX_IMAGES})`}
+                      <!-- Yükleme butonu, limit aşılırsa devre dışı bırakılır -->
+                      <input type="file" data-act="img-upload" id="i-img" hidden accept="image/*" multiple ${isImageLimitReached ? 'disabled' : ''}>
+                  </label>
+              </div>
+              
+              <!-- Mevcut Fotoğraf Önizlemeleri -->
+              ${imagesCount > 0 ? `
+              <div class="flex gap-2 overflow-x-auto pb-2">
+                ${f.imgs.map((s,i)=>`
+                  <div class="relative w-16 h-16 rounded-lg overflow-hidden border border-[var(--border-color)] theme-sidebar-bg flex-shrink-0 group">
+                    <img src="${s}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300">
+                    <button type="button" data-act="del-img" data-val="${i}" class="absolute inset-0 bg-black/50 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition">X</button>
+                  </div>
+                `).join('')}
+              </div>` : ''}
+            </div>
+            <!-- FOTOĞRAF EKLEME ALANI BİTİŞ -->
+
+            <button type="button" data-act="save" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
+          </div>
+        </div>
+      </div>`;
+  }
+  
+  // --- YENİ KONUM: MODAL RENDER FONKSİYONU ---
+  function renderModal(type){
+    if(type==='tz-select'){
+      const currentTZ = state.targetTimezone;
+      const sortedTzs = [...TIMEZONES].sort((a,b) => a.id.localeCompare(b.id)); // Alfabetik sıralama
+      
+      return `
+        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="tzSelectOverlay">
+          <div class="theme-modal-bg w-full max-w-sm rounded-xl border p-5 shadow-2xl relative">
+            <button data-act="close-mod" data-val="tzSelect" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">${ICONS.x}</button>
+            <h3 class="font-bold text-[var(--text-color)] mb-4 text-center">Seyahat Saat Dilimini Seç</h3>
+            
+            <div class="h-64 overflow-y-auto scrl space-y-2">
+              ${sortedTzs.map(tz => `
+                <div data-act="select-tz" data-val="${tz.id}" class="flex justify-between items-center p-3 rounded-lg cursor-pointer transition ${currentTZ === tz.id ? 'bg-blue-600/20 text-blue-300 border border-blue-600' : 'theme-sidebar-bg border border-[var(--border-color)] hover:bg-[var(--bg-card-light-hover)] text-[var(--text-color)]'}">
+                   <div class="font-medium text-sm">${tz.name}</div>
+                   <div class="text-xs font-mono">${formatTime(tz.id).time}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    if(type==='detail'){
+      const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
+      const cat=CATS[x.cat]||CATS.other;
+      const ppl = parseInt(x.ppl)||1;
+      const isIndividual = x.isIndividual; // YENİ EKLENDİ
+      // Kişi başı tutar artık sadece kişi sayısına göre hesaplanır
+      const perP = x.amt/ppl; 
+      const allTrips = [...new Set(state.exp.map(z=>z.trip).concat(state.travelTickets.map(z=>z.trip)).filter(Boolean))].sort();
+      
+      const mapQuery = encodeURIComponent(`${x.place}, ${x.city}`);
+      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
+      
+      // GÜNCELLENEN BADGE STİLLERİ
+      const badgeCls = 'flex items-center gap-2 bg-black/10 px-2 py-0.5 rounded-full border border-white/20 backdrop-blur-md text-white';
+
+      // Bireysel/Ortak Rozeti (Artık isIndividual kontrolü ile)
+      const sharedBadge = isIndividual
+         ? `<span class="bg-sky-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold text-sky-300">Bireysel</span>`
+         : (ppl > 1
+            ? `<span class="bg-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-300">Ortak</span>`
+            : `<span class="bg-slate-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-300">Tek Kişi</span>`);
+
+      const pplBadge = `
+        <div class="flex items-center gap-1.5 ${badgeCls} text-white/80 text-xs font-bold shadow-sm">
+           ${ICONS.person.replace('w-4 h-4', 'w-3 h-3')} <span class="ml-1">${ppl} Kişi</span>
+        </div>
+      `;
+      
+      // Yakıt bilgileri için detay kartı (endKm eklendi, hesaplama yapıldı)
+      const startKm = Number(x.startKm) || 0;
+      const endKm = Number(x.endKm) || 0;
+      const distance = endKm > startKm ? endKm - startKm : 0;
+      const fuelAmount = Number(x.fuelAmount) || 0;
+      
+      const consumption = distance > 0 && fuelAmount > 0 ? ((fuelAmount / distance) * 100).toFixed(2) : '-';
+
+      const fuelInfo = x.isFuel ? `
+        <div class="bg-red-900/40 rounded-lg p-3 border border-red-700/50 space-y-2">
+            <div class="text-xs font-bold text-red-400 uppercase flex items-center gap-2">
+                ${CATS.fuel.i} YAKIT BİLGİLERİ VE TÜKETİM
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm text-slate-200 border-b border-red-700/50 pb-2">
+                <div>
+                    <div class="text-[10px] text-slate-500 uppercase">Başlangıç Km</div>
+                    <div class="font-medium">${esc(x.startKm)} Km</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-500 uppercase">Bitiş Km</div>
+                    <div class="font-medium">${esc(x.endKm)} Km</div>
+                </div>
+                <div class="col-span-2">
+                    <div class="text-[10px] text-slate-500 uppercase">Kat Edilen Mesafe</div>
+                    <div class="font-bold text-lg text-white">${distance} Km</div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 text-sm text-slate-200 pt-2">
+                <div>
+                    <div class="text-[10px] text-slate-500 uppercase">Alınan Miktar</div>
+                    <div class="font-medium">${esc(x.fuelAmount)} L</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-slate-500 uppercase">Ortalama Tüketim</div>
+                    <div class="font-medium">${consumption} L/100 Km</div>
+                </div>
+                <!-- İstasyon Konumu satırı kaldırıldı, Mekan'dan okunacak -->
+            </div>
+        </div>
+      ` : '';
+      
+      // SEYAHAT TAŞIMA BÖLÜMÜ ARTIK TÜM HARCAMALAR İÇİN GÖSTERİLİYOR
+      
+      const tripMoveSection = `
+               <!-- SEYAHATE TAŞIMA (KOMPAKT + SEÇİM) -->
+               <div class="theme-sidebar-bg rounded-lg p-3 border border-[var(--border-color)]/50">
+                 <div class="flex items-center gap-2 mb-2">
+                   <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                   <span class="text-xs text-[var(--text-color)]">Seyahati Güncelle / Taşı</span>
+                 </div>
+
+                 <div class="space-y-2">
+                   ${allTrips.length ? `
+                   <div>
+                     <label class="block text-[11px] text-[var(--text-muted)] mb-1">Mevcut seyahatlerden seç</label>
+                     <select id="move-trip-select"
+                             class="w-full theme-input border rounded-lg px-2 py-1.5 text-xs outline-none focus:border-blue-400">
+                        <option value="">Seyahat seç (opsiyonel)</option>
+                        ${allTrips.map(t=>`<option value="${esc(t)}" ${t===(x.trip||'')?'selected':''}>${esc(t)}</option>`).join('')}
+                        <option value="__new__">+ Yeni seyahat adı gireceğim</option>
+                     </select>
+                   </div>
+                   ` : ``}
+
+                   <div class="flex gap-2 items-center">
+                     <input id="move-trip-inp"
+                            placeholder="Yeni seyahat adı yaz veya yukarıdan seç"
+                            class="flex-1 theme-input border rounded-lg px-2 py-1.5 text-xs outline-none placeholder-[var(--text-muted)]"
+                            list="dl-all-trips">
+                     <datalist id="dl-all-trips">${allTrips.map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+                     <button data-act="move-trip"
+                             class="bg-blue-600/80 hover:bg-blue-500 text-xs font-semibold text-white px-3 py-1.5 rounded-lg border border-blue-400/70 hover:text-white transition whitespace-nowrap">
+                       Taşı
+                     </button>
+                   </div>
+
+                   <p class="text-[10px] text-[var(--text-muted)] mt-1 italic">
+                     Mevcut Seyahat: <span class="text-[var(--text-color)]">${esc(x.trip||'Genel')}</span>
+                   </p>
+                 </div>
+               </div>
+      `;
+
+
+      // Kategori ve Kişi Bilgisi Header'a taşındı.
+      return `
+        <!-- DÜZELTME 3: items-end yerine items-start (Üste sabitlemek için) ve üstten biraz boşluk (mt-4) eklendi -->
+        <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="overlay">
+          <div class="theme-modal-bg w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border" data-act="noop">
+             
+             <!-- SABİT GRADIENT BAŞLIK (YENİ YAPILANDIRMA) -->
+             <div class="relative p-4 pb-10 overflow-hidden fixed-gradient-header">
+                <div class="absolute inset-0 backdrop-blur-[2px]"></div>
+                
+                <div class="relative z-10 flex justify-between items-start mb-2">
+                  <div class="flex items-center gap-2">
+                     <!-- KATEGORİ -->
+                     <div class="${badgeCls}">
+                        <span>${cat.i}</span><span class="text-xs font-bold uppercase">${cat.l}</span>
+                     </div>
+                     <!-- KİŞİ SAYISI -->
+                     ${pplBadge}
+                     <!-- BİREYSEL/ORTAK ROZETİ -->
+                     ${sharedBadge}
+                  </div>
+                  <button data-act="close-mod" data-val="detail" class="bg-black/20 hover:bg-black/40 text-white rounded-full p-1.5 transition backdrop-blur-md">${ICONS.x}</button>
+                </div>
+
+                <div class="relative z-10 mt-1">
+                   <h2 class="text-xl font-bold text-white mb-1 leading-tight drop-shadow-md">${esc(x.place)}</h2>
+                   
+                   <div class="flex items-center gap-2 text-white/80 text-xs font-medium">
+                      <span class="bg-black/20 px-2 py-0.5 rounded-full text-[10px]">${esc(x.city)}</span>
+                      <span class="w-1 h-1 rounded-full bg-white/60"></span>
+                      <span>${fmtDate(x.date)}</span>
+                   </div>
+                   
+                   <div class="relative z-10 mt-4 flex justify-between items-end">
+                       <div class="inline-block">
+                           <div class="text-[10px] text-white/80 font-medium">Seyahat</div>
+                           <div class="text-sm font-bold text-white">${esc(x.trip||'Genel')}</div>
+                       </div>
+                       <div class="text-right inline-block">
+                           <div class="text-[10px] text-white/80">Toplam Tutar</div>
+                           <div class="text-2xl font-bold text-white tracking-tight text-center">${fmtNum(x.amt)} <span class="text-sm font-medium opacity-70">${x.cur}</span></div>
+                           
+                           <!-- KİŞİ BAŞI TUTAR EKLENDİ -->
+                           ${ppl > 1 ? `<div class="text-[10px] text-white/70 mt-1">Kişi Başı: ${fmtNum(perP)} ${x.cur}</div>` : ''}
+                       </div>
+                   </div>
+                   
+                   <!-- DÖNÜŞTÜRÜLMÜŞ TUTAR kısmı kaldırıldı -->
+                </div>
+             </div>
+
+             <!-- Body -->
+             <div class="theme-modal-bg p-4 space-y-3 overflow-y-auto max-h-[70vh]">
+               
+               <!-- YAKIT BİLGİLERİ -->
+               ${fuelInfo}
+
+               <!-- SEYAHATE TAŞIMA (KOMPAKT) -->
+               ${tripMoveSection}
+               
+               <!-- GOOGLE MAPS LİNKİ -->
+               <button data-act="open-url" data-val="${mapUrl}" class="flex items-center justify-center gap-2 theme-sidebar-bg theme-sidebar-bg-hover p-3 rounded-lg border border-[var(--border-color)]/50 transition cursor-pointer w-full">
+                  ${ICONS.mapPin.replace('w-5 h-5', 'w-4 h-4')}
+                  <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Haritada Göster: ${esc(x.place)}</span>
+               </button>
+
+               <div class="theme-sidebar-bg rounded-lg p-3 border border-[var(--border-color)]/50 min-h-[50px]">
+                 <div class="text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Notlar</div>
+                 <p class="text-sm text-[var(--text-color)] whitespace-pre-wrap leading-relaxed">${esc(x.desc) || '<span class="italic text-[var(--text-muted)]/50">Not eklenmemiş.</span>'}</p>
+               </div>
+
+               ${x.imgs && x.imgs.length ? `
+               <div>
+                  <div class="text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Fotoğraflar (${x.imgs.length})</div>
+                  <div class="grid grid-cols-3 gap-2">
+                    ${x.imgs.map(img => `<div class="aspect-square rounded-lg overflow-hidden border border-[var(--border-color)] theme-sidebar-bg"><img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300"></div>`).join('')}
+                  </div>
+               </div>` : ''}
+
+               <div class="flex gap-3 pt-2">
+                 <button data-act="del-exp-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                   ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
+                 </button>
+                 <button data-act="edit" class="flex-1 py-2.5 rounded-lg font-bold text-sm theme-sidebar-bg text-[var(--text-color)] border border-[var(--border-color)] hover:bg-[var(--bg-card-light-hover)] transition flex items-center justify-center gap-1.5">
+                   ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
+                 </button>
+               </div>
+             </div>
+          </div>
+        </div>`;
+    }
+    
+    
+    if(type==='chart'){
+      const ds = getChartDataset();
+      const tripText = (ds.trips && ds.trips.length)
+        ? ds.trips.join(', ')
+        : (state.tripFilter || 'Tüm Seyahatler');
+      const totalText = ds.total ? fmtNum(ds.total) + ' ' + (ds.currency || '') : '0';
+
+      return `
+        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-act="close-mod" data-val="chartOverlay">
+          <div class="theme-modal-bg w-full max-w-md rounded-2xl border shadow-2xl relative overflow-hidden" data-act="noop">
+            <button data-act="close-mod" data-val="chart" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">
+              ${ICONS.x}
+            </button>
+            <div class="p-4 border-b border-[var(--border-color)]">
+              <h3 class="text-sm font-semibold text-[var(--text-color)] flex items-center gap-2">
+                ${ICONS.chart.replace('w-4 h-4','w-4 h-4')}
+                <span>Harcama Grafiği</span>
+              </h3>
+              <p class="text-[11px] text-[var(--text-muted)] mt-1">
+                Şu anki filtrelere göre (seyahat, kategori, arama) harcamalarının kategori dağılımını gösterir.
+              </p>
+              <p class="text-[11px] text-[var(--text-muted)] mt-1">
+                Seyahat: <span class="text-[var(--text-color)]">${tripText}</span>
+              </p>
+            </div>
+            <div class="p-4 space-y-3">
+              <div class="h-56 relative">
+                <canvas id="exp-chart"></canvas>
+              </div>
+              <div class="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                <span>Toplam</span>
+                <span class="font-semibold text-[var(--text-color)]">${totalText}</span>
+              </div>
+              ${ds.currencies && ds.currencies.length > 1 ? `
+              <p class="text-[11px] text-[var(--text-muted)]">
+                Birden fazla para birimi bulundu. Grafik, <span class="text-[var(--text-color)] font-medium">${ds.currency}</span> harcamalar üzerinden hesaplanır.
+              </p>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    if(type==='data'){
+      // JSON'a bilet verisi eklendi
+      return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="theme-modal-bg w-full max-w-lg rounded-xl border p-5 shadow-2xl relative" data-act="noop"><button data-act="close-mod" data-val="data" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">${ICONS.x}</button><h3 class="font-bold text-[var(--text-color)] mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-lg p-3 text-xs font-mono text-[var(--text-muted)] mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,tickets:state.travelTickets})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-[var(--bg-card-light)] text-[var(--text-color)] py-2.5 rounded-lg font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold">Yükle</button></div></div></div>`;
+    }
+    
+    // YENİ BİLET DETAY MODALI
+    if (type === 'ticketDetail') {
+        return renderTicketDetailModal();
+    }
+    
+    return '';
+  }
+
+  function renderApp(){
+    try {
+        const root=document.getElementById('app-root');
+        
+        // Temayı body etiketine uygula
+        document.body.setAttribute('data-theme', state.theme);
+        
+        const exp=state.exp.filter(x=>{
+          if(state.tripFilter && x.trip!==state.tripFilter) return false;
+          if(state.catFilter && x.cat!==state.catFilter) return false;
+          
+          // YENİ: Bireysel Harcama Filtresi mantığı
+          if(state.individualFilter === 'individual') {
+              // Bireysel Harcama: isIndividual=true OLMALI
+              if (!x.isIndividual) return false;
+          } else if (state.individualFilter === 'shared') {
+              // Ortak Harcama: isIndividual=false OLMALI
+              // Kişi sayısı 1'den büyük olanlar da Ortak sayılabilir, ancak şimdiki mantıkta sadece isIndividual=false olanları alıyoruz
+              if (x.isIndividual) return false;
+          }
+
+          // Arama
+          if(state.search){const q=state.search.toLowerCase(); return (x.city||'').toLowerCase().includes(q)||(x.place||'').toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q);}
+          
+          return true;
+        });
+
+        state._visibleExp = exp;
+
+        let h = renderHeader();
+        // Konum alma sırasında oluşan hata mesajını kontrol et
+        if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
+
+        if(state.view==='list'){
+          h += renderTabs();
+          if(state.tab==='exp'){
+            h+= renderDashboardHeader(exp);
+            h+= renderFilters(exp.length);
+            h+= renderExpenseList(exp);
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+          } else if (state.tab==='chk'){
+             h+= renderChecklist();
+          } else if (state.tab==='helpers'){
+             h+= renderHelpers();
+          } 
+        } else if (state.view === 'form') {
+          h+= renderForm(); // Harcama Formu
+        } else if (state.view === 'ticketForm') {
+          h+= renderTicketForm(); // Yeni Bilet Formu
+        }
+
+        if(state.modals.tzSelect) h+=renderModal('tz-select'); 
+        if(state.modals.detail) h+=renderModal('detail');
+        if(state.modals.chart) h+=renderModal('chart');
+        if(state.modals.data) h+=renderModal('data');
+        // YENİ MODAL: Rezervasyon Detayı
+        if(state.modals.ticketDetail) h+=renderModal('ticketDetail'); 
+
+        if(state.lightbox) h+=`<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
+
+        root.innerHTML=h;
+        if(state.modals.chart){
+          setTimeout(renderExpenseChart,0);
+        }
+        
+    } catch(e) { console.error(e); }
+  }
+  
+  // --- DRAG AND DROP HANDLERS (Kaldırıldı) ---
+  window.handleDragStart = (e) => { e.preventDefault(); };
+  window.handleDragOver = (e) => { e.preventDefault(); };
+  window.handleDrop = (e) => { e.preventDefault(); };
+  window.handleDragEnd = (e) => { e.preventDefault(); };
+  
+  document.addEventListener('click',e=>{
+    const t=e.target.closest('[data-act]'); 
+    
+    // Düzenle/Sil butonlarına tıklamaları detay açma işlemini durdurmalı
+    if (e.target.closest('[data-stop-propagation="true"]')) {
+        e.stopPropagation();
+        // Silme/Düzenleme aksiyonu burada ele alınmalı (aşağıda var)
+    }
+
+    if(!t) {
+        // Form overlay'ı için kapatma (Hem harcama hem bilet)
+        if((state.view === 'form' || state.view === 'ticketForm') && e.target.classList.contains('form-modal-overlay')) {
+            state.view = 'list';
+            state.err = '';
+            renderApp();
+            return;
+        }
+        return;
+    }
+    
+    const act=t.dataset.act, val=t.dataset.val, id=t.dataset.id;
+    
+    // YENİ AKSIYON: Tema Değiştirme
+    if(act === 'toggle-theme'){
+        const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+        setState({ theme: newTheme });
+        save();
+        return;
+    }
+    
+    // YENİ AKSIYON: Konum Al
+    if(act === 'get-location'){
+        handleGeolocation();
+        return; 
+    }
+    
+    // DÜZELTME: open-url aksiyonu eklendi
+    if(act === 'open-url'){
+        if (val) {
+            // Harita linki (data-act="open-url") veya Rezervasyon URL'si (data-act="open-url")
+            window.open(val, '_blank');
+        }
+        return;
+    }
+    
+    // Yardımcılar Akordiyon Açma/Kapama
+    if(act === 'tog-accordion'){
+        const currentStatus = state.helpersAccordion[val];
+        // Tüm akordiyonları kapat, sadece seçileni aç
+        const newAccordionState = {};
+        Object.keys(state.helpersAccordion).forEach(key => {
+            newAccordionState[key] = false;
+        });
+        
+        // Eğer zaten açıksa kapat, kapalıysa aç
+        if (!currentStatus) {
+            newAccordionState[val] = true;
+            // EĞER RAPOR AKORDİYONU AÇILIYORSA, SEYAHAT LİSTESİNİ GÜNCELLE
+            if (val === 'report') {
+                 // Sadece exp harcamaları üzerinden seyahatleri al
+                 const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
+                 if (allTrips.length > 0 && !allTrips.includes(state.selectedReportTrip)) {
+                    state.selectedReportTrip = allTrips[0];
+                 } else if (allTrips.length === 0) {
+                     state.selectedReportTrip = 'Genel';
+                 }
+            }
+        }
+
+        setState({ helpersAccordion: newAccordionState });
+        return;
+    }
+    
+    // Navigation
+    // Rapor sekmesi kaldırıldığı için sadece exp, chk, helpers kaldı
+    if(act==='tab'){
+        if(val === 'exp' || val === 'chk' || val === 'helpers') {
+            state.tab=val; 
+            state.search = '';
+            // YARDIMCILAR sekmesine geçildiğinde konumu otomatik al
+            if (val === 'helpers') {
+                handleGeolocation();
+            }
+        } 
+        renderApp();
+    }
+    if(act==='new'){
+        state.form=getEmptyForm(); 
+        if(state.tripFilter)state.form.trip=state.tripFilter; 
+        state.view='form'; 
+        renderApp();
+    }
+    if(act==='cancel'){
+        state.view='list'; 
+        state.err=''; 
+        renderApp();
+    }
+    
+    // YENİ: Bilet Formu Yönetimi
+    if(act === 'open-ticket-form'){
+        const existingTicket = state.travelTickets.find(t => t.id === id);
+        if (existingTicket) {
+             state.ticketForm = existingTicket;
+        } else {
+             state.ticketForm = getEmptyTicketForm();
+             // Harcama filtresi varsa bilete otomatik ata
+             if(state.tripFilter) state.ticketForm.trip=state.tripFilter; 
+        }
+        state.view = 'ticketForm';
+        state.err = ''; // Hata mesajını temizle
+        renderApp();
+    }
+    if(act === 'cancel-ticket-form'){
+        state.view = 'list';
+        state.err = '';
+        renderApp();
+    }
+    if(act === 'save-ticket'){
+        const f = state.ticketForm;
+        if(!f.trip || !f.name || !f.date || !f.time) {
+            state.err = 'Rezervasyon: Zorunlu alanları doldurunuz (Seyahat, Ad/Başlık, Tarih, Saat).';
+            renderApp();
+            return;
+        }
+
+        const rec = {...f, id: f.id || genId(), trip: titleCase(f.trip)};
+
+        if(f.id) state.travelTickets = state.travelTickets.map(x=>x.id===f.id?rec:x);
+        else state.travelTickets=[...state.travelTickets, rec];
+        
+        save();
+        state.err = '';
+        state.view = 'list';
+        // Biletler akordiyonunu açık tut
+        state.helpersAccordion.tickets = true; 
+        renderApp();
+    }
+    if(act === 'del-ticket'){
+        // Bu, liste görünümündeki düğmeden tetiklenir
+        if(id && confirm('Bu rezervasyon kaydı silinecek. Onaylıyor musunuz?')){
+             state.travelTickets = state.travelTickets.filter(x => x.id !== id);
+             save();
+             state.helpersAccordion.tickets = true;
+             renderApp();
+        }
+    }
+    // Rezervasyon Detay modalından silme
+    if(act === 'del-ticket-detail'){
+        const ticketId = id;
+        if(ticketId && confirm('Bu rezervasyon kaydı silinecek. Onaylıyor musunuz?')){
+             state.travelTickets = state.travelTickets.filter(x => x.id !== ticketId);
+             save();
+             state.modals.ticketDetail = false;
+             renderApp();
+        }
+    }
+    // Rezervasyon Detay modalından düzenleme
+    if(act === 'edit-ticket-detail'){
+        const ticketId = id;
+        const existingTicket = state.travelTickets.find(t => t.id === ticketId);
+        if(existingTicket){
+            state.ticketForm = existingTicket;
+            state.modals.ticketDetail = false;
+            state.view = 'ticketForm';
+            renderApp();
+        }
+    }
+    // Rezervasyon Detay Kartı Açma
+    if(act === 'open-ticket-detail'){
+        state.selectedTicketId = id;
+        state.modals.ticketDetail = true;
+        renderApp();
+    }
+    if(act === 'set-ticket-type'){
+        state.ticketForm.type = val;
+        renderApp();
+    }
+    
+    // Not İşlemleri
+    if (act === 'add-note') {
+        const noteText = state.newCriticalNote.trim();
+        if (noteText) {
+            state.criticalNotes.push({
+                id: genId(),
+                trip: state.selectedNoteTrip,
+                note: noteText,
+            });
+            state.newCriticalNote = '';
+            save();
+            renderApp();
+        }
+    }
+    if (act === 'del-note') {
+        state.criticalNotes = state.criticalNotes.filter(n => n.id !== id);
+        save();
+        renderApp();
+    }
+    
+    // Temizleme (Harcama)
+    if(act==='clean-all-exp'){if(confirm('DİKKAT: Tüm harcamalar kalıcı olarak silinecek!')){state.exp=[]; save(); renderApp();}}
+    
+    // Şehir Silme
+    if(act==='del-city'){
+      const cityToDelete = val;
+      if(confirm(`${cityToDelete} şehrine ait tüm harcama kayıtları silinecek. Onaylıyor musun?`)){
+          state.exp = state.exp.filter(x => x.city !== cityToDelete);
+          delete state.expandedCities[cityToDelete];
+          save();
+          renderApp();
+      }
+    }
+
+    // Checklist İşlemleri
+    if(act==='reset-chk'){
+        if(confirm('Mevcut liste SİLİNECEK ve varsayılan listeye dönülecek. Onaylıyor musun?')){
+             // Varsayılan maddeler korunsun ama hepsi 'done: false' olarak ayarlanmasın (initState'te yapıldığı gibi)
+             state.chk.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
+             state.chk.cats = [...DEF_CATS];
+             state.openChkCats = {}; state.chk.cats.forEach(x=>state.openChkCats[x.id]=false); 
+             save(); renderApp();
+        }
+    }
+    if(act==='del-chk'){
+        if(id) {
+           state.chk.items = state.chk.items.filter(x => x.id !== id);
+           save(); renderApp();
+        }
+    }
+    if(act==='add-chk'){
+        const el = document.getElementById('new-chk-'+val);
+        const raw = el.value;
+        if(raw){
+            raw.split(',').forEach(part => {
+                const clean = part.trim();
+                if(clean) state.chk.items.push({id:genId(), cat:val, val:clean, done:false});
+            });
+            el.value = ''; 
+            save(); renderApp();
+        }
+    }
+    if(act==='tog-chk-cat'){state.openChkCats[val]=!state.openChkCats[val]; renderApp();}
+    
+    // Yeni Kategori Ekleme
+    if(act==='add-cat'){
+        const nameInput = document.getElementById('new-cat-name');
+        const iconInput = document.getElementById('new-cat-icon');
+        const name = nameInput.value.trim();
+        const icon = iconInput.value.trim() || '📦';
+        if(name){
+            const newId = 'c'+genId().slice(0, 8);
+            const newCat = {id: newId, l: name, i: icon};
+            state.chk.cats.push(newCat);
+            state.openChkCats[newId] = true; 
+            nameInput.value = '';
+            iconInput.value = '';
+            save(); renderApp();
+        } else {
+            // alert('Lütfen bir kategori adı girin.'); // Alert yerine setState err kullanılmalı
+            state.err = 'Lütfen bir kategori adı girin.';
+            renderApp();
+        }
+    }
+    
+    // Kategori Silme
+    if(act === 'del-chk-cat-confirm') {
+         // Silme mantığı artık tüm kategoriler için çalışacak.
+         if (id && confirm('Bu kategori ve İÇİNDEKİ TÜM MADDELER silinecek. Onaylıyor musun?')) {
+             state.chk.cats = state.chk.cats.filter(c => c.id !== id);
+             state.chk.items = state.chk.items.filter(i => i.cat !== id);
+             delete state.openChkCats[id];
+             save();
+             renderApp();
+         }
+     }
+    
+    // Harcama Formu Kategorisi
+    if(act==='set-cat'){
+        state.form.cat=val; 
+        // Eğer yakıt kategorisi seçilirse, isFuel'i otomatik işaretle
+        if (val === 'fuel') {
+            state.form.isFuel = true;
+            // Yakıt aktifleştiğinde, Mekan için bir ipucu yer tutucu ayarla
+            if (!state.form.place) state.form.place = 'Akaryakıt İstasyonu';
+        } else if (state.form.isFuel && val !== 'fuel') {
+             // Eğer yakıt harcaması işaretliydi ama farklı bir kategori seçildi, isFuel'i kapat ve yakıt alanlarını temizle
+             state.form.isFuel = false;
+             state.form.startKm = '';
+             state.form.endKm = ''; // Yeni alan temizlendi
+             state.form.fuelAmount = '';
+        }
+        renderApp();
+    }
+    
+    if(act==='del-img'){state.form.imgs.splice(val,1); renderApp();} // FOTOĞRAF SİLME GERİ EKLENDİ
+    if(act==='save'){
+       const f=state.form;
+       
+       // Yakıt harcaması ise kategori otomatik 'fuel' olmalı
+       if(f.isFuel) f.cat = 'fuel';
+       
+       // Bireysel harcama ise kişi sayısı 1 olmalı
+       if (f.isIndividual) f.ppl = '1';
+
+       if(!f.city || !f.place || !f.amt || !f.cat) { 
+           state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).'; 
+           renderApp(); 
+           return; 
+       }
+       
+       // Kişi sayısı kontrolü. 1'den az olamaz
+       let ppl = parseInt(f.ppl) || 1;
+       if (ppl < 1) {
+           ppl = 1;
+       }
+       
+       // Yakıt harcaması için km kontrolü
+       if (f.isFuel && (!f.startKm || !f.endKm || !f.fuelAmount)) {
+           state.err = 'Yakıt harcaması için Başlangıç Km, Bitiş Km ve Yakıt Miktarı alanları zorunludur.'; 
+           renderApp(); 
+           return; 
+       }
+
+       // Kayıt oluştur
+       const rec={...f, 
+            id:f.id||genId(), 
+            city:titleCase(f.city), 
+            place:titleCase(f.place), 
+            trip:titleCase(f.trip),
+            ppl: String(ppl), // ppl değerini string olarak sakla
+        };
+       
+       // Sadece sayısal alanları temizle
+       if (f.isFuel) {
+           rec.startKm = String(rec.startKm).replace(/[^0-9]/g, ''); // Sadece rakam
+           rec.endKm = String(rec.endKm).replace(/[^0-9]/g, ''); // Sadece rakam
+           rec.fuelAmount = String(rec.fuelAmount).replace(',','.').replace(/[^0-9.]/g,''); // Sayı ve nokta/virgül
+           
+           // Bitiş km başlangıç km'den küçükse hata ver
+           if (Number(rec.endKm) < Number(rec.startKm)) {
+               state.err = 'Bitiş Kilometresi, Başlangıç Kilometresinden küçük olamaz.'; 
+               renderApp(); 
+               return; 
+           }
+       }
+       
+       // Mekan alanını tekrar titleCase yap
+       rec.place = titleCase(f.place);
+       
+       if(f.id) state.exp=state.exp.map(x=>x.id===f.id?rec:x); else state.exp=[...state.exp,rec];
+       
+       state.expandedCities[rec.city]=true; 
+       save(); 
+       state.err=''; 
+       state.view='list'; 
+       renderApp();
+    }
+    
+    // Liste
+    if(act==='tog-city'){
+        if(e.target.closest('[data-act="del-city"]')) return; 
+        state.expandedCities[val]=!state.expandedCities[val]; renderApp();
+    }
+    if(act==='detail'){state.selExp=id; state.modals.detail=true; renderApp();}
+    
+    // Modal Yönetimi
+    if(act==='close-mod'){
+      // Hem harcama hem de bilet detayını kapat
+      if(val === 'tzSelect') state.modals.tzSelect = false;
+      else if(val === 'ticketDetail') state.modals.ticketDetail = false;
+      else state.modals={detail:false,chart:false,data:false, ticketDetail: false}; 
+      renderApp();
+    }
+    
+    // Saat Dilimi Modalı Aç/Seç
+    if(act==='open-tz-modal'){
+        state.modals.tzSelect = true;
+        renderApp();
+    }
+    if(act==='select-tz'){
+       state.targetTimezone = val;
+       state.modals.tzSelect = false;
+       save();
+       if (timeInterval) clearInterval(timeInterval);
+       startClock();
+       renderApp();
+    }
+
+    // Harcama Detayı Silme
+    if(act==='del-exp-detail'){
+      if(state.selExp && confirm('Bu kayıt silinsin mi?')){
+        state.exp=state.exp.filter(x=>x.id!==state.selExp); 
+        save(); state.modals.detail=false; renderApp();
+      }
+    }
+    
+    // Harcama Detayı Düzenleme
+    if(act==='edit'){
+        const x=state.exp.find(e=>e.id===state.selExp); 
+        if(x){
+            // isFuel'i boolean'a çevirerek form state'ine kopyala
+            state.form={...x, isFuel: !!x.isFuel, isIndividual: !!x.isIndividual}; // isIndividual eklendi
+            state.modals.detail=false; 
+            state.view='form'; 
+            renderApp();
+        }
+    }
+    
+    // Seyahat Taşıma
+    
+    // Seyahat Taşıma
+    if(act==='move-trip'){
+       // Sadece isFuel olmayan harcamalar için çalışacak
+       const x=state.exp.find(e=>e.id===state.selExp);
+       // isFuel kontrolü kaldırıldı (Tüm harcamalar taşınabilir)
+       if(x) {
+           const sel = document.getElementById('move-trip-select');
+           const inp = document.getElementById('move-trip-inp');
+
+           let newT = '';
+           if(sel && sel.value && sel.value !== '__new__'){
+               newT = sel.value.trim();
+           } else if(inp){
+               newT = titleCase(inp.value.trim());
+           }
+
+           if(newT && state.selExp){
+             state.exp = state.exp.map(x=>x.id===state.selExp ? {...x, trip:newT} : x);
+             save(); 
+             state.modals.detail = false; 
+             renderApp();
+           } else {
+               // alert('Lütfen bir seyahat seçin veya yeni bir seyahat adı yazın.'); // Alert yerine setState err kullanılmalı
+               state.err = 'Taşıma için bir seyahat adı yazın veya seçin.';
+               renderApp();
+           }
+       }
+    }
+    // Diğer 
+    if(act==='lb'){state.lightbox=e.target.src; renderApp();}
+    if(act==='close-lb'){state.lightbox=null; renderApp();}
+    if(act==='open-chart'){state.modals.chart=true; renderApp();}
+    if(act==='data'){state.modals.data=true; renderApp();}
+    if(act==='imp'){try{const d=JSON.parse(document.getElementById('io-txt').value);state.exp=d.exp||[];state.chk=d.chk||state.chk; state.travelTickets = d.tickets || d.tickets; save();state.modals.data=false;renderApp();}catch{alert('JSON Hatalı')}}
+    if(act==='copy-json'){
+      const textarea = document.getElementById('io-txt');
+      textarea.select();
+      document.execCommand('copy');
+      const originalText = textarea.value;
+      textarea.value = "JSON kopyalandı!";
+      setTimeout(() => textarea.value = originalText, 1000);
+    }
+  });
+
+  document.addEventListener('change',e=>{
+    const t = e.target;
+    if(t.dataset.act==='chk'){
+        const i=state.chk.items.find(x=>x.id===t.dataset.id); 
+        if(i){i.done=t.checked; save(); renderApp();}
+    }
+    if(t.dataset.act==='flt-trip'){state.tripFilter=t.value; renderApp();}
+    if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
+    
+    // YENİ DÜZELTME: flt-individual aksiyonu kaldırıldı, yeni select aksiyonu eklendi
+    if(t.dataset.act==='flt-individual-type'){
+        state.individualFilter=t.value; 
+        renderApp();
+    }
+    
+    // YENİ: BİREYSEL HARCAMA TOGGLE
+    if(t.dataset.act==='is-individual-toggle'){
+        state.form.isIndividual = t.checked;
+        if (t.checked) {
+            // Bireysel ise kişi sayısı 1'e sabitlenir
+            state.form.ppl = '1'; 
+        } else {
+            // Bireysel değilse kişi sayısı 1'e döner
+            state.form.ppl = '1'; 
+        }
+        renderApp();
+    }
+    
+    // YAKIT TAKİP TOGGLE
+    if(t.dataset.act==='is-fuel-toggle'){
+        state.form.isFuel = t.checked;
+        if (t.checked) {
+            // Yakıt aktifleşirse, kategoriyi otomatik "fuel" yap
+            state.form.cat = 'fuel';
+            // Yakıt aktifleştiğinde, Mekan için bir ipucu yer tutucu ayarla
+            if (!state.form.place || state.form.place === 'Akaryakıt İstasyonu') {
+                state.form.place = 'Akaryakıt İstasyonu';
+            }
+        } else {
+            // Kapanırsa yakıt alanlarını temizle ve kategoriyi boşalt
+            state.form.cat = '';
+            state.form.startKm = '';
+            state.form.endKm = ''; // Yeni alan temizlendi
+            state.form.fuelAmount = '';
+        }
+        renderApp();
+    }
+    
+    // ROTA SEYAHAT SEÇİMİ (Yeni Eklendi)
+    if(t.id === 'route-trip-select'){
+        
+        state.routeTrip = t.value;
+        // Rota alanını açık tut ve içeriği yenile
+        state.helpersAccordion.route = true; 
+        renderApp(); 
+    }
+    
+    // BİLET SEYAHAT FİLTRESİ
+    if(t.dataset.act === 'flt-ticket-trip'){
+        state.ticketTripFilter = t.value;
+        state.helpersAccordion.tickets = true;
+        renderApp();
+    }
+    
+    // DÜZELTME: Not seyahati seçimi (select element change event'ini kullanmalı)
+    if(t.dataset.act==='set-note-trip'){
+        state.selectedNoteTrip = t.value;
+        state.newCriticalNote = ''; // Seyahat değiştiğinde not girişi temizlenmeli
+        renderApp();
+    }
+    
+    // YENİ RAPOR SEYAHAT SEÇİMİ
+    if(t.dataset.act==='set-report-trip'){
+        state.selectedReportTrip = t.value;
+        // Rapor akordiyonunu açık tut
+        state.helpersAccordion.report = true; 
+        renderApp();
+    }
+
+    // FOTOĞRAF YÜKLEME İŞLEYİCİSİ
+    if(t.dataset.act==='img-upload'){
+        const files = t.files;
+        const currentCount = state.form.imgs.length;
+        const newFiles = Array.from(files).slice(0, MAX_IMAGES - currentCount); // Maksimum limiti aşmayacak şekilde dosyaları al
+        
+        if (newFiles.length === 0 && files.length > 0) {
+            setState({ err: `Maksimum ${MAX_IMAGES} fotoğraf ekleme limitine ulaşıldı.` });
+            t.value = ''; // Input'u temizle
+            return;
+        }
+
+        if (newFiles.length > 0) {
+            
+            setState({ err: 'Resimler işleniyor ve optimize ediliyor... Lütfen bekleyiniz.' });
+            
+            const errorMessages = []; // Hata mesajlarını toplamak için yeni dizi
+
+            const readerPromises = newFiles.map(file => {
+                // Burada artık dosya boyutu kontrolü yapılmıyor
+                return resizeAndConvertImage(file)
+                    .catch(error => {
+                        errorMessages.push(`Hata (${file.name}): ${error.message}`);
+                        return null; // Başarısız resimler için null döndür
+                    });
+            });
+
+            Promise.all(readerPromises)
+                .then(processedImages => {
+                    // Sadece başarılı olan resimleri Base64 formatında al
+                    const validImages = processedImages.filter(img => img !== null);
+                    
+                    if (validImages.length > 0) {
+                        // Yeni resimleri ekle ve limiti tekrar kontrol et
+                        const updatedImgs = [...state.form.imgs, ...validImages];
+                        state.form.imgs = updatedImgs.slice(0, MAX_IMAGES);
+                    }
+                    
+                    let finalError = '';
+                    if (errorMessages.length > 0) {
+                        finalError = `Yükleme Hataları (${errorMessages.length} dosya): ${errorMessages.join(' | ')}`;
+                    } else if (validImages.length === 0 && files.length > 0) {
+                        finalError = 'Hiç resim yüklenemedi (Desteklenmeyen dosya formatı veya bilinmeyen hata).';
+                    } else {
+                        // Başarılıysa hata mesajını temizle
+                        finalError = '';
+                    }
+
+                    // Input alanını temizle ki, kullanıcı aynı resmi tekrar seçebilsin
+                    t.value = ''; 
+                    setState({ err: finalError }); // Son hata durumunu ayarla ve render et
+
+                })
+                .catch(error => {
+                    console.error("Resim işlenirken beklenmeyen genel genel hata oluştu:", error);
+                    state.err = "Resim yüklenirken beklenmeyen genel bir hata oluştu.";
+                    // Input alanını temizle
+                    t.value = '';
+                    renderApp();
+                });
+        } else {
+             t.value = ''; // Input temizlendi
+        }
+    }
+  });
+  
+  document.addEventListener('input', e => {
+    const t = e.target;
+    
+    // 1. Arama Çubuğu
+    if(t.dataset.act==='search'){state.search=t.value; renderApp(); return;}
+    
+    // 2. Kritik Notlar
+    if(t.dataset.act==='update-new-note'){
+        state.newCriticalNote = t.value;
+        // Not girişi değiştiğinde render yapmaya gerek yok, sadece state'i güncelle
+        return; 
+    }
+
+    // 3. Bilet Formu Girişi
+    if (state.view === 'ticketForm') {
+        let shouldRender = false;
+        switch(t.id) {
+            case 'i-ticket-trip': state.ticketForm.trip = t.value; break;
+            case 'i-ticket-name': state.ticketForm.name = t.value; break;
+            case 'i-ticket-location': state.ticketForm.location = t.value; break; // YENİ ALAN
+            case 'i-ticket-date': state.ticketForm.date = t.value; shouldRender = true; break;
+            case 'i-ticket-time': state.ticketForm.time = t.value; shouldRender = true; break;
+            case 'i-ticket-url': 
+                // DÜZELTME: Eğer boşsa veya sadece "https://" ise temizle
+                let urlValue = t.value.trim();
+                if (urlValue === 'https://' || urlValue === '') {
+                    state.ticketForm.url = 'https://';
+                } else {
+                    state.ticketForm.url = urlValue;
+                }
+                break;
+            case 'i-ticket-details': state.ticketForm.details = t.value; break;
+            default: return;
+        }
+        if (shouldRender) renderApp();
+        return;
+    }
+
+
+    // 4. Harcama Formu Girişi (Formu tutar ve renderApp çağırır)
+    const fExp=state.form; 
+    let shouldRender = false; // Harcama formu girişlerinde render'ı kontrol etmek için
+
+    switch(t.id) {
+        case 'i-trip': fExp.trip = t.value; break;
+        case 'i-city': fExp.city = t.value; break;
+        case 'i-place': fExp.place = t.value; break;
+        case 'i-amt': 
+            // Sadece sayısal/decimal karakterlere izin ver
+            const cleanAmt = t.value.replace(',','.').replace(/[^0-9.]/g,'');
+            fExp.amt = cleanAmt;
+            // Tutar değiştiğinde render yapma, sadece state'i güncelle
+            break;
+        case 'i-cur': fExp.cur = t.value; shouldRender = true; break; // Para birimi seçimi değiştiğinde render et
+        case 'i-ppl': 
+             // YENİ KONTROL: Eğer bireysel harcama işaretliyse kişi sayısını değiştirmesine izin verme
+             if (fExp.isIndividual) {
+                 t.value = '1';
+                 fExp.ppl = '1';
+                 break;
+             }
+             // Kişi sayısı 1'den az olamaz
+             const num = parseInt(t.value) || 1;
+             fExp.ppl = String(Math.max(1, num)); 
+             break; 
+        case 'i-date': fExp.date = t.value; shouldRender = true; break; // Tarih değiştiğinde render et
+        case 'i-desc': fExp.desc = t.value; break;
+        // YENİ ALANLAR İÇİN INPUT İŞLEMLERİ
+        case 'i-start-km': fExp.startKm = t.value.replace(/[^0-9]/g, ''); break; // Sadece rakam
+        case 'i-end-km': fExp.endKm = t.value.replace(/[^0-9]/g, ''); break; // Sadece rakam
+        case 'i-fuel-amount': 
+             // Sayı ve nokta/virgül
+            fExp.fuelAmount = t.value.replace(',','.').replace(/[^0-9.]/g,'');
+            break; 
+        default: return; // Bilinmeyen input
+    }
+    
+    // Harcama formu güncellendiğinde ekranı sadece gerekli durumlarda veya manuel olarak çiz
+    if (shouldRender) {
+        renderApp();
+    }
+  });
+  
+  // Saati her saniye güncelleyen ana fonksiyon
+  const updateClock = () => {
+      const timeElement = document.getElementById('local-time');
+      if (timeElement) {
+          const { time } = formatTime(state.targetTimezone);
+          state.currentTime = time;
+          timeElement.textContent = time;
+      }
+  };
+
+  const startClock = () => {
+      // Önce saati bir kere güncelle
+      updateClock();
+      // Sonra her saniye güncellemeye devam et
+      timeInterval = setInterval(updateClock, 1000);
+  };
+
+  window.onload = function() {
+      initState(); 
+      renderApp();
+      startClock(); 
+      
+      // Uygulama yüklendiğinde kur bilgisi çekme kodu kaldırıldı
+  };
+  
+  // kapatıldığında veya yenilendiğinde interval'i temizle
+  window.onbeforeunload = function() {
+      if (timeInterval) clearInterval(timeInterval);
+  };
+})();
+</script>
+</body>
+</html>
