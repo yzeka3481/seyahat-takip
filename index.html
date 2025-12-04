@@ -7,7 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Firebase compat SDK'leri -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
@@ -146,157 +146,158 @@ html, body {
   // --- Sabitler ---
   const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget', PREF:'travel_pref', NOTES:'travel_notes', TICKET:'travel_tickets', THEME:'app_theme'}; 
   const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
-// --- Firebase Bulut + Auth Entegrasyonu ---
-const firebaseConfig = {
-  apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
-  authDomain: "seyahat-takip.firebaseapp.com",
-  projectId: "seyahat-takip",
-  storageBucket: "seyahat-takip.firebasestorage.app",
-  messagingSenderId: "740530417306",
-  appId: "1:740530417306:web:62b1538f1f85fa9e8c7923",
-  measurementId: "G-68BX89MR14"
-};
 
-function initFirebase(){
-  if (typeof firebase === 'undefined') {
-    console.warn('Firebase yüklü değil, sadece localStorage kullanılacak.');
-    authReady = Promise.resolve(null);
-    return;
-  }
-  try {
-    if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+  // --- Firebase Bulut + Auth Entegrasyonu ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
+    authDomain: "seyahat-takip.firebaseapp.com",
+    projectId: "seyahat-takip",
+    storageBucket: "seyahat-takip.firebasestorage.app",
+    messagingSenderId: "740530417306",
+    appId: "1:740530417306:web:62b1538f1f85fa9e8c7923",
+    measurementId: "G-68BX89MR14"
+  };
+
+  function initFirebase(){
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase yüklü değil, sadece localStorage kullanılacak.');
+      authReady = Promise.resolve(null);
+      return;
     }
-    db = firebase.firestore();
-    auth = firebase.auth();
+    try {
+      if (!firebase.apps || !firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      db = firebase.firestore();
+      auth = firebase.auth();
 
-    authReady = new Promise((resolve, reject) => {
-      auth.onAuthStateChanged(async (user) => {
-        try {
-          currentUser = user;
-          // Eğer hiç kullanıcı yoksa anonim giriş yap
-          if (!user) {
-            const cred = await auth.signInAnonymously();
-            currentUser = cred.user;
+      authReady = new Promise((resolve, reject) => {
+        auth.onAuthStateChanged(async (user) => {
+          try {
+            currentUser = user;
+            // Eğer hiç kullanıcı yoksa anonim giriş yap
+            if (!user) {
+              const cred = await auth.signInAnonymously();
+              currentUser = cred.user;
+            }
+            await loadFromCloud();
+            // Firebase kullanıcısını state.user'a yansıt (sadece email/normal hesap için)
+            if (currentUser && !currentUser.isAnonymous) {
+              state.user = { email: currentUser.email || '' };
+            } else {
+              state.user = null;
+            }
+            renderApp();
+            resolve(currentUser);
+          } catch (err) {
+            console.error('Auth state hatası:', err);
+            reject(err);
           }
-          await loadFromCloud();
-          // Firebase kullanıcısını state.user'a yansıt (sadece email/normal hesap için)
-          if (currentUser && !currentUser.isAnonymous) {
-            state.user = { email: currentUser.email || '' };
-          } else {
-            state.user = null;
-          }
-          renderApp();
-          resolve(currentUser);
-        } catch (err) {
-          console.error('Auth state hatası:', err);
-          reject(err);
-        }
-      }, reject);
-    });
-  } catch (err) {
-    console.error('Firebase init hatası:', err);
-    authReady = Promise.resolve(null);
+        }, reject);
+      });
+    } catch (err) {
+      console.error('Firebase init hatası:', err);
+      authReady = Promise.resolve(null);
+    }
   }
-}
 
-function getUserDoc(){
-  if (!db || !currentUser) return null;
-  return db.collection('users').doc(currentUser.uid);
-}
-
-async function saveToCloud(){
-  try {
-    if (!db || !currentUser) return;
-    const userDoc = getUserDoc();
-    if (!userDoc) return;
-
-    const snapshotPayload = {
-      exp: state.exp || [],
-      chk: state.chk || {},
-      targetTimezone: state.targetTimezone || 'Europe/Istanbul',
-      criticalNotes: state.criticalNotes || [],
-      travelTickets: state.travelTickets || [],
-      theme: state.theme || 'dark',
-      updatedAt: Date.now()
-    };
-
-    await userDoc.set(snapshotPayload, { merge: true });
-
-    const tripsSet = new Set();
-    (state.exp || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
-    (state.travelTickets || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
-
-    const batch = db.batch();
-
-    tripsSet.forEach(name => {
-      const id = (name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g,'-') || 'default-trip';
-      const tripRef = userDoc.collection('trips').doc(id);
-      batch.set(tripRef, {
-        id,
-        name,
-        updatedAt: Date.now()
-      }, { merge: true });
-    });
-
-    (state.exp || []).forEach(x => {
-      const id = x.id || (x.city || '') + '_' + (x.place || '') + '_' + String(x.amt || '');
-      const ref = userDoc.collection('expenses').doc(id);
-      batch.set(ref, {
-        ...x,
-        id,
-        userId: currentUser.uid,
-        updatedAt: Date.now()
-      }, { merge: true });
-    });
-
-    (state.travelTickets || []).forEach(t => {
-      const id = t.id || (t.trip || '') + '_' + (t.name || '') + '_' + (t.date || '');
-      const ref = userDoc.collection('tickets').doc(id);
-      batch.set(ref, {
-        ...t,
-        id,
-        userId: currentUser.uid,
-        updatedAt: Date.now()
-      }, { merge: true });
-    });
-
-    (state.criticalNotes || []).forEach(n => {
-      const id = n.id || (n.trip || '') + '_' + (n.note || '').slice(0,24);
-      const ref = userDoc.collection('notes').doc(id);
-      batch.set(ref, {
-        ...n,
-        id,
-        userId: currentUser.uid,
-        updatedAt: Date.now()
-      }, { merge: true });
-    });
-
-    await batch.commit();
-  } catch (err) {
-    console.error('saveToCloud hatası:', err);
+  function getUserDoc(){
+    if (!db || !currentUser) return null;
+    return db.collection('users').doc(currentUser.uid);
   }
-}
 
-async function loadFromCloud(){
-  try {
-    if (!db || !currentUser) return;
-    const userDoc = getUserDoc();
-    if (!userDoc) return;
-    const snap = await userDoc.get();
-    if (!snap.exists) return;
-    const data = snap.data() || {};
+  async function saveToCloud(){
+    try {
+      if (!db || !currentUser) return;
+      const userDoc = getUserDoc();
+      if (!userDoc) return;
 
-    if (Array.isArray(data.exp)) state.exp = data.exp;
-    if (data.chk) state.chk = data.chk;
-    if (data.targetTimezone) state.targetTimezone = data.targetTimezone;
-    if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
-    if (Array.isArray(data.travelTickets)) state.travelTickets = data.travelTickets;
-    if (data.theme) state.theme = data.theme;
-  } catch (err) {
-    console.error('loadFromCloud hatası:', err);
+      const snapshotPayload = {
+        exp: state.exp || [],
+        chk: state.chk || {},
+        targetTimezone: state.targetTimezone || 'Europe/Istanbul',
+        criticalNotes: state.criticalNotes || [],
+        travelTickets: state.travelTickets || [],
+        theme: state.theme || 'dark',
+        updatedAt: Date.now()
+      };
+
+      await userDoc.set(snapshotPayload, { merge: true });
+
+      const tripsSet = new Set();
+      (state.exp || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
+      (state.travelTickets || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
+
+      const batch = db.batch();
+
+      tripsSet.forEach(name => {
+        const id = (name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g,'-') || 'default-trip';
+        const tripRef = userDoc.collection('trips').doc(id);
+        batch.set(tripRef, {
+          id,
+          name,
+          updatedAt: Date.now()
+        }, { merge: true });
+      });
+
+      (state.exp || []).forEach(x => {
+        const id = x.id || (x.city || '') + '_' + (x.place || '') + '_' + String(x.amt || '');
+        const ref = userDoc.collection('expenses').doc(id);
+        batch.set(ref, {
+          ...x,
+          id,
+          userId: currentUser.uid,
+          updatedAt: Date.now()
+        }, { merge: true });
+      });
+
+      (state.travelTickets || []).forEach(t => {
+        const id = t.id || (t.trip || '') + '_' + (t.name || '') + '_' + (t.date || '');
+        const ref = userDoc.collection('tickets').doc(id);
+        batch.set(ref, {
+          ...t,
+          id,
+          userId: currentUser.uid,
+          updatedAt: Date.now()
+        }, { merge: true });
+      });
+
+      (state.criticalNotes || []).forEach(n => {
+        const id = n.id || (n.trip || '') + '_' + (n.note || '').slice(0,24);
+        const ref = userDoc.collection('notes').doc(id);
+        batch.set(ref, {
+          ...n,
+          id,
+          userId: currentUser.uid,
+          updatedAt: Date.now()
+        }, { merge: true });
+      });
+
+      await batch.commit();
+    } catch (err) {
+      console.error('saveToCloud hatası:', err);
+    }
   }
-}
+
+  async function loadFromCloud(){
+    try {
+      if (!db || !currentUser) return;
+      const userDoc = getUserDoc();
+      if (!userDoc) return;
+      const snap = await userDoc.get();
+      if (!snap.exists) return;
+      const data = snap.data() || {};
+
+      if (Array.isArray(data.exp)) state.exp = data.exp;
+      if (data.chk) state.chk = data.chk;
+      if (data.targetTimezone) state.targetTimezone = data.targetTimezone;
+      if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
+      if (Array.isArray(data.travelTickets)) state.travelTickets = data.travelTickets;
+      if (data.theme) state.theme = data.theme;
+    } catch (err) {
+      console.error('loadFromCloud hatası:', err);
+    }
+  }
 
   
   // YENİ FOTOĞRAF SABİTLERİ
@@ -713,8 +714,9 @@ async function loadFromCloud(){
     localStorage.setItem(K.TICKET, JSON.stringify(state.travelTickets));
     // TEMA KAYDET
     localStorage.setItem(K.THEME, state.theme);
-    
-    if (typeof saveToCloud === 'function') { saveToCloud(); }
+    if (typeof saveToCloud === 'function') {
+      saveToCloud();
+    }
   };
   
   // --- RESİM YENİDEN BOYUTLANDIRMA VE BASE64'E DÖNÜŞTÜRME YARDIMCISI ---
@@ -1401,6 +1403,13 @@ async function loadFromCloud(){
               </div>
            </button>
            <!-- /YEREL SAAT GÖSTERİMİ -->
+
+           <!-- GİRİŞ / HESAP BUTONU -->
+           <button data-act="open-auth" class="inline-flex items-center justify-center px-3 py-1.5 rounded-full border border-[var(--border-color)] text-[0.75rem] text-[var(--text-muted)] hover:text-[var(--text-color)] hover:bg-[var(--bg-card-light)] transition">
+             ${ICONS.person.replace('w-4 h-4','w-3.5 h-3.5')}
+             <span class="ml-1.5">${state.user ? (state.user.email || 'Hesabım') : 'Giriş / Kayıt'}</span>
+           </button>
+           <!-- /GİRİŞ / HESAP BUTONU -->
            
            ${state.tab==='exp' ? `
              <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
@@ -2120,45 +2129,46 @@ async function loadFromCloud(){
       `;
     }
     
-if(type==='auth'){
-  return `
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4" data-act="close-mod" data-val="authOverlay">
-      <div class="theme-modal-bg w-full max-w-sm rounded-xl border p-5 shadow-2xl relative" onclick="event.stopPropagation();">
-        <button data-act="close-mod" data-val="auth" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">
-          ${ICONS.x}
-        </button>
-        <h3 class="font-bold text-[var(--text-color)] mb-1 text-center">${state.authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}</h3>
-        <p class="text-[0.78rem] text-[var(--text-muted)] mb-3 text-center">
-          Bulutta saklama ve cihazlar arasında senkron için ${state.authMode === 'login' ? 'hesabına giriş yap.' : 'hızlıca bir hesap oluştur.'}
-        </p>
 
-        ${state.authError ? `<div class="mb-3 text-[0.75rem] text-red-400 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-1.5">${esc(state.authError)}</div>` : ''}
+    if(type==='auth'){
+      return `
+        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4" data-act="close-mod" data-val="authOverlay">
+          <div class="theme-modal-bg w-full max-w-sm rounded-xl border p-5 shadow-2xl relative" onclick="event.stopPropagation();">
+            <button data-act="close-mod" data-val="auth" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">
+              ${ICONS.x}
+            </button>
+            <h3 class="font-bold text-[var(--text-color)] mb-1 text-center">${state.authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}</h3>
+            <p class="text-[0.78rem] text-[var(--text-muted)] mb-3 text-center">
+              Bulutta saklama ve cihazlar arasında senkron için ${state.authMode === 'login' ? 'hesabına giriş yap.' : 'hızlıca bir hesap oluştur.'}
+            </p>
 
-        <div class="space-y-2 mb-3">
-          <div>
-            <label class="block text-[0.75rem] text-[var(--text-muted)] mb-1">E-posta</label>
-            <input data-act="auth-input-email" type="email" class="w-full theme-input border rounded-lg px-3 py-1.5 text-sm" placeholder="ornek@mail.com" value="${esc(state.authEmail || '')}" />
-          </div>
-          <div>
-            <label class="block text-[0.75rem] text-[var(--text-muted)] mb-1">Şifre</label>
-            <input data-act="auth-input-pass" type="password" class="w-full theme-input border rounded-lg px-3 py-1.5 text-sm" placeholder="En az 6 karakter" value="${esc(state.authPass || '')}" />
+            ${state.authError ? `<div class="mb-3 text-[0.75rem] text-red-400 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-1.5">${esc(state.authError)}</div>` : ''}
+
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="block text-[0.75rem] text-[var(--text-muted)] mb-1">E-posta</label>
+                <input data-act="auth-input-email" type="email" class="w-full theme-input border rounded-lg px-3 py-1.5 text-sm" placeholder="ornek@mail.com" value="${esc(state.authEmail || '')}" />
+              </div>
+              <div>
+                <label class="block text-[0.75rem] text-[var(--text-muted)] mb-1">Şifre</label>
+                <input data-act="auth-input-pass" type="password" class="w-full theme-input border rounded-lg px-3 py-1.5 text-sm" placeholder="En az 6 karakter" value="${esc(state.authPass || '')}" />
+              </div>
+            </div>
+
+            <button data-act="auth-submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg py-2.5 mb-2 transition">
+              ${state.authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}
+            </button>
+
+            <div class="flex items-center justify-between text-[0.75rem] text-[var(--text-muted)]">
+              <button data-act="auth-switch-mode" class="underline hover:text-[var(--text-color)]">
+                ${state.authMode === 'login' ? 'Hesabın yok mu? Kayıt ol' : 'Zaten hesabın var mı? Giriş yap'}
+              </button>
+              ${state.user ? `<button data-act="auth-logout" class="text-red-400 hover:text-red-300">Çıkış yap</button>` : ''}
+            </div>
           </div>
         </div>
-
-        <button data-act="auth-submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg py-2.5 mb-2 transition">
-          ${state.authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}
-        </button>
-
-        <div class="flex items-center justify-between text-[0.75rem] text-[var(--text-muted)]">
-          <button data-act="auth-switch-mode" class="underline hover:text-[var(--text-color)]">
-            ${state.authMode === 'login' ? 'Hesabın yok mu? Kayıt ol' : 'Zaten hesabın var mı? Giriş yap'}
-          </button>
-          ${state.user ? `<button data-act="auth-logout" class="text-red-400 hover:text-red-300">Çıkış yap</button>` : ''}
-        </div>
-      </div>
-    </div>
-  `;
-}
+      `;
+    }
 
     if(type==='detail'){
       const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
@@ -3099,16 +3109,7 @@ if(type==='auth'){
   document.addEventListener('input', e => {
     const t = e.target;
     
-    // Auth formu (login/register)
-if(t.dataset.act==='auth-input-email'){
-    state.authEmail = t.value;
-    return;
-}
-if(t.dataset.act==='auth-input-pass'){
-    state.authPass = t.value;
-    return;
-}
-// 1. Arama Çubuğu
+    // 1. Arama Çubuğu
     if(t.dataset.act==='search'){state.search=t.value; renderApp(); return;}
     
     // 2. Kritik Notlar
@@ -3116,6 +3117,17 @@ if(t.dataset.act==='auth-input-pass'){
         state.newCriticalNote = t.value;
         // Not girişi değiştiğinde render yapmaya gerek yok, sadece state'i güncelle
         return; 
+    }
+
+
+    // Auth formu (login/register)
+    if(t.dataset.act==='auth-input-email'){
+        state.authEmail = t.value;
+        return;
+    }
+    if(t.dataset.act==='auth-input-pass'){
+        state.authPass = t.value;
+        return;
     }
 
     // 3. Bilet Formu Girişi
@@ -3207,20 +3219,8 @@ if(t.dataset.act==='auth-input-pass'){
 
   window.onload = function() {
       initState(); 
-      initFirebase();
-      
-      if (authReady && typeof authReady.then === 'function') {
-        authReady.then(() => {
-          startClock(); 
-        }).catch(err => {
-          console.error('Auth / cloud yükleme hatası:', err);
-          renderApp();
-          startClock();
-        });
-      } else {
-        renderApp();
-        startClock();
-      }
+      renderApp();
+      startClock(); 
       
       // Uygulama yüklendiğinde kur bilgisi çekme kodu kaldırıldı
   };
