@@ -77,7 +77,7 @@ html, body {
     border: 1px solid var(--border-color);
 }
 
-/* HARCAMA DETAYI MODAL BAŞLIĞI: GRADIENT KORUNDU *a/
+/* HARCAMA DETAYI MODAL BAŞLIĞI: GRADIENT KORUNDU */
 .fixed-gradient-header {
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
     position: relative;
@@ -135,66 +135,403 @@ html, body {
 <body class="min-h-screen flex justify-center p-4 selection:bg-blue-500/30" data-theme="dark">
 <div id="app-root" class="w-full max-w-xl md:max-w-2xl"></div>
 
+<!-- ==================================================================== -->
+<!-- FIREBASE SDK ENTEGRASYONU -->
+<!-- ==================================================================== -->
+<script type="module">
+  // Firebase modüllerini import edin
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence, getRedirectResult, GoogleAuthProvider, signInWithRedirect } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, onSnapshot, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  
+  // Firebase servislerini global scope'a taşıma (window.app, window.db, window.auth)
+  window.initApp = initializeApp;
+  window.getAuth = getAuth;
+  window.signInAnonymously = signInAnonymously;
+  window.signInWithCustomToken = signInWithCustomToken;
+  window.onAuthStateChanged = onAuthStateChanged;
+  window.getFirestore = getFirestore;
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.onSnapshot = onSnapshot;
+  window.getDoc = getDoc;
+  window.collection = collection;
+  window.setPersistence = setPersistence;
+  window.browserLocalPersistence = browserLocalPersistence;
+  window.getRedirectResult = getRedirectResult;
+  window.GoogleAuthProvider = GoogleAuthProvider;
+  window.signInWithRedirect = signInWithRedirect;
+  
+  // Firestore logging'i etkinleştirin (Hata ayıklama için)
+  // window.firebase.firestore.setLogLevel('debug'); // Firestore v8
+  
+</script>
+
+
 <script>
 (()=>{
   // --- Sabitler ---
-  const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget', PREF:'travel_pref', NOTES:'travel_notes', TICKET:'travel_tickets', THEME:'app_theme'}; 
+  const K={
+    EXP:'travel_expenses', 
+    LIST:'travel_checklist', 
+    NOTES:'travel_notes', 
+    TICKET:'travel_tickets', 
+    PREF:'travel_pref', 
+    THEME:'app_theme'
+  }; 
   const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
-  
-  // YENİ FOTOĞRAF SABİTLERİ
-  const MAX_IMAGES = 3; // Maksimum fotoğraf adedi
-  const MAX_IMAGE_WIDTH = 800; // Maksimum yeniden boyutlandırma genişliği (Piksel)
+  const MAX_IMAGES = 3; 
+  const MAX_IMAGE_WIDTH = 800; 
   
   let chartInst=null, state={};
+  let timeInterval = null; 
 
-  // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
+  // --- FIREBASE GLOBAL DEĞİŞKENLERİ ---
+  let app, db, auth;
+  const FIREBASE_DOC_ID = 'user_data'; // Firestore'da tek bir belge kullanacağız
+  
+  // --- YARDIMCI FONKSİYONLAR ---
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const fmtNum=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2, minimumFractionDigits:2});
+  const fmtDate=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d};
+  const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+  const titleCase=s=>s?s.toLowerCase().split(' ').map(w=>w.length>0?w[0].toUpperCase()+w.slice(1):w).join(' '):'';
+  
+  // Firestore için kullanıcı yolunu oluşturur
+  function getUserDocRef(userId) {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      // Veri yolu: /artifacts/{appId}/users/{userId}/data/{docId}
+      return doc(db, 'artifacts', appId, 'users', userId, 'user_data', FIREBASE_DOC_ID);
+  }
+  
+  // --- VERİ KAYDETME (FIRESTORE) ---
+  const save = async () => {
+      if (!state.isAuthReady || !state.userId || !db) return;
+      
+      const dataToSave = {
+          exp: state.exp,
+          chk: state.chk,
+          travelTickets: state.travelTickets,
+          criticalNotes: state.criticalNotes,
+          theme: state.theme, 
+          targetTimezone: state.targetTimezone,
+      };
+
+      try {
+          const docRef = getUserDocRef(state.userId);
+          await setDoc(docRef, dataToSave, { merge: true });
+          localStorage.setItem(K.PREF+'_tz', state.targetTimezone); 
+          localStorage.setItem(K.THEME, state.theme);
+      } catch (e) {
+          console.error("Veri kaydetme hatası:", e);
+          state.err = "Veri Kayıt Hatası: Senkronizasyon başarısız oldu.";
+          renderApp();
+      }
+  };
+  
+  // --- VERİ YÜKLEME VE DİNLEME (onSnapshot) ---
+  async function setupFirestoreListener(userId) {
+      if (!db) return;
+
+      const docRef = getUserDocRef(userId);
+      
+      // onSnapshot ile gerçek zamanlı dinleyici başlat
+      onSnapshot(docRef, (docSnap) => {
+          let loadedData = {};
+          let shouldUpdateState = false;
+
+          if (docSnap.exists()) {
+              loadedData = docSnap.data();
+              shouldUpdateState = true;
+              console.log("Firestore verisi yüklendi/güncellendi.");
+          } else {
+              // Belge yoksa, varsayılan boş verilerle başla ve kaydedelim
+              console.log("Firestore belgesi bulunamadı. Varsayılan verilerle başlıyor.");
+              loadedData = {
+                  exp: [],
+                  chk: {cats:[...DEF_CATS], items:DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}))},
+                  travelTickets: [],
+                  criticalNotes: [],
+                  theme: state.theme || 'dark',
+                  targetTimezone: state.targetTimezone || 'auto',
+              };
+              shouldUpdateState = true;
+          }
+          
+          if(shouldUpdateState){
+              // Varsayılan değerlerle birleştirerek state'i güncelle
+              const loadedExp = loadedData.exp || [];
+              const loadedChk = loadedData.chk || {cats:[...DEF_CATS], items:[]};
+              const loadedTickets = loadedData.travelTickets || [];
+              const loadedNotes = loadedData.criticalNotes || [];
+              const loadedTheme = loadedData.theme || 'dark';
+              const loadedTZ = loadedData.targetTimezone || 'auto';
+
+              const dataChanged = (
+                  JSON.stringify(state.exp) !== JSON.stringify(loadedExp) ||
+                  JSON.stringify(state.chk) !== JSON.stringify(loadedChk) ||
+                  JSON.stringify(state.travelTickets) !== JSON.stringify(loadedTickets) ||
+                  JSON.stringify(state.criticalNotes) !== JSON.stringify(loadedNotes) ||
+                  state.theme !== loadedTheme ||
+                  state.targetTimezone !== loadedTZ
+              );
+
+              if (dataChanged || !state.isDataLoaded) {
+                  const cleanedExp = loadedExp.map(item => {
+                      delete item.tripRoute;
+                      delete item.fuelLocation;
+                      
+                      return { 
+                          ...item, 
+                          imgs: item.imgs || [],
+                          isFuel: item.isFuel || false,
+                          startKm: item.startKm || '',
+                          endKm: item.endKm || '', 
+                          fuelAmount: item.fuelAmount || '',
+                          isIndividual: typeof item.isIndividual === 'boolean' ? item.isIndividual : false, 
+                          ppl: item.ppl || '1'
+                      };
+                  });
+
+                  const cleanedTickets = loadedTickets.map(item => ({
+                      ...item,
+                      location: item.location || '',
+                  }));
+                  
+                  const openChkCats = state.openChkCats || {};
+                  (loadedChk.cats||[]).forEach(x=>openChkCats[x.id]=openChkCats[x.id]===undefined?false:openChkCats[x.id]); 
+
+                  setState({
+                      exp: cleanedExp,
+                      chk: loadedChk,
+                      travelTickets: cleanedTickets,
+                      criticalNotes: loadedNotes,
+                      theme: loadedTheme,
+                      targetTimezone: loadedTZ,
+                      openChkCats: openChkCats,
+                      isDataLoaded: true, // Verinin ilk defa yüklendiğini işaretle
+                      err: '',
+                  });
+              }
+              
+              if (!docSnap.exists() && state.isAuthReady) {
+                  save();
+              }
+          }
+      }, (error) => {
+          console.error("Firestore dinleme hatası:", error);
+          setState({ 
+              err: "Veritabanı bağlantı hatası. Veriler yüklenemedi.",
+              isDataLoaded: true, // Hata olsa bile yükleme tamamlandı
+          });
+      });
+  }
+  
+  // Harcama Grafiği ve Diğer Sabitler (Önceki koddan)
+  
+  const getCityColor = (str) => {
+    let hash = 0; if (!str) return 'hsl(210, 100%, 50%)'; 
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return `hsl(${Math.abs(hash)%360}, 70%, 55%)`; 
+  };
+  
+  const TIMEZONES = [
+      {id: 'auto', name: '— Otomatik (Cihaz Saati) —'},
+      {id: 'Europe/Istanbul', name: 'Türkiye (İstanbul)'},
+      {id: 'Europe/London', name: 'İngiltere (Londra)'},
+      {id: 'Europe/Paris', name: 'Fransa (Paris)'},
+      {id: 'Europe/Berlin', name: 'Almanya (Berlin)'},
+      {id: 'America/New_York', name: 'ABD (New York)'},
+      {id: 'America/Los_Angeles', name: 'ABD (Los Angeles)'},
+      {id: 'Asia/Dubai', name: 'BAE (Dubai)'},
+      {id: 'Asia/Tokyo', name: 'Japonya (Tokyo)'},
+      {id: 'Asia/Shanghai', name: 'Çin (Şanghay)'},
+      {id: 'Australia/Sydney', name: 'Avustralya (Sydney)'},
+      {id: 'Asia/Kolkata', name: 'Hindistan (Kolkata)'},
+      {id: 'America/Sao_Paulo', name: 'Brezilya (Sao Paulo)'}
+  ];
+  
+  const formatTime = (timezone) => {
+      const now = new Date();
+      const effectiveTimezone = timezone === 'auto' || !TIMEZONES.some(tz => tz.id === timezone) ? 
+          Intl.DateTimeFormat().resolvedOptions().timeZone : 
+          timezone;
+
+      try {
+          const time = now.toLocaleTimeString('tr-TR', {
+              timeZone: effectiveTimezone,
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+          });
+          const zoneItem = TIMEZONES.find(z => z.id === timezone);
+          const zoneName = zoneItem ? zoneItem.name : effectiveTimezone.split('/').pop().replace('_', ' ');
+          return { time, zoneName };
+      } catch (e) {
+          return { time: 'Hata', zoneName: 'Bilinmeyen Bölge' };
+      }
+  };
+
+  const mkSvg=(d,s=4)=>`<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const ICONS={
+    wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',6),
+    trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
+    info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+    plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+    x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+    chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
+    clock: mkSvg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 4), // Saat ikonu
+    edit: mkSvg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
+    down: mkSvg('<polyline points="6 9 12 15 18 9"/>'),
+    search: mkSvg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    person: mkSvg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+    briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="22"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
+    compass: mkSvg('<circle cx="12" cy="12" r="10"/><polygon points="16 16 12 12 8 16 12 8 16 16"/>',4),
+    hospital: mkSvg('<path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/><circle cx="12" cy="12" r="10"/>',4),
+    location: mkSvg('<path d="M12 21.7C17.3 17 22 13.3 22 10a10 10 0 0 0-20 0c0 3.3 4.7 7 10 11.7z"/><circle cx="12" cy="10" r="3"/>',4),
+    bus: mkSvg('<rect x="1" y="5" width="22" height="14" rx="2"/><path d="M10 16h4M3 9h18M5 19v2M19 19v2M6 19v2M18 19v2M7 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM17 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',4),
+    taxi: mkSvg('<path d="M17 10H7c-2.2 0-4 1.8-4 4v5h18v-5c0-2.2-1.8-4-4-4z"/><path d="M15 10V6c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v4"/><path d="M15 10c1.7 0 3 1.3 3 3H6c0-1.7 1.3-3 3-3z"/><path d="M12 2l2 2m-2-2l-2 2"/><rect x="5" y="19" width="4" height="2"/><rect x="15" y="19" width="4" height="2"/><path d="M12 10V4"/>', 4),
+    pharmacy: mkSvg('<path d="M12 22s-8-4.5-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 5.5-8 10-8 10z"/><path d="M12 9v6m-3-3h6"/>', 4),
+    restaurant: mkSvg('<path d="M12 22s-8-4-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 6-8 10-8 10zM12 4a4 4 0 0 0 0 8 4 4 0 0 0 0-8z"/>', 4),
+    bed: mkSvg('<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4H2z"/><path d="M2 16h20M7 12V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6"/>', 4),
+    police: mkSvg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 18V12m-3 3h6"/>', 4),
+    key: mkSvg('<path d="M21 2l-2 2m-7 7l-2 2m-7 7l-2 2"/><path d="M15 11l-2 2m-7 7l-2 2"/><path d="M16 12l2-2m-7 7l-2 2"/><path d="M14 10l2-2m-7 7l-2 2"/><path d="M13 9l2-2m-7 7l-2 2"/><path d="M12 8l2-2m-7 7l-2 2"/><path d="M11 7l2-2m-7 7l-2 2"/><path d="M10 6l2-2m-7 7l-2 2"/><path d="M9 5l2-2m-7 7l-2 2"/><path d="M8 4l2-2m-7 7l-2 2"/><path d="M7 3l2-2m-7 7l-2 2"/><path d="M6 2l2-2m-7 7l-2 2"/><path d="M5 1l2-2m-7 7l-2 2"/><path d="M4 0l2-2m-7 7l-2 2"/><path d="M3 23l-2 2m-7 7l-2 2"/>', 4),
+    mapPin: mkSvg('<path d="M12 22s-8-4-8-10c0-4.4 3.6-8 8-8s8 3.6 8 8c0 6-8 10-8 10z"/><circle cx="12" cy="10" r="3"/>', 4),
+    flight: mkSvg('<path d="M19 17h-2l-1-2H8l-1 2H5l1-2H2l2-4 1-2h4l1 2h4l1-2h4l1 2 2 4h-3z"/><path d="M14 11l-2-2M10 11l2-2M12 2v3M12 16v6M12 12V6"/>', 6),
+    ticket: mkSvg('<path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/><path d="M12 10v4M10 12h4"/>', 4),
+    fuel: mkSvg('<path d="M14 3v4a2 2 0 0 1-2 2h-1a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1a2 2 0 0 0 2 2v4M5 7h14M5 13h14M5 19h14M12 3v4M12 10v4M12 17v4"/>', 4),
+    route: mkSvg('<polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M21 15.5H3M12 2L12 10M12 14L12 22"/>', 5),
+    report: mkSvg('<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="12" y2="16"/><line x1="7" y1="8" x2="7" y2="16"/>',5),
+    sun: mkSvg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>', 4),
+    moon: mkSvg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 4),
+    userCheck: mkSvg('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/>', 4),
+    spinner: `<svg class="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`
+  };
+
+  const CATS={
+    food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
+    stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
+    transport:{id:'transport',l:'Ulaşım/Seyahat',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
+    fuel:{id:'fuel',l:'Yakıt/Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, 
+    shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
+    activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
+    other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
+  };
+  
+  const DEF_CATS=[{id:'docs',l:'Belgeler',i:'📄'},{id:'clth',l:'Giyim',i:'👕'},{id:'elec',l:'Elektronik',i:'🔌'},{id:'hlth',l:'Sağlık',i:'💊'},{id:'otr',l:'Diğer',i:'⭐'}];
+  
+  const DEF_ITEMS = [
+    {cat:'docs', val:'Pasaport'}, {cat:'docs', val:'Kimlik / Ehliyet'}, {cat:'docs', val:'Uçak Biletleri'}, {cat:'docs', val:'Otel Rezervasyonları'}, {cat:'docs', val:'Seyahat Sigortası'},
+    {cat:'docs', val:'Uçuş Bilgileri Kontrolü (Kapı/Saat)'},
+    {cat:'clth', val:'Tişörtler'}, {cat:'clth', val:'Pantolon / Şort'}, {cat:'clth', val:'İç Çamaşırı'}, {cat:'clth', val:'Çoraplar'}, {cat:'clth', val:'Rahat Ayakkabı'}, {cat:'clth', val:'Pijama'},
+    {cat:'elec', val:'Şarj Aleti'}, {cat:'elec', val:'Powerbank'}, {cat:'elec', val:'Kulaklık'}, {cat:'elec', val:'Priz Dönüştürücü'},
+    {cat:'hlth', val:'Ağrı Kesici'}, {cat:'hlth', val:'Yara Bandı'}, {cat:'hlth', val:'Kişisel İlaçlar'}, {cat:'hlth', val:'El Dezenfektanı'},
+    {cat:'otr', val:'Güneş Gözlüğü'}, {cat:'otr', val:'Diş Fırçası & Macunu'}, {cat:'otr', val:'Şampuan & Duş Jeli'}
+  ];
+  
+  const getEmptyForm=()=>({
+    id:null, trip:'', city:'', place:'', amt:'', cur:'TRY', date:new Date().toISOString().slice(0,10), cat:'', desc:'', ppl:'1', imgs:[], isFuel: false, startKm: '', endKm: '', fuelAmount: '', isIndividual: false,
+  });
+  
+  const getEmptyTicketForm = () => ({
+      id: null, trip: '', type: 'flight', name: '', location: '', date: new Date().toISOString().slice(0,10), time: '12:00', url: 'https://', details: '',
+  });
+  
+  const ticketTypes = {
+      flight: { i: ICONS.flight.replace('w-6 h-6', 'w-4 h-4'), l: 'Uçak Bileti', c: 'text-sky-400', g: 'from-sky-500/20 to-sky-900/40' },
+      train: { i: '🚂', l: 'Tren Bileti', c: 'text-amber-400', g: 'from-amber-500/20 to-amber-900/40' },
+      bus: { i: ICONS.bus.replace('w-4 h-4', 'w-4 h-4'), l: 'Otobüs/Vasıta', c: 'text-emerald-400', g: 'from-emerald-500/20 to-emerald-900/40' },
+      hotel: { i: ICONS.bed.replace('w-4 h-4', 'w-4 h-4'), l: 'Otel/Konaklama', c: 'text-violet-400', g: 'from-violet-500/20 to-violet-900/40' },
+      other: { i: ICONS.ticket.replace('w-4 h-4', 'w-4 h-4'), l: 'Diğer Rezervasyon', c: 'text-slate-400', g: 'from-slate-500/20 to-slate-900/40' },
+  };
+
+  
+  function initState(){
+    let initialTZ = 'auto'; 
+    try {
+        const browserTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (TIMEZONES.some(tz => tz.id === browserTZ)) {
+            initialTZ = browserTZ;
+        }
+    } catch(e) { console.error("Zaman dilimi tespiti başarısız oldu:", e); }
+
+    // LOCAL STORAGE'DAN TEMA VE TERCİHLERİ YÜKLE
+    let prefTZ = localStorage.getItem(K.PREF+'_tz') || initialTZ;
+    let theme = localStorage.getItem(K.THEME) || 'dark';
+
+    // Firestore verileri yüklenene kadar boş değerlerle başla
+    let c = {cats:[...DEF_CATS], items:[]}; 
+    
+    state={
+        // FIREBASE DURUMLARI
+        isAuthReady: false, // Auth tamamlandı mı?
+        userId: null, // Giriş yapan kullanıcının ID'si
+        isDataLoaded: false, // Firestore verisi yüklendi mi?
+        
+        // UYGULAMA VERİLERİ (Firestore'dan gelecek)
+        exp:[], chk:c, travelTickets:[], criticalNotes:[],
+        
+        // UI/UX Durumları
+        view:'list', tab:'exp', tripFilter:'', routeTrip:'', catFilter:'', individualFilter: '', search:'', selExp:null,
+        modals:{detail:false,chart:false,data:false, tzSelect: false, ticketDetail: false}, 
+        form:getEmptyForm(), ticketForm: getEmptyTicketForm(), selectedTicketId: null,
+        expandedCities:{}, lightbox:null, err:'',
+        
+        // Tercihler
+        targetTimezone: prefTZ, 
+        theme: theme, 
+        currentTime: formatTime(prefTZ).time,
+        
+        // Yardımcılar
+        location: null, locationLoading: false, locationName: 'Bilinmiyor', 
+        helpersAccordion: {
+            critical: false, places: false, health: false, transport: false, flightCheck: false, route: false, report: false, tickets: true,
+        },
+        selectedNoteTrip: 'Genel', newCriticalNote: '', selectedReportTrip: 'Genel', ticketTripFilter: '',
+    };
+    
+    // Check List Kategorileri: Açık/Kapalı Durumu
+    state.openChkCats={}; 
+    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); 
+  }
+
+  function setState(p){state={...state,...p}; renderApp();}
+  
+  // (Önceki kodun aynısı)
   function getChartDataset(expenses = state.exp){
-    // state.exp veya dışarıdan gelen (rapor için) harcamaları kullan
     const base = (state._visibleExp && state._visibleExp.length && expenses === state.exp) 
         ? state._visibleExp 
         : expenses;
-    
     const allExp = base.filter(x => !isNaN(Number(x.amt)) && Number(x.amt) > 0);
-
     if(!allExp.length){
       return {labels:[], data:[], colors:[], currency:'', total:0, trips:[], currencies:[]};
     }
-
     const currencies = [...new Set(allExp.map(x => x.cur || 'TRY'))];
     let cur = state.chartCurrency || currencies[0];
     if(!currencies.includes(cur)) cur = currencies[0];
-    // SADECE HARCAMA SEKMESİNDEYKEN state.chartCurrency'yi güncelle
     if (expenses === state.exp) state.chartCurrency = cur;
-
     const filtered = allExp.filter(x => (x.cur || 'TRY') === cur);
-
     const perCat = {};
     filtered.forEach(x=>{
         const cat = x.cat || 'other';
         const amt = Number(x.amt) || 0;
         perCat[cat] = (perCat[cat] || 0) + amt;
     });
-
     const keys = Object.keys(perCat);
     const labels = keys.map(id => (CATS[id] && CATS[id].l) || id);
-    // Renkleri temaya duyarlı hale getirmek için sadece tonları (örneğin blue, red) tutmalı ve CSS'te ayarlamalıyız.
-    // Şimdilik gradientler aynı kalsın.
     const data = keys.map(id => perCat[id]);
     const colors = keys.map(id => (CATS[id] && CATS[id].c) || 'rgba(148,163,184,0.8)');
     const trips = [...new Set(filtered.map(x=> x.trip || 'Genel'))];
     const total = data.reduce((a,b)=>a+b,0);
-
     return {labels,data,colors,currency:cur,currencies,total,trips, perCat};
   }
   
-  // Rapor için harcama listesini getirir
   function getTripExpenses(tripName) {
       if (!tripName) return [];
-      // Sadece seçili seyahatin harcamalarını getir
       return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
   }
 
-  // --- HARCAMA GRAFİĞİ ÇİZİM ---
   function renderExpenseChart(){
     try{
       if(typeof Chart === 'undefined') return;
@@ -224,7 +561,6 @@ html, body {
             legend:{
               position:'bottom',
               labels:{
-                // Temaya göre legend rengi ayarla
                 color: state.theme === 'dark' ? '#cbd5f5' : '#475569', 
                 font:{size:11}
               }
@@ -246,317 +582,8 @@ html, body {
     }
   }
 
-
-  let timeInterval = null; 
-  
-  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  
-  const fmtNum=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2, minimumFractionDigits:2});
-  const fmtDate=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d};
-  const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
-  
-  // Hata Düzeltme: Kelimenin boş olup olmadığını kontrol etmek için titleCase fonksiyonu güncellendi.
-  // Bu, çift boşluk gibi durumların neden olduğu "w[0] is undefined" hatasını engeller.
-  const titleCase=s=>s?s.toLowerCase().split(' ').map(w=>w.length>0?w[0].toUpperCase()+w.slice(1):w).join(' '):'';
-  
-  const getCityColor = (str) => {
-    let hash = 0; if (!str) return 'hsl(210, 100%, 50%)'; 
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return `hsl(${Math.abs(hash)%360}, 70%, 55%)`; 
-  };
-  
-  // Zenginleştirilmiş Zaman Dilimi Listesi
-  const TIMEZONES = [
-      {id: 'auto', name: '— Otomatik (Cihaz Saati) —'},
-      {id: 'Europe/Istanbul', name: 'Türkiye (İstanbul)'},
-      {id: 'Europe/London', name: 'İngiltere (Londra)'},
-      {id: 'Europe/Paris', name: 'Fransa (Paris)'},
-      {id: 'Europe/Berlin', name: 'Almanya (Berlin)'},
-      {id: 'America/New_York', name: 'ABD (New York)'},
-      {id: 'America/Los_Angeles', name: 'ABD (Los Angeles)'},
-      {id: 'Asia/Dubai', name: 'BAE (Dubai)'},
-      {id: 'Asia/Tokyo', name: 'Japonya (Tokyo)'},
-      {id: 'Asia/Shanghai', name: 'Çin (Şanghay)'},
-      {id: 'Australia/Sydney', name: 'Avustralya (Sydney)'},
-      {id: 'Asia/Kolkata', name: 'Hindistan (Kolkata)'},
-      {id: 'America/Sao_Paulo', name: 'Brezilya (Sao Paulo)'}
-  ];
-  
-  // Saat Formatlama
-  const formatTime = (timezone) => {
-      const now = new Date();
-      const effectiveTimezone = timezone === 'auto' || !TIMEZONES.some(tz => tz.id === timezone) ? 
-          Intl.DateTimeFormat().resolvedOptions().timeZone : 
-          timezone;
-
-      try {
-          const time = now.toLocaleTimeString('tr-TR', {
-              timeZone: effectiveTimezone,
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-          });
-          const zoneItem = TIMEZONES.find(z => z.id === timezone);
-          const zoneName = zoneItem ? zoneItem.name : effectiveTimezone.split('/').pop().replace('_', ' ');
-          return { time, zoneName };
-      } catch (e) {
-          return { time: 'Hata', zoneName: 'Bilinmeyen Bölge' };
-      }
-  };
-
-  // SVG İkonları
-  const mkSvg=(d,s=4)=>`<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-  const ICONS={
-    wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',6),
-    trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
-    info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
-    plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
-    x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
-    chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
-    clock: mkSvg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 4), // Saat ikonu
-    edit: mkSvg('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
-    down: mkSvg('<polyline points="6 9 12 15 18 9"/>'),
-    search: mkSvg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
-    person: mkSvg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
-    briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
-    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="22"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
-    compass: mkSvg('<circle cx="12" cy="12" r="10"/><polygon points="16 16 12 12 8 16 12 8 16 16"/>',4),
-    hospital: mkSvg('<path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/><circle cx="12" cy="12" r="10"/>',4),
-    location: mkSvg('<path d="M12 21.7C17.3 17 22 13.3 22 10a10 10 0 0 0-20 0c0 3.3 4.7 7 10 11.7z"/><circle cx="12" cy="10" r="3"/>',4),
-    // Ulaşım için otobüs yerine daha genel bir araba/taksi sembolü kullanıldı.
-    bus: mkSvg('<rect x="1" y="5" width="22" height="14" rx="2"/><path d="M10 16h4M3 9h18M5 19v2M19 19v2M6 19v2M18 19v2M7 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM17 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',4),
-    // Eski car ikonu kaldırıldı ve yerine yeni taxi ikonu eklendi (Görsele uygun bir kişi çağırma teması)
-    taxi: mkSvg('<path d="M17 10H7c-2.2 0-4 1.8-4 4v5h18v-5c0-2.2-1.8-4-4-4z"/><path d="M15 10V6c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v4"/><path d="M15 10c1.7 0 3 1.3 3 3H6c0-1.7 1.3-3 3-3z"/><path d="M12 2l2 2m-2-2l-2 2"/><rect x="5" y="19" width="4" height="2"/><rect x="15" y="19" width="4" height="2"/><path d="M12 10V4"/>', 4),
-    pharmacy: mkSvg('<path d="M12 22s-8-4.5-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 5.5-8 10-8 10z"/><path d="M12 9v6m-3-3h6"/>', 4),
-    restaurant: mkSvg('<path d="M12 22s-8-4-8-10A8 8 0 0 1 12 4a8 8 0 0 1 8 8c0 6-8 10-8 10zM12 4a4 4 0 0 0 0 8 4 4 0 0 0 0-8z"/>', 4),
-    bed: mkSvg('<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4H2z"/><path d="M2 16h20M7 12V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6"/>', 4),
-    police: mkSvg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 18V12m-3 3h6"/>', 4),
-    key: mkSvg('<path d="M21 2l-2 2m-7 7l-2 2m-7 7l-2 2"/><path d="M15 11l-2 2m-7 7l-2 2"/><path d="M16 12l2-2m-7 7l-2 2"/><path d="M14 10l2-2m-7 7l-2 2"/><path d="M13 9l2-2m-7 7l-2 2"/><path d="M12 8l2-2m-7 7l-2 2"/><path d="M11 7l2-2m-7 7l-2 2"/><path d="M10 6l2-2m-7 7l-2 2"/><path d="M9 5l2-2m-7 7l-2 2"/><path d="M8 4l2-2m-7 7l-2 2"/><path d="M7 3l2-2m-7 7l-2 2"/><path d="M6 2l2-2m-7 7l-2 2"/><path d="M5 1l2-2m-7 7l-2 2"/><path d="M4 0l2-2m-7 7l-2 2"/><path d="M3 23l-2 2m-7 7l-2 2"/>', 4),
-    mapPin: mkSvg('<path d="M12 22s-8-4-8-10c0-4.4 3.6-8 8-8s8 3.6 8 8c0 6-8 10-8 10z"/><circle cx="12" cy="10" r="3"/>', 4),
-    // Uçak ikonu sadece rapor için tutulacak
-    flight: mkSvg('<path d="M19 17h-2l-1-2H8l-1 2H5l1-2H2l2-4 1-2h4l1 2h4l1-2h4l1 2 2 4h-3z"/><path d="M14 11l-2-2M10 11l2-2M12 2v3M12 16v6M12 12V6"/>', 6),
-    // Bilet ikonu
-    ticket: mkSvg('<path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/><path d="M12 10v4M10 12h4"/>', 4),
-    // YENİ İKON: Yakıt Pompası
-    fuel: mkSvg('<path d="M14 3v4a2 2 0 0 1-2 2h-1a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1a2 2 0 0 0 2 2v4M5 7h14M5 13h14M5 19h14M12 3v4M12 10v4M12 17v4"/>', 4),
-    // YENİ İKON: Harita / Rota
-    route: mkSvg('<polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M21 15.5H3M12 2L12 10M12 14L12 22"/>', 5),
-    // YENİ İKON: Rapor / Özet
-    report: mkSvg('<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="12" y2="16"/><line x1="7" y1="8" x2="7" y2="16"/>',5),
-    // YENİ İKON: Tema (Güneş/Ay)
-    sun: mkSvg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>', 4),
-    moon: mkSvg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 4)
-  };
-
-  // Harcama Kategorileri (fuel eklendi)
-  const CATS={
-    food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
-    stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
-    transport:{id:'transport',l:'Ulaşım/Seyahat',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
-    fuel:{id:'fuel',l:'Yakıt/Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
-    shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
-    activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
-    other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
-  };
-  
-  // Varsayılan Check List Kategorileri ve Maddeleri
-  const DEF_CATS=[{id:'docs',l:'Belgeler',i:'📄'},{id:'clth',l:'Giyim',i:'👕'},{id:'elec',l:'Elektronik',i:'🔌'},{id:'hlth',l:'Sağlık',i:'💊'},{id:'otr',l:'Diğer',i:'⭐'}];
-  
-  const DEF_ITEMS = [
-    {cat:'docs', val:'Pasaport'}, {cat:'docs', val:'Kimlik / Ehliyet'}, {cat:'docs', val:'Uçak Biletleri'}, {cat:'docs', val:'Otel Rezervasyonları'}, {cat:'docs', val:'Seyahat Sigortası'},
-    // Uçuş bilgileri kontrolü check list maddesi.
-    {cat:'docs', val:'Uçuş Bilgileri Kontrolü (Kapı/Saat)'},
-    
-    {cat:'clth', val:'Tişörtler'}, {cat:'clth', val:'Pantolon / Şort'}, {cat:'clth', val:'İç Çamaşırı'}, {cat:'clth', val:'Çoraplar'}, {cat:'clth', val:'Rahat Ayakkabı'}, {cat:'clth', val:'Pijama'},
-    {cat:'elec', val:'Şarj Aleti'}, {cat:'elec', val:'Powerbank'}, {cat:'elec', val:'Kulaklık'}, {cat:'elec', val:'Priz Dönüştürücü'},
-    {cat:'hlth', val:'Ağrı Kesici'}, {cat:'hlth', val:'Yara Bandı'}, {cat:'hlth', val:'Kişisel İlaçlar'}, {cat:'hlth', val:'El Dezenfektanı'},
-    {cat:'otr', val:'Güneş Gözlüğü'}, {cat:'otr', val:'Diş Fırçası & Macunu'}, {cat:'otr', val:'Şampuan & Duş Jeli'}
-  ];
-  
-  // Harcama formu artık yakıt ve yolculuk bilgileri içeriyor (isIndividual EKLENDİ)
-  const getEmptyForm=()=>({
-    id:null,
-    trip:'',
-    city:'',
-    place:'',
-    amt:'',
-    cur:'TRY',
-    date:new Date().toISOString().slice(0,10),
-    cat:'',
-    desc:'',
-    ppl:'1',
-    imgs:[],
-    isFuel: false,
-    startKm: '', 
-    endKm: '', 
-    fuelAmount: '', 
-    isIndividual: false, // YENİ EKLENDİ
-  });
-  
-  // YENİ: Basitleştirilmiş Bilet/Rezervasyon formu yapısı
-  const getEmptyTicketForm = () => ({
-      id: null,
-      trip: '',
-      type: 'flight', // flight, train, bus, hotel, other
-      name: '', // Örneğin: TK1951, Hilton Istanbul Bosphorus
-      location: '', // YENİ ALAN: Mekan/Adres bilgisi (Harita için)
-      date: new Date().toISOString().slice(0,10), // Rezervasyon/kalkış tarihi
-      time: '12:00', // Kalkış/Check-in saati
-      url: 'https://', // DÜZELTME: URL varsayılan olarak "https://" ile başlasın
-      details: '', // PNR, koltuk, notlar birleştirildi
-  });
-  
-  // Bilet türü bilgileri
-  const ticketTypes = {
-      flight: { i: ICONS.flight.replace('w-6 h-6', 'w-4 h-4'), l: 'Uçak Bileti', c: 'text-sky-400', g: 'from-sky-500/20 to-sky-900/40' },
-      train: { i: '🚂', l: 'Tren Bileti', c: 'text-amber-400', g: 'from-amber-500/20 to-amber-900/40' },
-      bus: { i: ICONS.bus.replace('w-4 h-4', 'w-4 h-4'), l: 'Otobüs/Vasıta', c: 'text-emerald-400', g: 'from-emerald-500/20 to-emerald-900/40' },
-      hotel: { i: ICONS.bed.replace('w-4 h-4', 'w-4 h-4'), l: 'Otel/Konaklama', c: 'text-violet-400', g: 'from-violet-500/20 to-violet-900/40' },
-      other: { i: ICONS.ticket.replace('w-4 h-4', 'w-4 h-4'), l: 'Diğer Rezervasyon', c: 'text-slate-400', g: 'from-slate-500/20 to-slate-900/40' },
-  };
-
-  
-  function initState(){
-    let initialTZ = 'auto'; 
-    try {
-        const browserTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (TIMEZONES.some(tz => tz.id === browserTZ)) {
-            initialTZ = browserTZ;
-        }
-    } catch(e) {
-        console.error("Zaman dilimi tespiti başarısız oldu:", e);
-    }
-    
-    let e=[], c={cats:[...DEF_CATS],items:[]}, prefTZ = initialTZ; 
-    let criticalNotes = []; 
-    // YENİ: Bilet listesi eklendi
-    let travelTickets = []; 
-    let selectedNoteTrip = ''; 
-    let theme = 'dark'; // Varsayılan Tema
-
-    try{e=JSON.parse(localStorage.getItem(K.EXP)||'[]');}catch(err){}
-    try{const l=JSON.parse(localStorage.getItem(K.LIST)); 
-        if(l){
-            c.items=l.items||[]; 
-            c.cats=l.cats||[...DEF_CATS];
-            if(c.cats.length === 0) c.cats = [...DEF_CATS]; 
-        }
-    }catch(err){}
-    
-    // Kayıtlı tercihleri yükle
-    try{prefTZ=localStorage.getItem(K.PREF+'_tz')||initialTZ;}catch(err){}
-    // KRİTİK NOTLARI YÜKLE
-    try{criticalNotes=JSON.parse(localStorage.getItem(K.NOTES)||'[]');}catch(err){criticalNotes = [];}
-    // YENİ: BİLETLERİ YÜKLE
-    try{travelTickets=JSON.parse(localStorage.getItem(K.TICKET)||'[]');}catch(err){travelTickets = [];}
-    // TEMA YÜKLE
-    try{theme=localStorage.getItem(K.THEME)||'dark';}catch(err){theme='dark';}
-    
-    if(!c.items || c.items.length === 0) {
-        c.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
-    }
-    
-    // Harcama kayıtlarında yeni alanları ekle (eski veriyi korumak için)
-    e = e.map(item => {
-        // isIndividual ve tripRoute, fuelLocation alanlarını kaldır/güncelle
-        delete item.tripRoute;
-        delete item.fuelLocation;
-        
-        return { 
-            ...item, 
-            imgs: item.imgs || [],
-            isFuel: item.isFuel || false,
-            startKm: item.startKm || '',
-            endKm: item.endKm || '', 
-            fuelAmount: item.fuelAmount || '',
-            isIndividual: typeof item.isIndividual === 'boolean' ? item.isIndividual : false, // YENİ: Varsayılan olarak Ortak kabul et
-            ppl: item.ppl || '1'
-        };
-    });
-    
-    // Bilet kayıtlarında yeni alanları ekle (location)
-    travelTickets = travelTickets.map(item => ({
-        ...item,
-        location: item.location || '', // YENİ: location alanı ekle
-    }));
-
-
-    const allTrips = [...new Set((e || []).map(x=>x.trip).filter(Boolean))].sort();
-    if(allTrips.length > 0) {
-        selectedNoteTrip = allTrips[0];
-    } else {
-        // Eğer hiç harcama yoksa, "Genel" olarak başla
-        selectedNoteTrip = 'Genel';
-    }
-
-    state={
-        exp:e,
-        chk:c,
-        view:'list',
-        tab:'exp', // exp, chk, helpers
-        tripFilter:'',
-        routeTrip:'',
-        catFilter:'',
-        individualFilter: '', // YENİ: 'individual', 'shared'
-        search:'',
-        selExp:null,
-        modals:{detail:false,chart:false,data:false, tzSelect: false}, 
-        form:getEmptyForm(),
-        ticketForm: getEmptyTicketForm(), // Yeni bilet formu state'i
-        selectedTicketId: null, // Düzenlenecek veya detay gösterilecek biletin id'si
-        
-        expandedCities:{},
-        lightbox:null,
-        err:'',
-        draggedItemId: null, 
-        targetTimezone: prefTZ, 
-        currentTime: formatTime(prefTZ).time,
-        location: null, 
-        locationLoading: false,
-        locationName: 'Bilinmiyor', 
-        helpersAccordion: {
-            critical: false, 
-            places: false, 
-            health: false,
-            transport: false,
-            flightCheck: false,
-            route: false, 
-            report: false,
-            tickets: true, // Başlangıçta biletler sekmesi açık olsun
-        },
-        criticalNotes: criticalNotes, 
-        travelTickets: travelTickets, // Yeni bilet listesi
-        selectedNoteTrip: selectedNoteTrip, 
-        newCriticalNote: '', 
-        selectedReportTrip: selectedNoteTrip, 
-        ticketTripFilter: '', // Biletler için seyahat filtresi
-        theme: theme, // Tema eklendi
-    };
-    
-    // Check List Kategorileri: Açık/Kapalı Durumu
-    state.openChkCats={}; 
-    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); 
-  }
-
-  function setState(p){state={...state,...p}; renderApp();}
-  
-  const save=()=>{
-    localStorage.setItem(K.EXP,JSON.stringify(state.exp));
-    localStorage.setItem(K.LIST,JSON.stringify(state.chk));
-    localStorage.setItem(K.PREF+'_tz', state.targetTimezone); 
-    // KRİTİK NOTLARI KAYDET
-    localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
-    // YENİ BİLETLERİ KAYDET
-    localStorage.setItem(K.TICKET, JSON.stringify(state.travelTickets));
-    // TEMA KAYDET
-    localStorage.setItem(K.THEME, state.theme);
-  };
-  
-  // --- RESİM YENİDEN BOYUTLANDIRMA VE BASE64'E DÖNÜŞTÜRME YARDIMCISI ---
   const resizeAndConvertImage = (file) => {
-      // Dosya Boyutu Kontrolü KALDIRILDI. Sadece otomatik boyutlandırma ve sıkıştırma uygulanacak.
-
-      return new Promise((resolve, reject) => { // reject eklendi
+      return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (readerEvent) => {
               const image = new Image();
@@ -566,7 +593,6 @@ html, body {
                       width = image.width,
                       height = image.height;
 
-                  // Yeniden Boyutlandırma Gerekli mi?
                   if (width > height) {
                       if (width > max_size) {
                           height *= max_size / width;
@@ -583,26 +609,22 @@ html, body {
                   canvas.height = height;
                   canvas.getContext('2d').drawImage(image, 0, 0, width, height);
 
-                  // JPEG formatında ve daha düşük kalitede Base64'e dönüştür (Daha küçük dosya için)
-                  const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Kaliteyi %70'e düşürdük
+                  const dataUrl = canvas.toDataURL('image/jpeg', 0.7); 
                   resolve(dataUrl);
               };
-              // FileReader başarısız olursa diye hata yakalama eklendi
               image.onerror = () => {
                 reject(new Error("Resim formatı desteklenmiyor veya bozuk."));
               };
               image.src = readerEvent.target.result;
           };
-          reader.onerror = () => { // FileReader hatasını yakala
+          reader.onerror = () => {
             reject(new Error("Dosya okuma hatası. Dosya bozuk olabilir."));
           };
           reader.readAsDataURL(file);
       });
   };
 
-  // --- KONUM YÖNETİMİ ---
   const handleGeolocation = () => {
-    // Zaten yükleniyorsa veya alındıysa tekrar çalıştırma
     if (state.locationLoading || state.location) return;
 
     if (!navigator.geolocation) {
@@ -651,18 +673,14 @@ html, body {
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
   };
-
-  // --- YARDIMCI FONKSİYON: Rota Oluşturma Linki (MEKAN BAZLI) ---
+  
   const getRouteUrl = (tripName) => {
-      // İlgili seyahate ait tüm harcamaları tarih sırasına göre al
       const tripExpenses = state.exp
           .filter(x => x.trip === tripName)
           .sort((a, b) => (a.date || '').localeCompare(b.date));
 
-      // Harcama noktalarını (Mekan, Şehir) al ve ardışık tekrar edenleri filtrele
       let uniquePoints = [];
       tripExpenses.forEach(x => {
-          // Mekan ve Şehir'i birleştirerek benzersiz bir nokta oluştur
           const point = x.place.trim() + ', ' + x.city.trim();
           
           if (x.place.trim() && x.city.trim() && (uniquePoints.length === 0 || uniquePoints[uniquePoints.length - 1] !== point)) {
@@ -671,21 +689,16 @@ html, body {
       });
 
       if (uniquePoints.length < 2) {
-          // Rota için en az iki farklı nokta (mekan + şehir) olmalı
           return { url: '', points: uniquePoints, error: 'Rota için en az 2 farklı Mekan kaydı gerekiyor.' };
       }
 
-      const origin = uniquePoints[0];
-      const destination = uniquePoints[uniquePoints.length - 1];
-      
-      // Google Maps URL formatı: https://www.google.com/maps/dir/Origin/Waypoint1/Waypoint2/Destination
       const url = `https://www.google.com/maps/dir/${uniquePoints.map(p => encodeURIComponent(p)).join('/')}`;
       
       return { url, points: uniquePoints, error: '' };
   };
+
+  // --- RENDER FONKSİYONLARI BAŞLANGIÇ (Referans hatasını önlemek için yukarı taşındı) ---
   
-  
-  // YENİ FONKSİYON: BİLET/REZERVASYON DETAY MODALI
   function renderTicketDetailModal(){
     const t = state.travelTickets.find(x => x.id === state.selectedTicketId);
     if (!t) return '';
@@ -693,12 +706,10 @@ html, body {
     const typeInfo = ticketTypes[t.type] || ticketTypes.other;
     const isPassed = new Date(`${t.date}T${t.time}:00`) < new Date();
     
-    // Haritada göster butonu için
     const hasLocation = t.location && t.location.trim().length > 0;
     const mapQuery = encodeURIComponent(t.location);
     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
     
-    // URL butonu için aksiyon (Yeni aksiyon kullanıldı)
     const urlAction = t.url && t.url !== 'https://' ? `data-act="open-url" data-val="${t.url}"` : '';
     
     const badgeCls = 'flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full text-white';
@@ -754,7 +765,7 @@ html, body {
                   <span class="text-sm font-medium text-blue-400 hover:text-blue-300">Haritada Göster: ${esc(t.location)}</span>
                </button>` : ''}
                
-               <!-- URL LİNKİ (DÜZELTME: Sadece https:// değilse göster) -->
+               <!-- URL LİNKİ -->
                ${t.url && t.url !== 'https://' ? `
                <button ${urlAction} class="flex items-center justify-center gap-2 theme-sidebar-bg theme-sidebar-bg-hover p-3 rounded-lg border border-[var(--border-color)]/70 transition cursor-pointer w-full">
                   ${ICONS.globe.replace('w-5 h-5', 'w-4 h-4')}
@@ -776,27 +787,21 @@ html, body {
     `;
   }
   
-  
-  // YENİ FONKSİYON: BİLETLER AKORDİYON İÇERİĞİ
-  const renderTicketsContent = () => {
-    // Harcaması olan tüm seyahatleri al 
+  function renderTicketsContent(){
     const allTrips = [...new Set(state.exp.map(x=>x.trip).concat(state.travelTickets.map(x=>x.trip)).filter(Boolean))].sort();
     
     let tickets = state.travelTickets.slice().sort((a, b) => {
-        // Tarih ve saat bazında sırala (en yakın tarih/saat üste çıksın)
         const dtA = new Date(`${a.date}T${a.time}:00`);
         const dtB = new Date(`${b.date}T${b.time}:00`);
         return dtA - dtB;
     });
 
-    // Filtreleme
     if (state.ticketTripFilter) {
         tickets = tickets.filter(t => t.trip === state.ticketTripFilter);
     }
 
     const tripOptions = allTrips.map(t=>`<option value="${esc(t)}" ${state.ticketTripFilter===t?'selected':''}>${esc(t)}</option>`).join('');
 
-    // Check-in zamanı kontrolü
     const now = new Date();
     
     
@@ -864,15 +869,12 @@ html, body {
             <!-- BİLETLER LİSTESİ BİTİŞ -->
         </div>
     `;
-  };
+  }
   
-  // YENİ FONKSİYON: RAPOR AKORDİYONU İÇERİĞİ
   function renderReportContent() {
-      // Harcama seyahatlerini alırken (bilet verisi artık yok)
       const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
       let selectedTrip = state.selectedReportTrip;
       
-      // Eğer seçili seyahat artık mevcut değilse, ilk mevcut seyahati seç
       if (!allTrips.includes(selectedTrip)) {
           selectedTrip = allTrips[0] || 'Genel';
           state.selectedReportTrip = selectedTrip;
@@ -903,7 +905,6 @@ html, body {
           `;
       }
       
-      // 1. Toplam Harcama (Para Cinsi Bazında)
       const totalsByCurrency = {};
       tripExpenses.forEach(x => {
           const cur = x.cur || 'TRY'; 
@@ -915,7 +916,6 @@ html, body {
           .map(([cur, amt]) => `<span class="bg-violet-700/50 px-3 py-1 rounded-full text-sm font-bold">${fmtNum(amt)} <span class="text-xs font-normal">${cur}</span></span>`)
           .join('');
 
-      // 2. En Çok Harcama Yapılan 3 Kategori
       const categoryData = getChartDataset(tripExpenses);
       const topCategories = Object.entries(categoryData.perCat || {})
           .sort(([, a], [, b]) => b - a)
@@ -932,7 +932,6 @@ html, body {
               `;
           }).join('');
 
-      // 3. En Çok Para Bırakılan 3 Şehir/Mekan
       const cityPlaceTotals = {};
       tripExpenses.forEach(x => {
           const key = `${x.city} / ${x.place}`;
@@ -954,12 +953,11 @@ html, body {
               `;
           }).join('');
 
-      // 4. Eklediğin Fotoğrafların Minik Önizlemesi
       const allImages = tripExpenses
           .flatMap(x => x.imgs || [])
-          .filter(Boolean); // Boş dizeleri temizle
+          .filter(Boolean);
 
-      const uniqueImages = [...new Set(allImages)].slice(0, 10); // İlk 10 benzersiz fotoğraf
+      const uniqueImages = [...new Set(allImages)].slice(0, 10); 
 
       const imagePreview = uniqueImages.length > 0 ? `
           <div class="grid grid-cols-5 gap-2">
@@ -971,7 +969,6 @@ html, body {
           </div>
       ` : '<p class="text-sm text-[var(--text-muted)] italic">Bu seyahatte eklenmiş fotoğraf bulunmamaktadır.</p>';
 
-      // 5. Notlar (En Kritik Madde Madde)
       const notesForTrip = state.criticalNotes
           .filter(n => n.trip === selectedTrip)
           .map(n => `<li class="text-sm text-[var(--text-color)] list-disc ml-4">${esc(n.note)}</li>`).join('');
@@ -991,7 +988,7 @@ html, body {
               </div>
 
               <div class="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-700/50 rounded-xl p-4">
-                  <h3 class="text-lg font-bold text-white mb-2">${selectedTrip} Seyahat Özeti</h3>
+                  <h3 class="text-lg font-bold text-white mb-2">${selectedTrip} Seyahat Özeti}</h3>
                   <p class="text-xs text-slate-400">Veriler, seçilen seyahat için filtrelenmiştir. Toplam ${tripExpenses.length} harcama kaydı.</p>
               </div>
               
@@ -1049,7 +1046,6 @@ html, body {
       `;
   }
   
-  // YENİ FONKSİYON: Rota Planlayıcı İçeriğini Oluştur (MEKAN BAZLI)
   function renderRoutePlanner() {
       const selectedTrip = state.routeTrip || state.tripFilter; 
 
@@ -1061,7 +1057,6 @@ html, body {
           `;
       }
       
-      // Şimdi getRouteUrl'den point'leri alıyoruz
       const routeData = getRouteUrl(selectedTrip);
 
       if (routeData.error) {
@@ -1072,13 +1067,11 @@ html, body {
           `;
       }
 
-      // uniqueCities yerine uniquePoints kullanılıyor
       const pointsList = routeData.points.map((point, index) => {
-          let icon = '📍'; // Varsayılan ara nokta
-          if (index === 0) icon = '🛫'; // Başlangıç
-          else if (index === routeData.points.length - 1) icon = '🏁'; // Bitiş
+          let icon = '📍'; 
+          if (index === 0) icon = '🛫'; 
+          else if (index === routeData.points.length - 1) icon = '🏁'; 
           
-          // Mekan ve Şehir ayrımını göstermek için
           const [place, city] = point.split(',').map(s => s.trim());
 
           return `
@@ -1106,12 +1099,10 @@ html, body {
       `;
   }
   
-  // YENİ FONKSİYON: Basitleştirilmiş Bilet Ekle/Düzenle Formu
   function renderTicketForm(){
       const f = state.ticketForm;
       const allTrips = [...new Set(state.exp.map(x=>x.trip).concat(state.travelTickets.map(x=>x.trip)).filter(Boolean))].sort();
       
-      // Bilet türleri için butonlar
       const types = [
           {id:'flight', l:'Uçak', i:ICONS.flight.replace('w-6 h-6', 'w-4 h-4')}, 
           {id:'train', l:'Tren', i:'🚂'}, 
@@ -1177,7 +1168,6 @@ html, body {
                       <!-- URL -->
                       <div>
                           <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Rezervasyon/Check-in URL'si (Opsiyonel)</label>
-                          <!-- DÜZELTME: URL varsayılan olarak f.url (yani "https://") ile geliyor -->
                           <input id="i-ticket-url" type="url" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="https://" value="${esc(f.url)}">
                       </div>
                       
@@ -1191,17 +1181,34 @@ html, body {
           </div>`;
   }
   
-  // --- HEADER RENDER FONKSİYONU BAŞLANGIÇ ---
+  // YENİ: Firebase Kullanıcı Bilgisini Göster
+  function getUserIdDisplay() {
+      const isAnon = state.userId && state.userId.startsWith('anon-');
+      
+      let statusText = 'Anonim Oturum';
+      if (typeof __initial_auth_token !== 'undefined' && state.userId && !isAnon) {
+          statusText = 'Kullanıcı Oturumu';
+      } else if (isAnon) {
+          statusText = 'Anonim Oturum';
+      }
+      
+      const badgeCls = isAnon ? 'bg-slate-700/50 text-slate-300' : 'bg-green-700/50 text-green-300';
+      
+      return `
+        <div class="flex items-center gap-2 ${badgeCls} px-2 py-1 rounded-lg text-[10px] font-medium transition">
+             ${ICONS.userCheck.replace('w-4 h-4', 'w-3.5 h-3.5')}
+            <span title="${state.userId || 'Kimlik Bilgisi Alınmadı'}">${statusText}</span>
+        </div>
+      `;
+  }
+
   function renderHeader(){
     const timeInfo = formatTime(state.targetTimezone);
     const isDark = state.theme === 'dark';
-    
-    // Temaya duyarlı renkler
     const themeIcon = isDark ? ICONS.sun : ICONS.moon;
     const themeBtnCls = isDark 
         ? "bg-slate-800/70 hover:bg-slate-700/90 border border-slate-600/60 text-yellow-300" 
         : "bg-gray-200/70 hover:bg-gray-300/90 border border-gray-400/60 text-slate-800";
-
     
     return `
       <div class="glass-panel rounded-xl p-3 mb-4 flex flex-col md:flex-row items-center justify-between shadow-lg gap-3 bg-[var(--glass-bg)]">
@@ -1213,21 +1220,17 @@ html, body {
            </div>
            <div>
               <h1 class="text-lg font-bold text-[var(--text-color)] tracking-tight">Seyahat Cüzdanı</h1>
-              <div class="flex items-center gap-1 text-xs text-emerald-400">
-                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Takip & Planlama
-              </div>
+              <!-- YENİ: KULLANICI DURUMU -->
+              ${state.isAuthReady ? getUserIdDisplay() : '<div class="text-xs text-blue-400">Kimlik Doğrulanıyor...</div>'}
            </div>
         </div>
         
         <div class="flex items-center gap-2 w-full md:w-auto justify-end mt-2 md:mt-0">
            
-           <!-- TEMA DEĞİŞTİRME BUTONU -->
            <button data-act="toggle-theme" class="${themeBtnCls} rounded-lg p-1.5 flex items-center justify-center transition" title="${isDark ? 'Açık Temaya Geç' : 'Koyu Temaya Geç'}">
                ${themeIcon}
            </button>
-           <!-- /TEMA DEĞİŞTİRME BUTONU -->
            
-           <!-- YEREL SAAT GÖSTERİMİ (Tıklanabilir) -->
            <button data-act="open-tz-modal" class="flex items-center bg-[var(--bg-card)]/80 hover:bg-[var(--bg-card-light-hover)] transition rounded-lg p-1 border border-[var(--border-color)] min-w-[120px] justify-center cursor-pointer">
               <span class="text-xs text-[var(--text-muted)] mr-2">${ICONS.clock.replace('w-4 h-4', 'w-3.5 h-3.5')}</span>
               <div id="local-time-container">
@@ -1235,7 +1238,6 @@ html, body {
                   <div class="text-[9px] text-[var(--text-muted)] leading-none">${timeInfo.zoneName.replace(' (Varsayılan)', '').replace('Europe/Istanbul', 'İstanbul')}</div>
               </div>
            </button>
-           <!-- /YEREL SAAT GÖSTERİMİ -->
            
            ${state.tab==='exp' ? `
              <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
@@ -1257,15 +1259,11 @@ html, body {
       </div>
     `;
   }
-  // --- HEADER RENDER FONKSİYONU BİTİŞ ---
   
-  // --- YENİ KONUM: TABLAR RENDER FONKSİYONU ---
   function renderTabs(){
-    // RAPOR SEKMESİ KALDIRILDI, SADECE 3 SEKME KALDI
     const t = state.tab;
     const btnCls = "flex-1 py-2 rounded-lg text-sm font-bold transition flex items-center justify-center gap-2 border";
     const active = "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30";
-    // Pasif buton temaya duyarlı hale getirildi
     const passive = "bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-card-light)]/50 hover:text-[var(--text-color)]";
     
     return `
@@ -1278,16 +1276,15 @@ html, body {
     `;
   }
   
-  // --- YENİ KONUM: FİLTRELER RENDER FONKSİYONU ---
   function renderFilters(){
       
-    // Yeni Harcama Tipi Filtre Seçenekleri
     const individualFilterOptions = [
         {id: '', l: 'Tüm Harcama Tipleri', c: 'slate'},
         {id: 'shared', l: 'Ortak Harcamalar', c: 'emerald'},
         {id: 'individual', l: 'Bireysel Harcamalar', c: 'sky'},
     ];
     
+    // DÜZELTME: Seçili etiketin düzeltilmesi
     const individualFilterSelect = individualFilterOptions.map(f => `
         <option value="${f.id}" ${state.individualFilter===f.id?'selected':''}>${f.l}</option>
     `).join('');
@@ -1313,7 +1310,7 @@ html, body {
            ` : ''}
          </div>
          
-         <!-- YENİ SATIR: Kategori Filtresi (Önceden Bireysel/Ortak butonlarının olduğu yerde) -->
+         <!-- YENİ SATIR: Kategori Filtresi -->
          ${state.tab === 'exp' ? `
              <div class="relative w-full">
                 <select data-act="flt-cat" class="w-full theme-input border rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer">
@@ -1327,24 +1324,19 @@ html, body {
     `;
   }
   
-  // --- YENİ KONUM: DASHBOARD HEADER RENDER FONKSİYONU ---
   function renderDashboardHeader(visibleExp){
-    // Toplamı para birimine göre hesapla (Orijinal hali)
     const totals = {};
     visibleExp.forEach(x => {
-        // Harcama tutarı her zaman harcama kaydındaki 'amt' olacaktır.
         const amt = Number(x.amt) || 0; 
         const cur = x.cur || 'TRY'; 
         totals[cur] = (totals[cur] || 0) + amt;
     });
 
-    // En yüksek tutardan başlayarak özet metni oluştur (Orijinal hali)
     const totalSummary = Object.entries(totals)
         .sort((a, b) => b - a)
         .map(([cur, amt]) => `${fmtNum(amt)} ${cur}`)
         .join(' · ');
         
-    // Filtre etiketi basitleştirildi.
     const filterLabel = 'Filtrelenen';
 
 
@@ -1356,7 +1348,7 @@ html, body {
          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
                <div class="text-[10px] uppercase tracking-widest text-white/80 font-bold mb-1">Toplam Harcama (${filterLabel} Kayıtlar)</div>
-               <!-- ÇOKLU KUR ÖZETİ (Orijinal hali) -->
+               <!-- ÇOKLU KUR ÖZETİ -->
                <div class="text-sm font-bold text-white leading-tight mt-1">
                   ${totalSummary || '0.00 TRY'} 
                </div>
@@ -1379,7 +1371,6 @@ html, body {
     `;
   }
   
-  // --- YENİ KONUM: HARCAMA LİSTESİ RENDER FONKSİYONU ---
   function renderExpenseList(exp){
     if(!exp.length) return `<div class="text-center py-8 text-[var(--text-muted)] text-sm border border-dashed border-[var(--border-color)] rounded-xl">Kayıt bulunamadı.</div>`;
 
@@ -1390,14 +1381,12 @@ html, body {
       const lst=grp[city].sort((a,b)=>(b.date||'').localeCompare(a.date));
       const expd=state.expandedCities[city];
       
-      // Şehir toplamı (Çoklu kur hesaplama)
       const sum = {};
       lst.forEach(x => sum[x.cur] = (sum[x.cur] || 0) + Number(x.amt));
       const sumTxt = Object.entries(sum).map(([c, v]) => fmtNum(v) + ' ' + c).join(' · ');
       
       const cityColor = getCityColor(city);
       
-      // Temaya duyarlı renkler
       const cardBg = state.theme === 'dark' ? 'bg-slate-800/40' : 'bg-white/70';
       const cardBorder = 'border border-[var(--border-color)]/50';
       const detailBg = 'bg-[var(--expense-card-bg)]';
@@ -1472,12 +1461,10 @@ html, body {
     }).join('')}</div>`;
   }
   
-  // --- YENİ KONUM: CHECKLIST RENDER FONKSİYONU ---
   function renderChecklist(){
     const done=state.chk.items.filter(i=>i.done).length, total=state.chk.items.length;
     const pct=total?Math.round((done*100)/total):0;
     
-    // Kategori Sıralama: "Diğer" (otr) her zaman en altta kalsın
     const sortedCats = [...state.chk.cats].sort((a, b) => {
         if (a.id === 'otr') return 1;
         if (b.id === 'otr') return -1;
@@ -1485,8 +1472,6 @@ html, body {
     });
 
     return `
-      <!-- SIFIRLAMA BUTONU ÜST BAŞLIĞA TAŞINDI -->
-
       <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
         <div class="flex justify-between items-end mb-2">
           <div><div class="text-[9px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
@@ -1504,7 +1489,6 @@ html, body {
             <div class="theme-sidebar-bg border border-[var(--border-color)]/50 rounded-xl overflow-hidden">
               <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-[var(--bg-card-light-hover)]/50 transition">
                 
-                <!-- Tüm Alanı Tıklanabilir Yapmak için ayrı bir kapsayıcı -->
                 <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center gap-3 flex-1 min-w-0 p-1 -m-1 focus:outline-none rounded-md cursor-pointer">
                    <div class="theme-input w-8 h-8 rounded flex items-center justify-center">${c.i}</div>
                    <div>
@@ -1517,7 +1501,6 @@ html, body {
                 </div>
                 
                 <div class="flex items-center gap-2">
-                    <!-- Silme butonu artık her zaman görünür (Tüm kategoriler silinebilir) -->
                     <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-[var(--text-muted)] hover:text-red-400 transition p-2 rounded-full hover:bg-[var(--bg-card-light)]/50 flex-shrink-0 z-10">
                         ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
                     </button>
@@ -1525,7 +1508,6 @@ html, body {
               </div>
               ${isOpen ? `<div class="bg-[var(--bg-card-light)]/30 border-t border-[var(--border-color)]/50 p-2 space-y-1" data-cat-id="${c.id}">
                  ${its.map(i=>`<div data-id="${i.id}" data-cat="${i.cat}" class="flex items-center gap-3 p-2 hover:bg-[var(--bg-card-light-hover)]/30 rounded-lg">
-                     <!-- Taşıma (Drag) İkonu ve Özellikleri Kaldırıldı -->
                      <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done?'checked':''} class="custom-checkbox w-4 h-4 rounded border-[var(--border-color)] theme-input">
                      <span class="flex-1 text-sm text-[var(--text-color)] ${i.done?'line-through opacity-50':''}">${esc(i.val)}</span>
                      <button data-act="del-chk" data-id="${i.id}" class="text-[var(--text-muted)] hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
@@ -1553,13 +1535,11 @@ html, body {
     `;
   }
   
-  // --- YENİ KONUM: YARDIMCILAR RENDER FONKSİYONU ---
   function renderHelpers() {
     const loc = state.location;
     const isReady = loc && loc.lat && loc.lon;
     const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
     
-    // Google Haritalar URL'leri
     const baseSearchUrl = 'https://www.google.com/maps/search/';
     const locationQuery = isReady ? `@${loc.lat},${loc.lon},15z` : '';
 
@@ -1570,26 +1550,19 @@ html, body {
     const pharmacyUrl = `${baseSearchUrl}Eczane/${locationQuery}`;
     const policeUrl = `${baseSearchUrl}Polis+Karakolu/${locationQuery}`; 
     
-    // TÜM SEYAHATLERİ ÇEK
     const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
-    // Harcaması olmayanlar için de "Genel" seçeneğini ekle
     if (!allTrips.includes('Genel')) {
         allTrips.unshift('Genel');
     }
     
-    // GÖSTERİLECEK NOTLARI FİLTRELE
     const notesForTrip = state.criticalNotes.filter(n => n.trip === state.selectedNoteTrip);
 
-
-    // Konum tabanlı aramalar için ayrı bir div oluştur
-    const locSearchDisabledClass = isReady ? '' : 'opacity-40 pointer-events-none';
     const loadingClass = state.locationLoading ? 'animate-pulse' : '';
 
-    const accordionItem = (id, icon, title, content, disableLocation=false) => { // disableLocation parametresi eklendi
+    const accordionItem = (id, icon, title, content, disableLocation=false) => {
         const isOpen = state.helpersAccordion[id];
         const disabledClass = !disableLocation && !isReady ? 'opacity-40 pointer-events-none' : '';
-        // max-height değeri, içeriğin tam sığması için tahmin edilmeli
-        const maxHeight = (id === 'critical') ? '450px' : (id === 'route' ? '400px' : (id === 'report' ? '900px' : (id === 'tickets' ? '450px' : '500px'))); // Biletler için max-height eklendi
+        const maxHeight = (id === 'critical') ? '450px' : (id === 'route' ? '400px' : (id === 'report' ? '900px' : (id === 'tickets' ? '450px' : '500px')));
 
         return `
             <div class="theme-sidebar-bg rounded-xl border border-[var(--border-color)]/50 shadow-lg overflow-hidden ${disabledClass}">
@@ -1616,7 +1589,7 @@ html, body {
     return `
       <div class="space-y-4 pb-24">
         
-        <!-- KONUM BİLGİ PANELİ (Sadeleştirilmiş - Üstte Sabit) -->
+        <!-- KONUM BİLGİ PANELİ -->
         <div class="glass-panel p-3 rounded-xl border border-[var(--border-color)]/50 shadow-lg flex justify-between items-center ${loadingClass}">
             <div class="flex items-center gap-2 text-sm">
                 ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')}
@@ -1625,7 +1598,7 @@ html, body {
             </div>
             
             <button data-act="get-location" class="bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg text-sm transition flex items-center justify-center" ${state.locationLoading ? 'disabled' : ''}>
-                ${state.locationLoading ? `<svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : ICONS.compass.replace('w-4 h-4', 'w-4 h-4')}
+                ${state.locationLoading ? ICONS.spinner.replace('w-5 h-5', 'w-4 h-4') : ICONS.compass.replace('w-4 h-4', 'w-4 h-4')}
             </button>
         </div>
         
@@ -1764,7 +1737,7 @@ html, body {
             </div>
         `)}
         
-        <!-- YENİ AKORDİYON: SEYAHAT RAPORU -->
+        <!-- SEYAHAT RAPORU -->
         ${accordionItem('report', ICONS.report.replace('w-5 h-5', 'w-4 h-4'), 'Seyahat Özet Raporu (Tek Bakışta Tablo)', renderReportContent(), true)}
         
         <!-- AKORDİYONLAR BİTİŞ -->
@@ -1772,21 +1745,16 @@ html, body {
     `;
   }
   
-  // --- YENİ KONUM: HARCAMA FORMU RENDER FONKSİYONU ---
   function renderForm(){
     const f = state.form;
     const trips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
     
-    // Fotoğraf ekleme butonu için durumlar
     const imagesCount = f.imgs ? f.imgs.length : 0;
     const isImageLimitReached = imagesCount >= MAX_IMAGES;
     
-    // Yakıt takibi aktif mi?
     const isFuelActive = f.isFuel;
-    // Bireysel harcama aktif mi?
     const isIndividualActive = f.isIndividual;
     
-    // Harcama formunu modal içinde döndür
     return `
       <div class="form-modal-overlay">
         <!-- form-content-box sınıfı eklendi -->
@@ -1798,10 +1766,10 @@ html, body {
           
           <div class="space-y-3">
             
-            <!-- YENİ EKLENDİ: BİREYSEL HARCAMA CHECKBOX'I -->
+            <!-- BİREYSEL HARCAMA CHECKBOX'I -->
             <div class="theme-sidebar-bg border border-[var(--border-color)] rounded-lg p-3 flex items-center justify-between">
                 <label for="i-is-individual" class="text-sm font-bold text-sky-400 flex items-center gap-2">
-                    ${ICONS.person.replace('w-4 h-4', 'w-4 h-4')} BİREYSEL HARCAMA
+                    ${ICONS.person.replace('w-4 h-4', 'w-4 h-4')} BİREYSEL HARCAMA MI? (Ortak değil, sadece bana ait)
                 </label>
                 <input type="checkbox" id="i-is-individual" data-act="is-individual-toggle" ${isIndividualActive ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-[var(--border-color)] theme-input focus:ring-sky-500">
             </div>
@@ -1835,8 +1803,6 @@ html, body {
                         <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Alınan Yakıt Miktarı (Litre)</label>
                         <input id="i-fuel-amount" type="text" inputmode="decimal" class="w-full theme-input/70 border rounded-lg p-3 text-sm outline-none focus:border-red-500" placeholder="Örn: 45.5 L" value="${esc(f.fuelAmount)}">
                     </div>
-
-                    <!-- YAKIT ALIM KONUMU KALDIRILDI -->
                 </div>
             ` : ``}
             <!-- YAKIT HARCAMASI ALANLARI BİTİŞ -->
@@ -1858,7 +1824,6 @@ html, body {
                </div>
                <div>
                  <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Mekan</label>
-                 <!-- PLACEHOLDER DÜZELTİLDİ -->
                  <input id="i-place" class="w-full theme-input border rounded-lg p-3 text-sm outline-none focus:border-blue-500" placeholder="Mekan Adı (Örn: Restoran, Müze, Akaryakıt İstasyonu)" value="${esc(f.place)}">
                </div>
             </div>
@@ -1875,12 +1840,11 @@ html, body {
                   <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Kişi Sayısı</label>
                   <div class="flex items-center theme-sidebar-bg border border-[var(--border-color)] rounded-lg px-3 flex-1">
                       <span class="text-[var(--text-muted)] text-xs mr-2">Kişi:</span>
-                      <!-- Kişi sayısı: Bireysel ise disabled, değeri 1 olmalı -->
                       <input id="i-ppl" type="number" inputmode="numeric" min="1" class="w-full bg-transparent text-sm text-[var(--text-color)] outline-none text-center ${isIndividualActive ? 'opacity-50 cursor-not-allowed' : ''}" 
                           value="${f.ppl}"
                           ${isIndividualActive ? 'disabled' : ''}>
                   </div>
-                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1"></p>' : ''}
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
                </div>
             </div>
             
@@ -1891,7 +1855,6 @@ html, body {
             <div>
                <label class="block text-xs font-bold text-[var(--text-muted)] mb-2 uppercase">Kategori</label>
                <div class="flex gap-2 overflow-x-auto pb-2 scrl">
-                 <!-- Yakıt aktifse sadece Yakıt gösterilir, değilse diğerleri -->
                  ${Object.values(CATS).filter(c => isFuelActive ? c.id === 'fuel' : c.id !== 'fuel').map(c=>`
                    <button type="button" data-act="set-cat" data-val="${c.id}" class="flex-shrink-0 flex flex-col items-center justify-center w-16 h-16 rounded-lg border transition ${f.cat===c.id ? 'bg-blue-600/20 border-blue-500 text-[var(--text-color)] shadow-lg shadow-blue-500/20' : 'theme-sidebar-bg border-[var(--border-color)] text-[var(--text-muted)] hover:border-blue-500'}">
                      <span class="text-xl mb-1">${c.i}</span><span class="text-[9px] font-bold">${c.l}</span>
@@ -1906,7 +1869,6 @@ html, body {
               <div class="flex items-center gap-3">
                   <label class="cursor-pointer theme-sidebar-bg ${isImageLimitReached ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-card-light-hover)]'} border border-[var(--border-color)] text-[var(--text-color)] text-xs px-4 py-3 rounded-lg transition flex-1 text-center">
                       ${isImageLimitReached ? `Maksimum ${MAX_IMAGES} Fotoğrafa Ulaşıldı` : `+ Fotoğraf Ekle (${imagesCount}/${MAX_IMAGES})`}
-                      <!-- Yükleme butonu, limit aşılırsa devre dışı bırakılır -->
                       <input type="file" data-act="img-upload" id="i-img" hidden accept="image/*" multiple ${isImageLimitReached ? 'disabled' : ''}>
                   </label>
               </div>
@@ -1930,11 +1892,10 @@ html, body {
       </div>`;
   }
   
-  // --- YENİ KONUM: MODAL RENDER FONKSİYONU ---
   function renderModal(type){
     if(type==='tz-select'){
       const currentTZ = state.targetTimezone;
-      const sortedTzs = [...TIMEZONES].sort((a,b) => a.id.localeCompare(b.id)); // Alfabetik sıralama
+      const sortedTzs = [...TIMEZONES].sort((a,b) => a.id.localeCompare(b.id));
       
       return `
         <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="tzSelectOverlay">
@@ -1959,18 +1920,15 @@ html, body {
       const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
       const cat=CATS[x.cat]||CATS.other;
       const ppl = parseInt(x.ppl)||1;
-      const isIndividual = x.isIndividual; // YENİ EKLENDİ
-      // Kişi başı tutar artık sadece kişi sayısına göre hesaplanır
+      const isIndividual = x.isIndividual;
       const perP = x.amt/ppl; 
       const allTrips = [...new Set(state.exp.map(z=>z.trip).concat(state.travelTickets.map(z=>z.trip)).filter(Boolean))].sort();
       
       const mapQuery = encodeURIComponent(`${x.place}, ${x.city}`);
       const mapUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
       
-      // GÜNCELLENEN BADGE STİLLERİ
-      const badgeCls = 'flex items-center gap-2 bg-black/10 px-2 py-0.5 rounded-full border border-white/20 backdrop-blur-md text-white';
+      const badgeCls = 'flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full border border-white/20 backdrop-blur-md text-white';
 
-      // Bireysel/Ortak Rozeti (Artık isIndividual kontrolü ile)
       const sharedBadge = isIndividual
          ? `<span class="bg-sky-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold text-sky-300">Bireysel</span>`
          : (ppl > 1
@@ -1983,7 +1941,6 @@ html, body {
         </div>
       `;
       
-      // Yakıt bilgileri için detay kartı (endKm eklendi, hesaplama yapıldı)
       const startKm = Number(x.startKm) || 0;
       const endKm = Number(x.endKm) || 0;
       const distance = endKm > startKm ? endKm - startKm : 0;
@@ -2020,12 +1977,9 @@ html, body {
                     <div class="text-[10px] text-slate-500 uppercase">Ortalama Tüketim</div>
                     <div class="font-medium">${consumption} L/100 Km</div>
                 </div>
-                <!-- İstasyon Konumu satırı kaldırıldı, Mekan'dan okunacak -->
             </div>
         </div>
       ` : '';
-      
-      // SEYAHAT TAŞIMA BÖLÜMÜ ARTIK TÜM HARCAMALAR İÇİN GÖSTERİLİYOR
       
       const tripMoveSection = `
                <!-- SEYAHATE TAŞIMA (KOMPAKT + SEÇİM) -->
@@ -2068,9 +2022,7 @@ html, body {
       `;
 
 
-      // Kategori ve Kişi Bilgisi Header'a taşındı.
       return `
-        <!-- DÜZELTME 3: items-end yerine items-start (Üste sabitlemek için) ve üstten biraz boşluk (mt-4) eklendi -->
         <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="overlay">
           <div class="theme-modal-bg w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border" data-act="noop">
              
@@ -2114,8 +2066,6 @@ html, body {
                            ${ppl > 1 ? `<div class="text-[10px] text-white/70 mt-1">Kişi Başı: ${fmtNum(perP)} ${x.cur}</div>` : ''}
                        </div>
                    </div>
-                   
-                   <!-- DÖNÜŞTÜRÜLMÜŞ TUTAR kısmı kaldırıldı -->
                 </div>
              </div>
 
@@ -2159,7 +2109,6 @@ html, body {
           </div>
         </div>`;
     }
-    
     
     if(type==='chart'){
       const ds = getChartDataset();
@@ -2205,11 +2154,28 @@ html, body {
       `;
     }
     if(type==='data'){
-      // JSON'a bilet verisi eklendi
-      return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="theme-modal-bg w-full max-w-lg rounded-xl border p-5 shadow-2xl relative" data-act="noop"><button data-act="close-mod" data-val="data" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">${ICONS.x}</button><h3 class="font-bold text-[var(--text-color)] mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-lg p-3 text-xs font-mono text-[var(--text-muted)] mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,tickets:state.travelTickets})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-[var(--bg-card-light)] text-[var(--text-color)] py-2.5 rounded-lg font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold">Yükle</button></div></div></div>`;
+        // GÜNCELLENDİ: Veri yedekleme/geri yükleme modalı
+        return `
+            <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="dataOverlay">
+                <div class="theme-modal-bg w-full max-w-lg rounded-xl border p-5 shadow-2xl relative" data-act="noop">
+                    <button data-act="close-mod" data-val="data" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">${ICONS.x}</button>
+                    <h3 class="font-bold text-[var(--text-color)] mb-1">Veri Yedekleme (JSON)</h3>
+                    <p class="text-xs text-blue-400 mb-4">
+                        Tüm verilerinizi (harcamalar, listeler, notlar) Firebase'den bağımsız olarak saklayın veya buradan geri yükleyin.
+                    </p>
+                    
+                    <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Veri JSON'ı (Dışa Aktar/İçe Aktar)</label>
+                    <textarea id="io-txt" class="w-full h-40 bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-lg p-3 text-xs font-mono text-[var(--text-muted)] mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,tickets:state.travelTickets})}</textarea>
+                    
+                    <div class="flex gap-3">
+                        <button data-act="copy-json" class="flex-1 bg-[var(--bg-card-light)] text-[var(--text-color)] py-2.5 rounded-lg font-medium hover:bg-[var(--bg-card-light-hover)] transition">JSON Kopyala</button>
+                        <button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-500 transition">Veriyi Geri Yükle</button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
     
-    // YENİ BİLET DETAY MODALI
     if (type === 'ticketDetail') {
         return renderTicketDetailModal();
     }
@@ -2217,62 +2183,77 @@ html, body {
     return '';
   }
 
+  // YENİ: Auth ve Veri Yükleme Ekranı
+  function renderAuthScreen() {
+      return `
+          <div class="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 theme-modal-bg rounded-xl border">
+              <div class="mb-4">${ICONS.spinner}</div>
+              <h2 class="text-xl font-bold text-blue-400 mb-2">Seyahat Cüzdanı Yükleniyor</h2>
+              <p class="text-sm text-[var(--text-muted)]">
+                  ${state.isAuthReady ? 'Verileriniz buluttan senkronize ediliyor...' : 'Kullanıcı kimliği doğrulanıyor...'}
+              </p>
+              ${state.err ? `<div class="mt-4 text-red-400 font-medium text-sm">${state.err}</div>` : ''}
+          </div>
+      `;
+  }
+
+
   function renderApp(){
     try {
         const root=document.getElementById('app-root');
         
-        // Temayı body etiketine uygula
         document.body.setAttribute('data-theme', state.theme);
         
-        const exp=state.exp.filter(x=>{
-          if(state.tripFilter && x.trip!==state.tripFilter) return false;
-          if(state.catFilter && x.cat!==state.catFilter) return false;
-          
-          // YENİ: Bireysel Harcama Filtresi mantığı
-          if(state.individualFilter === 'individual') {
-              // Bireysel Harcama: isIndividual=true OLMALI
-              if (!x.isIndividual) return false;
-          } else if (state.individualFilter === 'shared') {
-              // Ortak Harcama: isIndividual=false OLMALI
-              // Kişi sayısı 1'den büyük olanlar da Ortak sayılabilir, ancak şimdiki mantıkta sadece isIndividual=false olanları alıyoruz
-              if (x.isIndividual) return false;
-          }
-
-          // Arama
-          if(state.search){const q=state.search.toLowerCase(); return (x.city||'').toLowerCase().includes(q)||(x.place||'').toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q);}
-          
-          return true;
-        });
-
-        state._visibleExp = exp;
-
         let h = renderHeader();
-        // Konum alma sırasında oluşan hata mesajını kontrol et
-        if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
+        
+        if (!state.isAuthReady || !state.isDataLoaded) {
+            // AUTH VEYA VERİ YÜKLEME AŞAMASI
+            h += renderAuthScreen();
+        } else {
+            // ANA UYGULAMA GÖRÜNÜMÜ
+            if(state.err) h+=`<div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg mb-4 border border-rose-500/30 text-sm flex items-center gap-2 font-bold">${ICONS.info} ${state.err}</div>`;
+            
+            // Filtreleme mantığı
+            const exp=state.exp.filter(x=>{ 
+                if(state.tripFilter && x.trip!==state.tripFilter) return false;
+                if(state.catFilter && x.cat!==state.catFilter) return false;
+                
+                if(state.individualFilter === 'individual') {
+                    if (!x.isIndividual) return false;
+                } else if (state.individualFilter === 'shared') {
+                    if (x.isIndividual) return false;
+                }
 
-        if(state.view==='list'){
-          h += renderTabs();
-          if(state.tab==='exp'){
-            h+= renderDashboardHeader(exp);
-            h+= renderFilters(exp.length);
-            h+= renderExpenseList(exp);
-            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
-          } else if (state.tab==='chk'){
-             h+= renderChecklist();
-          } else if (state.tab==='helpers'){
-             h+= renderHelpers();
-          } 
-        } else if (state.view === 'form') {
-          h+= renderForm(); // Harcama Formu
-        } else if (state.view === 'ticketForm') {
-          h+= renderTicketForm(); // Yeni Bilet Formu
+                if(state.search){const q=state.search.toLowerCase(); return (x.city||'').toLowerCase().includes(q)||(x.place||'').toLowerCase().includes(q)||(x.desc||'').toLowerCase().includes(q);}
+                
+                return true;
+            });
+            state._visibleExp = exp;
+            
+            if(state.view==='list'){
+              h += renderTabs();
+              if(state.tab==='exp'){
+                h+= renderDashboardHeader(exp);
+                h+= renderFilters(exp.length);
+                h+= renderExpenseList(exp);
+                h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+              } else if (state.tab==='chk'){
+                 h+= renderChecklist();
+              } else if (state.tab==='helpers'){
+                 h+= renderHelpers();
+              } 
+            } else if (state.view === 'form') {
+              h+= renderForm();
+            } else if (state.view === 'ticketForm') {
+              h+= renderTicketForm();
+            }
         }
-
+        
+        // MODALLAR
         if(state.modals.tzSelect) h+=renderModal('tz-select'); 
         if(state.modals.detail) h+=renderModal('detail');
         if(state.modals.chart) h+=renderModal('chart');
         if(state.modals.data) h+=renderModal('data');
-        // YENİ MODAL: Rezervasyon Detayı
         if(state.modals.ticketDetail) h+=renderModal('ticketDetail'); 
 
         if(state.lightbox) h+=`<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
@@ -2285,32 +2266,69 @@ html, body {
     } catch(e) { console.error(e); }
   }
   
-  // --- DRAG AND DROP HANDLERS (Kaldırıldı) ---
-  window.handleDragStart = (e) => { e.preventDefault(); };
-  window.handleDragOver = (e) => { e.preventDefault(); };
-  window.handleDrop = (e) => { e.preventDefault(); };
-  window.handleDragEnd = (e) => { e.preventDefault(); };
+  // --- AUTH VE DATA İŞLEMLERİ BAŞLANGIÇ ---
+  async function setupFirebase() {
+      if (typeof initApp === 'undefined') {
+          console.error("Firebase SDK bulunamadı. Lütfen internet bağlantınızı kontrol edin.");
+          setState({ isAuthReady: true, isDataLoaded: true, err: 'Firebase SDK yüklenemedi. İnternet bağlantınızı kontrol edin.' });
+          return;
+      }
+      
+      try {
+          // 1. Firebase Uygulamasını Başlat
+          const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+          if (!firebaseConfig.apiKey) {
+              throw new Error("Firebase yapılandırma bilgileri eksik.");
+          }
+          app = initApp(firebaseConfig);
+          auth = getAuth(app);
+          db = getFirestore(app);
+
+          // 2. Kimlik Doğrulama
+          const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+          if (initialAuthToken) {
+              await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+              // Token yoksa anonim giriş yap
+              await signInAnonymously(auth);
+          }
+          
+          // 3. Auth Durumunu Dinle ve Veriyi Yükle
+          onAuthStateChanged(auth, (user) => {
+              if (user) {
+                  const newUserId = user.uid;
+                  // Sadece kullanıcı ID'si değiştiyse veya ilk kez yükleniyorsa dinleyiciyi başlat
+                  if (state.userId !== newUserId) {
+                      setState({ userId: newUserId, isAuthReady: true });
+                      setupFirestoreListener(newUserId);
+                  } else {
+                      setState({ isAuthReady: true });
+                  }
+              } else {
+                  // Kullanıcı çıkış yapmışsa (Anonim girişle bu nadir olur)
+                  setState({ userId: null, isAuthReady: true, isDataLoaded: true, exp: [], chk: {cats:[...DEF_CATS], items:[]}, err: 'Oturum sona erdi. Anonim olarak yeniden deneniyor.' });
+                  signInAnonymously(auth).catch(e => console.error("Anonim giriş başarısız:", e));
+              }
+          });
+
+      } catch (e) {
+          console.error("Firebase başlatma/giriş hatası:", e);
+          setState({ isAuthReady: true, isDataLoaded: true, err: `Giriş Hatası: ${e.message}. Uygulama başlatılamadı.` });
+      }
+  }
+
+  // --- EVENT HANDLERS (Sadece save() çağrıları güncellendi) ---
   
   document.addEventListener('click',e=>{
     const t=e.target.closest('[data-act]'); 
-    
-    // Düzenle/Sil butonlarına tıklamaları detay açma işlemini durdurmalı
-    if (e.target.closest('[data-stop-propagation="true"]')) {
-        e.stopPropagation();
-        // Silme/Düzenleme aksiyonu burada ele alınmalı (aşağıda var)
-    }
-
+    if (e.target.closest('[data-stop-propagation="true"]')) { e.stopPropagation(); }
     if(!t) {
-        // Form overlay'ı için kapatma (Hem harcama hem bilet)
         if((state.view === 'form' || state.view === 'ticketForm') && e.target.classList.contains('form-modal-overlay')) {
-            state.view = 'list';
-            state.err = '';
-            renderApp();
-            return;
+            state.view = 'list'; state.err = ''; renderApp(); return;
         }
         return;
     }
-    
     const act=t.dataset.act, val=t.dataset.val, id=t.dataset.id;
     
     // YENİ AKSIYON: Tema Değiştirme
@@ -2330,7 +2348,6 @@ html, body {
     // DÜZELTME: open-url aksiyonu eklendi
     if(act === 'open-url'){
         if (val) {
-            // Harita linki (data-act="open-url") veya Rezervasyon URL'si (data-act="open-url")
             window.open(val, '_blank');
         }
         return;
@@ -2339,18 +2356,14 @@ html, body {
     // Yardımcılar Akordiyon Açma/Kapama
     if(act === 'tog-accordion'){
         const currentStatus = state.helpersAccordion[val];
-        // Tüm akordiyonları kapat, sadece seçileni aç
         const newAccordionState = {};
         Object.keys(state.helpersAccordion).forEach(key => {
             newAccordionState[key] = false;
         });
         
-        // Eğer zaten açıksa kapat, kapalıysa aç
         if (!currentStatus) {
             newAccordionState[val] = true;
-            // EĞER RAPOR AKORDİYONU AÇILIYORSA, SEYAHAT LİSTESİNİ GÜNCELLE
             if (val === 'report') {
-                 // Sadece exp harcamaları üzerinden seyahatleri al
                  const allTrips = [...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort();
                  if (allTrips.length > 0 && !allTrips.includes(state.selectedReportTrip)) {
                     state.selectedReportTrip = allTrips[0];
@@ -2365,12 +2378,10 @@ html, body {
     }
     
     // Navigation
-    // Rapor sekmesi kaldırıldığı için sadece exp, chk, helpers kaldı
     if(act==='tab'){
         if(val === 'exp' || val === 'chk' || val === 'helpers') {
             state.tab=val; 
             state.search = '';
-            // YARDIMCILAR sekmesine geçildiğinde konumu otomatik al
             if (val === 'helpers') {
                 handleGeolocation();
             }
@@ -2396,11 +2407,10 @@ html, body {
              state.ticketForm = existingTicket;
         } else {
              state.ticketForm = getEmptyTicketForm();
-             // Harcama filtresi varsa bilete otomatik ata
              if(state.tripFilter) state.ticketForm.trip=state.tripFilter; 
         }
         state.view = 'ticketForm';
-        state.err = ''; // Hata mesajını temizle
+        state.err = '';
         renderApp();
     }
     if(act === 'cancel-ticket-form'){
@@ -2408,6 +2418,8 @@ html, body {
         state.err = '';
         renderApp();
     }
+    
+    // Rezervasyon Kaydetme
     if(act === 'save-ticket'){
         const f = state.ticketForm;
         if(!f.trip || !f.name || !f.date || !f.time) {
@@ -2424,12 +2436,19 @@ html, body {
         save();
         state.err = '';
         state.view = 'list';
-        // Biletler akordiyonunu açık tut
         state.helpersAccordion.tickets = true; 
         renderApp();
     }
+    
+    // Rezervasyon Detay Kartı Açma
+    if(act === 'open-ticket-detail'){
+        state.selectedTicketId = id;
+        state.modals.ticketDetail = true;
+        renderApp();
+    }
+    
+    // Rezervasyon Silme (Liste)
     if(act === 'del-ticket'){
-        // Bu, liste görünümündeki düğmeden tetiklenir
         if(id && confirm('Bu rezervasyon kaydı silinecek. Onaylıyor musunuz?')){
              state.travelTickets = state.travelTickets.filter(x => x.id !== id);
              save();
@@ -2437,7 +2456,8 @@ html, body {
              renderApp();
         }
     }
-    // Rezervasyon Detay modalından silme
+    
+    // Rezervasyon Silme (Detay)
     if(act === 'del-ticket-detail'){
         const ticketId = id;
         if(ticketId && confirm('Bu rezervasyon kaydı silinecek. Onaylıyor musunuz?')){
@@ -2458,35 +2478,19 @@ html, body {
             renderApp();
         }
     }
-    // Rezervasyon Detay Kartı Açma
-    if(act === 'open-ticket-detail'){
-        state.selectedTicketId = id;
-        state.modals.ticketDetail = true;
-        renderApp();
-    }
-    if(act === 'set-ticket-type'){
-        state.ticketForm.type = val;
-        renderApp();
-    }
     
     // Not İşlemleri
     if (act === 'add-note') {
         const noteText = state.newCriticalNote.trim();
         if (noteText) {
-            state.criticalNotes.push({
-                id: genId(),
-                trip: state.selectedNoteTrip,
-                note: noteText,
-            });
+            state.criticalNotes.push({ id: genId(), trip: state.selectedNoteTrip, note: noteText });
             state.newCriticalNote = '';
-            save();
-            renderApp();
+            save(); renderApp();
         }
     }
     if (act === 'del-note') {
         state.criticalNotes = state.criticalNotes.filter(n => n.id !== id);
-        save();
-        renderApp();
+        save(); renderApp();
     }
     
     // Temizleme (Harcama)
@@ -2506,7 +2510,6 @@ html, body {
     // Checklist İşlemleri
     if(act==='reset-chk'){
         if(confirm('Mevcut liste SİLİNECEK ve varsayılan listeye dönülecek. Onaylıyor musun?')){
-             // Varsayılan maddeler korunsun ama hepsi 'done: false' olarak ayarlanmasın (initState'te yapıldığı gibi)
              state.chk.items = DEF_ITEMS.map(i => ({id: genId(), cat: i.cat, val: i.val, done: false}));
              state.chk.cats = [...DEF_CATS];
              state.openChkCats = {}; state.chk.cats.forEach(x=>state.openChkCats[x.id]=false); 
@@ -2548,7 +2551,6 @@ html, body {
             iconInput.value = '';
             save(); renderApp();
         } else {
-            // alert('Lütfen bir kategori adı girin.'); // Alert yerine setState err kullanılmalı
             state.err = 'Lütfen bir kategori adı girin.';
             renderApp();
         }
@@ -2556,7 +2558,6 @@ html, body {
     
     // Kategori Silme
     if(act === 'del-chk-cat-confirm') {
-         // Silme mantığı artık tüm kategoriler için çalışacak.
          if (id && confirm('Bu kategori ve İÇİNDEKİ TÜM MADDELER silinecek. Onaylıyor musun?')) {
              state.chk.cats = state.chk.cats.filter(c => c.id !== id);
              state.chk.items = state.chk.items.filter(i => i.cat !== id);
@@ -2569,83 +2570,52 @@ html, body {
     // Harcama Formu Kategorisi
     if(act==='set-cat'){
         state.form.cat=val; 
-        // Eğer yakıt kategorisi seçilirse, isFuel'i otomatik işaretle
         if (val === 'fuel') {
             state.form.isFuel = true;
-            // Yakıt aktifleştiğinde, Mekan için bir ipucu yer tutucu ayarla
             if (!state.form.place) state.form.place = 'Akaryakıt İstasyonu';
         } else if (state.form.isFuel && val !== 'fuel') {
-             // Eğer yakıt harcaması işaretliydi ama farklı bir kategori seçildi, isFuel'i kapat ve yakıt alanlarını temizle
              state.form.isFuel = false;
              state.form.startKm = '';
-             state.form.endKm = ''; // Yeni alan temizlendi
+             state.form.endKm = ''; 
              state.form.fuelAmount = '';
         }
         renderApp();
     }
     
-    if(act==='del-img'){state.form.imgs.splice(val,1); renderApp();} // FOTOĞRAF SİLME GERİ EKLENDİ
+    if(act==='del-img'){state.form.imgs.splice(val,1); save(); renderApp();}
+    
+    // Harcama Kaydetme
     if(act==='save'){
        const f=state.form;
-       
-       // Yakıt harcaması ise kategori otomatik 'fuel' olmalı
        if(f.isFuel) f.cat = 'fuel';
-       
-       // Bireysel harcama ise kişi sayısı 1 olmalı
        if (f.isIndividual) f.ppl = '1';
-
        if(!f.city || !f.place || !f.amt || !f.cat) { 
            state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).'; 
            renderApp(); 
            return; 
        }
-       
-       // Kişi sayısı kontrolü. 1'den az olamaz
        let ppl = parseInt(f.ppl) || 1;
-       if (ppl < 1) {
-           ppl = 1;
-       }
-       
-       // Yakıt harcaması için km kontrolü
+       if (ppl < 1) { ppl = 1; }
        if (f.isFuel && (!f.startKm || !f.endKm || !f.fuelAmount)) {
            state.err = 'Yakıt harcaması için Başlangıç Km, Bitiş Km ve Yakıt Miktarı alanları zorunludur.'; 
            renderApp(); 
            return; 
        }
-
-       // Kayıt oluştur
-       const rec={...f, 
-            id:f.id||genId(), 
-            city:titleCase(f.city), 
-            place:titleCase(f.place), 
-            trip:titleCase(f.trip),
-            ppl: String(ppl), // ppl değerini string olarak sakla
-        };
-       
-       // Sadece sayısal alanları temizle
+       const rec={...f, id:f.id||genId(), city:titleCase(f.city), place:titleCase(f.place), trip:titleCase(f.trip), ppl: String(ppl)};
        if (f.isFuel) {
-           rec.startKm = String(rec.startKm).replace(/[^0-9]/g, ''); // Sadece rakam
-           rec.endKm = String(rec.endKm).replace(/[^0-9]/g, ''); // Sadece rakam
-           rec.fuelAmount = String(rec.fuelAmount).replace(',','.').replace(/[^0-9.]/g,''); // Sayı ve nokta/virgül
-           
-           // Bitiş km başlangıç km'den küçükse hata ver
+           rec.startKm = String(rec.startKm).replace(/[^0-9]/g, '');
+           rec.endKm = String(rec.endKm).replace(/[^0-9]/g, '');
+           rec.fuelAmount = String(rec.fuelAmount).replace(',','.').replace(/[^0-9.]/g,'');
            if (Number(rec.endKm) < Number(rec.startKm)) {
-               state.err = 'Bitiş Kilometresi, Başlangıç Kilometresinden küçük olamaz.'; 
-               renderApp(); 
-               return; 
+               state.err = 'Bitiş Kilometresi, Başlangıç Kilometresinden küçük olamaz.'; renderApp(); return; 
            }
        }
-       
-       // Mekan alanını tekrar titleCase yap
        rec.place = titleCase(f.place);
        
        if(f.id) state.exp=state.exp.map(x=>x.id===f.id?rec:x); else state.exp=[...state.exp,rec];
-       
        state.expandedCities[rec.city]=true; 
        save(); 
-       state.err=''; 
-       state.view='list'; 
-       renderApp();
+       state.err=''; state.view='list'; renderApp();
     }
     
     // Liste
@@ -2657,7 +2627,6 @@ html, body {
     
     // Modal Yönetimi
     if(act==='close-mod'){
-      // Hem harcama hem de bilet detayını kapat
       if(val === 'tzSelect') state.modals.tzSelect = false;
       else if(val === 'ticketDetail') state.modals.ticketDetail = false;
       else state.modals={detail:false,chart:false,data:false, ticketDetail: false}; 
@@ -2665,18 +2634,7 @@ html, body {
     }
     
     // Saat Dilimi Modalı Aç/Seç
-    if(act==='open-tz-modal'){
-        state.modals.tzSelect = true;
-        renderApp();
-    }
-    if(act==='select-tz'){
-       state.targetTimezone = val;
-       state.modals.tzSelect = false;
-       save();
-       if (timeInterval) clearInterval(timeInterval);
-       startClock();
-       renderApp();
-    }
+    if(act==='open-tz-modal'){ state.modals.tzSelect = true; renderApp(); }
 
     // Harcama Detayı Silme
     if(act==='del-exp-detail'){
@@ -2690,8 +2648,7 @@ html, body {
     if(act==='edit'){
         const x=state.exp.find(e=>e.id===state.selExp); 
         if(x){
-            // isFuel'i boolean'a çevirerek form state'ine kopyala
-            state.form={...x, isFuel: !!x.isFuel, isIndividual: !!x.isIndividual}; // isIndividual eklendi
+            state.form={...x, isFuel: !!x.isFuel, isIndividual: !!x.isIndividual};
             state.modals.detail=false; 
             state.view='form'; 
             renderApp();
@@ -2699,22 +2656,13 @@ html, body {
     }
     
     // Seyahat Taşıma
-    
-    // Seyahat Taşıma
     if(act==='move-trip'){
-       // Sadece isFuel olmayan harcamalar için çalışacak
        const x=state.exp.find(e=>e.id===state.selExp);
-       // isFuel kontrolü kaldırıldı (Tüm harcamalar taşınabilir)
        if(x) {
            const sel = document.getElementById('move-trip-select');
            const inp = document.getElementById('move-trip-inp');
-
            let newT = '';
-           if(sel && sel.value && sel.value !== '__new__'){
-               newT = sel.value.trim();
-           } else if(inp){
-               newT = titleCase(inp.value.trim());
-           }
+           if(sel && sel.value && sel.value !== '__new__'){ newT = sel.value.trim(); } else if(inp){ newT = titleCase(inp.value.trim()); }
 
            if(newT && state.selExp){
              state.exp = state.exp.map(x=>x.id===state.selExp ? {...x, trip:newT} : x);
@@ -2722,25 +2670,62 @@ html, body {
              state.modals.detail = false; 
              renderApp();
            } else {
-               // alert('Lütfen bir seyahat seçin veya yeni bir seyahat adı yazın.'); // Alert yerine setState err kullanılmalı
                state.err = 'Taşıma için bir seyahat adı yazın veya seçin.';
                renderApp();
            }
        }
     }
+    
     // Diğer 
     if(act==='lb'){state.lightbox=e.target.src; renderApp();}
     if(act==='close-lb'){state.lightbox=null; renderApp();}
     if(act==='open-chart'){state.modals.chart=true; renderApp();}
     if(act==='data'){state.modals.data=true; renderApp();}
-    if(act==='imp'){try{const d=JSON.parse(document.getElementById('io-txt').value);state.exp=d.exp||[];state.chk=d.chk||state.chk; state.travelTickets = d.tickets || d.tickets; save();state.modals.data=false;renderApp();}catch{alert('JSON Hatalı')}}
+    
+    // GÜNCELLENDİ: Veri Geri Yükleme
+    if(act==='imp'){
+        try{
+            const d=JSON.parse(document.getElementById('io-txt').value);
+            // Firestore'a kaydedilecek ana objeler
+            const exp = Array.isArray(d.exp) ? d.exp : [];
+            const chk = d.chk || state.chk;
+            const travelTickets = Array.isArray(d.tickets) ? d.tickets : (Array.isArray(d.travelTickets) ? d.travelTickets : []);
+            
+            // Veriyi yükle ve kaydet
+            setState({ 
+                exp: exp, 
+                chk: chk, 
+                travelTickets: travelTickets,
+                modals: { detail: false, chart: false, data: false, tzSelect: false, ticketDetail: false },
+                err: 'Veri başarıyla yüklendi ve Firebase\'e kaydediliyor.'
+            });
+            save(); 
+
+        } catch(e){
+            console.error('JSON yükleme hatası:', e);
+            setState({ err: 'HATA: JSON formatı hatalı veya bozuk. Lütfen geçerli bir JSON yapıştırın.' });
+        }
+    }
+    
+    // GÜNCELLENDİ: JSON Kopyalama
     if(act==='copy-json'){
       const textarea = document.getElementById('io-txt');
       textarea.select();
       document.execCommand('copy');
-      const originalText = textarea.value;
-      textarea.value = "JSON kopyalandı!";
-      setTimeout(() => textarea.value = originalText, 1000);
+      const originalValue = textarea.value;
+      const originalClass = textarea.className;
+      
+      // Kopyalandı mesajı göster
+      textarea.value = "JSON verisi panoya kopyalandı! ✅";
+      textarea.className = originalClass + " text-emerald-400 font-bold bg-green-900/40";
+      
+      // 1.5 saniye sonra eski haline döndür
+      setTimeout(() => {
+          if (textarea) { 
+              textarea.value = originalValue;
+              textarea.className = originalClass;
+          }
+      }, 1500);
     }
   });
 
@@ -2752,8 +2737,6 @@ html, body {
     }
     if(t.dataset.act==='flt-trip'){state.tripFilter=t.value; renderApp();}
     if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
-    
-    // YENİ DÜZELTME: flt-individual aksiyonu kaldırıldı, yeni select aksiyonu eklendi
     if(t.dataset.act==='flt-individual-type'){
         state.individualFilter=t.value; 
         renderApp();
@@ -2763,10 +2746,8 @@ html, body {
     if(t.dataset.act==='is-individual-toggle'){
         state.form.isIndividual = t.checked;
         if (t.checked) {
-            // Bireysel ise kişi sayısı 1'e sabitlenir
             state.form.ppl = '1'; 
         } else {
-            // Bireysel değilse kişi sayısı 1'e döner
             state.form.ppl = '1'; 
         }
         renderApp();
@@ -2776,27 +2757,22 @@ html, body {
     if(t.dataset.act==='is-fuel-toggle'){
         state.form.isFuel = t.checked;
         if (t.checked) {
-            // Yakıt aktifleşirse, kategoriyi otomatik "fuel" yap
             state.form.cat = 'fuel';
-            // Yakıt aktifleştiğinde, Mekan için bir ipucu yer tutucu ayarla
             if (!state.form.place || state.form.place === 'Akaryakıt İstasyonu') {
-                state.form.place = 'Akaryakıt İstasyonu';
+                state.form.place = 'Akaryıt İstasyonu';
             }
         } else {
-            // Kapanırsa yakıt alanlarını temizle ve kategoriyi boşalt
             state.form.cat = '';
             state.form.startKm = '';
-            state.form.endKm = ''; // Yeni alan temizlendi
+            state.form.endKm = '';
             state.form.fuelAmount = '';
         }
         renderApp();
     }
     
-    // ROTA SEYAHAT SEÇİMİ (Yeni Eklendi)
+    // ROTA SEYAHAT SEÇİMİ
     if(t.id === 'route-trip-select'){
-        
         state.routeTrip = t.value;
-        // Rota alanını açık tut ve içeriği yenile
         state.helpersAccordion.route = true; 
         renderApp(); 
     }
@@ -2808,17 +2784,16 @@ html, body {
         renderApp();
     }
     
-    // DÜZELTME: Not seyahati seçimi (select element change event'ini kullanmalı)
+    // Not seyahati seçimi
     if(t.dataset.act==='set-note-trip'){
         state.selectedNoteTrip = t.value;
-        state.newCriticalNote = ''; // Seyahat değiştiğinde not girişi temizlenmeli
+        state.newCriticalNote = ''; 
         renderApp();
     }
     
-    // YENİ RAPOR SEYAHAT SEÇİMİ
+    // RAPOR SEYAHAT SEÇİMİ
     if(t.dataset.act==='set-report-trip'){
         state.selectedReportTrip = t.value;
-        // Rapor akordiyonunu açık tut
         state.helpersAccordion.report = true; 
         renderApp();
     }
@@ -2827,11 +2802,11 @@ html, body {
     if(t.dataset.act==='img-upload'){
         const files = t.files;
         const currentCount = state.form.imgs.length;
-        const newFiles = Array.from(files).slice(0, MAX_IMAGES - currentCount); // Maksimum limiti aşmayacak şekilde dosyaları al
+        const newFiles = Array.from(files).slice(0, MAX_IMAGES - currentCount); 
         
         if (newFiles.length === 0 && files.length > 0) {
             setState({ err: `Maksimum ${MAX_IMAGES} fotoğraf ekleme limitine ulaşıldı.` });
-            t.value = ''; // Input'u temizle
+            t.value = '';
             return;
         }
 
@@ -2839,24 +2814,21 @@ html, body {
             
             setState({ err: 'Resimler işleniyor ve optimize ediliyor... Lütfen bekleyiniz.' });
             
-            const errorMessages = []; // Hata mesajlarını toplamak için yeni dizi
+            const errorMessages = []; 
 
             const readerPromises = newFiles.map(file => {
-                // Burada artık dosya boyutu kontrolü yapılmıyor
                 return resizeAndConvertImage(file)
                     .catch(error => {
                         errorMessages.push(`Hata (${file.name}): ${error.message}`);
-                        return null; // Başarısız resimler için null döndür
+                        return null;
                     });
             });
 
             Promise.all(readerPromises)
                 .then(processedImages => {
-                    // Sadece başarılı olan resimleri Base64 formatında al
                     const validImages = processedImages.filter(img => img !== null);
                     
                     if (validImages.length > 0) {
-                        // Yeni resimleri ekle ve limiti tekrar kontrol et
                         const updatedImgs = [...state.form.imgs, ...validImages];
                         state.form.imgs = updatedImgs.slice(0, MAX_IMAGES);
                     }
@@ -2867,24 +2839,21 @@ html, body {
                     } else if (validImages.length === 0 && files.length > 0) {
                         finalError = 'Hiç resim yüklenemedi (Desteklenmeyen dosya formatı veya bilinmeyen hata).';
                     } else {
-                        // Başarılıysa hata mesajını temizle
                         finalError = '';
                     }
 
-                    // Input alanını temizle ki, kullanıcı aynı resmi tekrar seçebilsin
                     t.value = ''; 
-                    setState({ err: finalError }); // Son hata durumunu ayarla ve render et
+                    setState({ err: finalError }); 
 
                 })
                 .catch(error => {
                     console.error("Resim işlenirken beklenmeyen genel genel hata oluştu:", error);
                     state.err = "Resim yüklenirken beklenmeyen genel bir hata oluştu.";
-                    // Input alanını temizle
                     t.value = '';
                     renderApp();
                 });
         } else {
-             t.value = ''; // Input temizlendi
+             t.value = '';
         }
     }
   });
@@ -2892,27 +2861,22 @@ html, body {
   document.addEventListener('input', e => {
     const t = e.target;
     
-    // 1. Arama Çubuğu
     if(t.dataset.act==='search'){state.search=t.value; renderApp(); return;}
     
-    // 2. Kritik Notlar
     if(t.dataset.act==='update-new-note'){
         state.newCriticalNote = t.value;
-        // Not girişi değiştiğinde render yapmaya gerek yok, sadece state'i güncelle
         return; 
     }
 
-    // 3. Bilet Formu Girişi
     if (state.view === 'ticketForm') {
         let shouldRender = false;
         switch(t.id) {
             case 'i-ticket-trip': state.ticketForm.trip = t.value; break;
             case 'i-ticket-name': state.ticketForm.name = t.value; break;
-            case 'i-ticket-location': state.ticketForm.location = t.value; break; // YENİ ALAN
+            case 'i-ticket-location': state.ticketForm.location = t.value; break;
             case 'i-ticket-date': state.ticketForm.date = t.value; shouldRender = true; break;
             case 'i-ticket-time': state.ticketForm.time = t.value; shouldRender = true; break;
             case 'i-ticket-url': 
-                // DÜZELTME: Eğer boşsa veya sadece "https://" ise temizle
                 let urlValue = t.value.trim();
                 if (urlValue === 'https://' || urlValue === '') {
                     state.ticketForm.url = 'https://';
@@ -2928,50 +2892,43 @@ html, body {
     }
 
 
-    // 4. Harcama Formu Girişi (Formu tutar ve renderApp çağırır)
     const fExp=state.form; 
-    let shouldRender = false; // Harcama formu girişlerinde render'ı kontrol etmek için
+    let shouldRender = false;
 
     switch(t.id) {
         case 'i-trip': fExp.trip = t.value; break;
         case 'i-city': fExp.city = t.value; break;
         case 'i-place': fExp.place = t.value; break;
         case 'i-amt': 
-            // Sadece sayısal/decimal karakterlere izin ver
             const cleanAmt = t.value.replace(',','.').replace(/[^0-9.]/g,'');
             fExp.amt = cleanAmt;
-            // Tutar değiştiğinde render yapma, sadece state'i güncelle
             break;
-        case 'i-cur': fExp.cur = t.value; shouldRender = true; break; // Para birimi seçimi değiştiğinde render et
+        case 'i-cur': fExp.cur = t.value; shouldRender = true; break;
         case 'i-ppl': 
-             // YENİ KONTROL: Eğer bireysel harcama işaretliyse kişi sayısını değiştirmesine izin verme
              if (fExp.isIndividual) {
                  t.value = '1';
                  fExp.ppl = '1';
                  break;
              }
-             // Kişi sayısı 1'den az olamaz
              const num = parseInt(t.value) || 1;
              fExp.ppl = String(Math.max(1, num)); 
              break; 
-        case 'i-date': fExp.date = t.value; shouldRender = true; break; // Tarih değiştiğinde render et
+        case 'i-date': fExp.date = t.value; shouldRender = true; break;
         case 'i-desc': fExp.desc = t.value; break;
-        // YENİ ALANLAR İÇİN INPUT İŞLEMLERİ
-        case 'i-start-km': fExp.startKm = t.value.replace(/[^0-9]/g, ''); break; // Sadece rakam
-        case 'i-end-km': fExp.endKm = t.value.replace(/[^0-9]/g, ''); break; // Sadece rakam
+        case 'i-start-km': fExp.startKm = t.value.replace(/[^0-9]/g, ''); break;
+        case 'i-end-km': fExp.endKm = t.value.replace(/[^0-9]/g, ''); break;
         case 'i-fuel-amount': 
-             // Sayı ve nokta/virgül
             fExp.fuelAmount = t.value.replace(',','.').replace(/[^0-9.]/g,'');
             break; 
-        default: return; // Bilinmeyen input
+        default: return;
     }
     
-    // Harcama formu güncellendiğinde ekranı sadece gerekli durumlarda veya manuel olarak çiz
     if (shouldRender) {
         renderApp();
     }
   });
-  
+
+
   // Saati her saniye güncelleyen ana fonksiyon
   const updateClock = () => {
       const timeElement = document.getElementById('local-time');
@@ -2983,9 +2940,7 @@ html, body {
   };
 
   const startClock = () => {
-      // Önce saati bir kere güncelle
       updateClock();
-      // Sonra her saniye güncellemeye devam et
       timeInterval = setInterval(updateClock, 1000);
   };
 
@@ -2993,14 +2948,13 @@ html, body {
       initState(); 
       renderApp();
       startClock(); 
-      
-      // Uygulama yüklendiğinde kur bilgisi çekme kodu kaldırıldı
+      setupFirebase(); // Firebase'i başlat ve verileri yükle
   };
   
-  // kapatıldığında veya yenilendiğinde interval'i temizle
   window.onbeforeunload = function() {
       if (timeInterval) clearInterval(timeInterval);
   };
+  
 })();
 </script>
 </body>
