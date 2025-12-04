@@ -1980,7 +1980,9 @@ html, body {
                           value="${f.ppl}"
                           ${isIndividualActive ? 'disabled' : ''}>
                   </div>
-                   </div>
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1"></p>' : ''}
+               </div>
+            </div>
             
             <div>
                <input id="i-date" type="date" class="w-full theme-input border rounded-lg p-3 text-sm outline-none" value="${f.date}">
@@ -3103,5 +3105,3 @@ html, body {
 </script>
 </body>
 </html>
-
-
