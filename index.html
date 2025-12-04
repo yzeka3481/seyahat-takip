@@ -66,7 +66,7 @@ html, body {
 .scrl::-webkit-scrollbar-track{background:transparent}
 
 /* Checkbox custom style (Renkler korundu) */
-.custom-checkbox:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg>"); border-color: transparent; background-color: #10b981; }
+.custom-checkbox:checked { background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3csvg>"); border-color: transparent; background-color: #10b981; }
 
 /* Glass Panel için dinamik renkler */
 .glass-panel { 
@@ -206,7 +206,12 @@ html, body {
   
   // --- VERİ KAYDETME (FIRESTORE) ---
   const save = async () => {
-      if (!state.isAuthReady || !state.userId || !db) return;
+      // Düzeltme: db null ise ve auth ready değilse kaydetme.
+      if (!state.isAuthReady || !state.userId || !db) {
+          console.warn("Veri kaydetme atlandı: Firebase hazır değil veya kullanıcı kimliği yok.");
+          // Hata verildiyse tekrar render'a gerek yok.
+          return;
+      }
       
       const dataToSave = {
           exp: state.exp,
@@ -222,16 +227,19 @@ html, body {
           await setDoc(docRef, dataToSave, { merge: true });
           localStorage.setItem(K.PREF+'_tz', state.targetTimezone); 
           localStorage.setItem(K.THEME, state.theme);
+          console.log("Veri başarıyla Firestore'a kaydedildi.");
       } catch (e) {
           console.error("Veri kaydetme hatası:", e);
-          state.err = "Veri Kayıt Hatası: Senkronizasyon başarısız oldu.";
-          renderApp();
+          setState({err: "Veri Kayıt Hatası: Senkronizasyon başarısız oldu. (Firestore/Network)"});
       }
   };
   
   // --- VERİ YÜKLEME VE DİNLEME (onSnapshot) ---
   async function setupFirestoreListener(userId) {
-      if (!db) return;
+      if (!db) {
+         console.warn("Firestore dinleyicisi başlatılamadı: db nesnesi mevcut değil.");
+         return;
+      }
 
       const docRef = getUserDocRef(userId);
       
@@ -315,19 +323,18 @@ html, body {
               }
               
               if (!docSnap.exists() && state.isAuthReady) {
+                  // Veri yoksa, varsayılanları kaydet
                   save();
               }
           }
       }, (error) => {
           console.error("Firestore dinleme hatası:", error);
           setState({ 
-              err: "Veritabanı bağlantı hatası. Veriler yüklenemedi.",
+              err: "Veritabanı bağlantı hatası. Veriler yüklenemedi. (Firestore)",
               isDataLoaded: true, // Hata olsa bile yükleme tamamlandı
           });
       });
   }
-  
-  // Harcama Grafiği ve Diğer Sabitler (Önceki koddan)
   
   const getCityColor = (str) => {
     let hash = 0; if (!str) return 'hsl(210, 100%, 50%)'; 
@@ -477,7 +484,7 @@ html, body {
         view:'list', tab:'exp', tripFilter:'', routeTrip:'', catFilter:'', individualFilter: '', search:'', selExp:null,
         modals:{detail:false,chart:false,data:false, tzSelect: false, ticketDetail: false}, 
         form:getEmptyForm(), ticketForm: getEmptyTicketForm(), selectedTicketId: null,
-        expandedCities:{}, lightbox:null, err:'',
+        expandedCities:{}, lightbox:null, err:'Uygulama başlatılıyor...', // Başlangıç loading/hata mesajı
         
         // Tercihler
         targetTimezone: prefTZ, 
@@ -536,7 +543,7 @@ html, body {
     const colors = keys.map(id => (CATS[id] && CATS[id].c) || 'rgba(148,163,184,0.8)');
     const trips = [...new Set(filtered.map(x=> x.trip || 'Genel'))];
     const total = data.reduce((a,b)=>a+b,0);
-    return {labels,data,colors,currency:cur,currencies,total,trips, perCat};
+    return {labels,data,colors,currency:cur,currencies,total,perCat};
   }
   
   function getTripExpenses(tripName) {
@@ -804,24 +811,25 @@ html, body {
   };
 
   // --- FIREBASE KURULUMU VE YETKİLENDİRME ---
-  // KRİTİK DÜZELTME: Firebase yapılandırma hatalarını ele almak için bu fonksiyonu ekledik.
   async function setupFirebase() {
       let firebaseConfigString = null;
       let attempt = 0;
-      const MAX_ATTEMPTS = 20; // 1 saniyeye kadar deneme (20 * 50ms)
+      const MAX_ATTEMPTS = 50; // 1 saniyeye kadar deneme (50 * 20ms)
+      const WAIT_TIME = 20; // 20ms bekleme
 
       // Yapılandırma bilgisi gelene kadar bekle
       while (firebaseConfigString === null && attempt < MAX_ATTEMPTS) {
           firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
           if (firebaseConfigString) break;
-          await new Promise(resolve => setTimeout(resolve, 50)); // 50ms bekle
+          await new Promise(resolve => setTimeout(resolve, WAIT_TIME)); // 20ms bekle
           attempt++;
       }
 
       if (!firebaseConfigString) {
           console.error("KRİTİK HATA: Firebase yapılandırma bilgileri eksik (Mobile/Canvas). Süre aşımı.");
-          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma bilgileri eksik. Veri kaydı yapılamıyor." });
-          return;
+          // State'i sadece burada güncelle, dışarıdan dönen değeri kontrol edeceğiz.
+          setState({ isAuthReady: false, err: "Giriş Hatası: Firebase yapılandırma bilgileri eksik. Veri kaydı yapılamıyor." });
+          return false;
       }
 
       let firebaseConfig;
@@ -830,8 +838,8 @@ html, body {
           if (!firebaseConfig.apiKey) throw new Error("API Key eksik.");
       } catch (e) {
           console.error("Firebase yapılandırması ayrıştırılamadı:", e);
-          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma verisi bozuk. Veri kaydı yapılamıyor." });
-          return;
+          setState({ isAuthReady: false, err: "Giriş Hatası: Firebase yapılandırma verisi bozuk. Veri kaydı yapılamıyor." });
+          return false;
       }
       
       try {
@@ -872,14 +880,15 @@ html, body {
               }
           });
           
-          // İlk yükleme sırasında onAuthStateChanged'in çalışmasını beklemek yeterlidir.
+          return true; // Başarıyı bildir
 
       } catch (error) {
           console.error("Firebase başlatma/Giriş hatası:", error);
           setState({ 
               err: `Giriş Hatası: Firebase'e bağlanılamadı. ${error.message}`,
-              isAuthReady: true, // Hata olsa bile auth süreci tamamlandı sayılabilir
+              isAuthReady: false, // Hata olsa bile auth süreci başarısız
           });
+          return false;
       }
   }
   
@@ -1443,11 +1452,23 @@ html, body {
       
       const badgeCls = isAnon ? 'bg-slate-700/50 text-slate-300' : 'bg-green-700/50 text-green-300';
       
+      let errorBadge = '';
+      if (!state.isAuthReady && state.err.includes('Firebase yapılandırma bilgileri eksik')) {
+         errorBadge = '<div class="text-[10px] text-red-400 bg-red-900/50 px-2 py-0.5 rounded-lg font-medium">VERİ KAYDI DEVRE DIŞI</div>';
+      } else if (state.isAuthReady && state.userId) {
+         errorBadge = ''; // Başarılıysa gösterme
+      } else if (state.isAuthReady && !state.userId) {
+         errorBadge = '<div class="text-[10px] text-orange-400 bg-orange-900/50 px-2 py-0.5 rounded-lg font-medium">Oturum Kapanmış</div>';
+      } else {
+         errorBadge = '<div class="text-[10px] text-blue-400 bg-blue-900/50 px-2 py-0.5 rounded-lg font-medium">Kimlik Doğrulanıyor...</div>';
+      }
+
       return `
         <div class="flex items-center gap-2 ${badgeCls} px-2 py-1 rounded-lg text-[10px] font-medium transition">
              ${ICONS.userCheck.replace('w-4 h-4', 'w-3.5 h-3.5')}
             <span title="${state.userId || 'Kimlik Bilgisi Alınmadı'}">${statusText}</span>
         </div>
+        ${errorBadge}
       `;
   }
 
@@ -1470,7 +1491,7 @@ html, body {
            <div>
               <h1 class="text-lg font-bold text-[var(--text-color)] tracking-tight">Seyahat Cüzdanı</h1>
               <!-- YENİ: KULLANICI DURUMU -->
-              ${state.isAuthReady ? getUserIdDisplay() : '<div class="text-xs text-blue-400">Kimlik Doğrulanıyor...</div>'}
+              ${getUserIdDisplay()}
            </div>
         </div>
         
@@ -2006,7 +2027,7 @@ html, body {
                 </a>
             </div>
         `)}
-        
+
         <!-- SEYAHAT RAPORU AKORDİYONU -->
         ${accordionItem('report', ICONS.report, 'Seyahat Raporu', renderReportContent(), true)}
       </div>
@@ -2069,7 +2090,7 @@ html, body {
       <!-- /ANA İÇERİK -->
 
       <!-- Ekleme butonu (Sabit ve görünür) -->
-      ${state.tab === 'exp' ? `
+      ${state.tab === 'exp' && state.isAuthReady ? `
         <button data-act="add" class="fixed right-6 bottom-6 md:right-8 md:bottom-8 bg-blue-600 text-white p-4 rounded-full shadow-2xl shadow-blue-500/50 hover:bg-blue-500 transition z-40">
            ${ICONS.plus.replace('w-4 h-4', 'w-6 h-6')}
         </button>
@@ -2115,6 +2136,18 @@ html, body {
       let id = t.dataset.id || t.closest('[data-act]')?.dataset.id;
       
       if(!act) return;
+      
+      // Eğer Firebase hazır değilse, harcama/kaydetme işlemlerini engelle
+      const requiresAuth = ['add', 'save', 'del', 'del-city', 'del-ticket', 'save-ticket', 'del-ticket-detail', 'edit-ticket-detail', 'chk', 'del-chk', 'add-chk', 'del-chk-cat-confirm', 'add-cat', 'reset-chk', 'clean-all-exp', 'add-critical-note', 'del-critical-note'];
+      if(requiresAuth.includes(act) && !state.isAuthReady){
+          if(state.err.includes("Firebase yapılandırma bilgileri eksik")){
+             // Sadece form açma/kapama eylemine izin ver
+             if(act !== 'add' && act !== 'cancel'){
+                 setState({err: "UYARI: Firebase bağlantısı kurulamadığı için veri kaydetme/silme işlemleri devre dışıdır."});
+             }
+             return;
+          }
+      }
 
       switch(act){
           case 'tab': setState({tab:val, search:'', tripFilter:'', catFilter:'', individualFilter:''}); break;
@@ -2284,13 +2317,6 @@ html, body {
           case 'import-data': importData(); break;
           case 'export-data': exportData(); break;
       }
-      
-      // Harcama formu, bilet formu, not, check list dışındaki her değişiklikte kaydet
-      if(act !== 'update-form' && act !== 'update-new-note' && act !== 'search' && act !== 'swap-currency' && act !== 'convert-currency' && act !== 'flt-trip' && act !== 'flt-cat' && act !== 'flt-individual-type' && act !== 'flt-ticket-trip' && act !== 'set-route-trip') {
-         // save() çağrısı artık set state içinde veya özel aksiyonlarda (save/del/chk) yapılıyor
-         // Bu genel save'i kaldırmak daha güvenli.
-      }
-      
       
   });
 
@@ -2976,13 +3002,22 @@ html, body {
       timeInterval = setInterval(updateClock, 1000);
   };
 
-  window.onload = function() {
+  window.onload = async function() { // async olarak tanımlandı
       initState(); 
-      // İlk render'ı yap (loading state'i göstermek için)
-      renderApp();
-      // Firebase'i başlat ve yetkilendir (bu, verileri çekecek)
-      setupFirebase();
-      // Saati başlat
+      renderApp(); // İlk render'ı yap (loading state'i göstermek için)
+      
+      const firebaseStarted = await setupFirebase(); // Firebase'i başlat ve sonucunu bekle
+      
+      if (!firebaseStarted) {
+          console.error("KRİTİK: Firebase başlatma başarısız. Veri işlemleri devre dışı.");
+          // setupFirebase zaten setState ile hata mesajını göstermiş olmalı.
+      } else {
+          // Başarılıysa hata mesajını kaldır
+          if (state.err === 'Uygulama başlatılıyor...') {
+              setState({ err: '' });
+          }
+      }
+      
       startClock(); 
   };
   
@@ -3111,11 +3146,6 @@ html, body {
     }
   });
 
-  /* // --- ÇİFT TANIMLAMAYI TEMİZLEME ---
-  // Bu bloktaki 'updateClock' ve 'startClock' fonksiyonlarının kopyaları kaldırıldı. 
-  // Orijinal tanımlar yukarıda tutulmuştur.
-  // -----------------------------------
-  */
 
 })();
 </script>
