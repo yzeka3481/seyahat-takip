@@ -3,12 +3,10 @@
 <head>
 <meta charset="UTF-8"><title>Seyahat Cüzdanı</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#020617" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Firebase compat script'leri -->
+<!-- Firebase compat SDK'leri -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -147,164 +145,165 @@ html, body {
 (()=>{
   // --- Sabitler ---
   const K={EXP:'travel_expenses',LIST:'travel_checklist',BUD:'travel_budget', PREF:'travel_pref', NOTES:'travel_notes', TICKET:'travel_tickets', THEME:'app_theme'}; 
-  const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
-  
-  // YENİ FOTOĞRAF SABİTLERİ
+const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
+
+// --- Firebase Bulut Entegrasyonu ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
+  authDomain: "seyahat-takip.firebaseapp.com",
+  projectId: "seyahat-takip",
+  storageBucket: "seyahat-takip.firebasestorage.app",
+  messagingSenderId: "740530417306",
+  appId: "1:740530417306:web:62b1538f1f85fa9e8c7923",
+  measurementId: "G-68BX89MR14"
+};
+
+function initFirebase(){
+  if (typeof firebase === 'undefined') {
+    console.warn('Firebase yüklü değil, sadece localStorage kullanılacak.');
+    authReady = Promise.resolve(null);
+    return;
+  }
+  try {
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+    auth = firebase.auth();
+
+    authReady = new Promise((resolve, reject) => {
+      auth.onAuthStateChanged(async (user) => {
+        try {
+          if (!user) {
+            const cred = await auth.signInAnonymously();
+            currentUser = cred.user;
+            resolve(currentUser);
+          } else {
+            currentUser = user;
+            resolve(currentUser);
+          }
+        } catch (err) {
+          console.error('Anonim giriş başarısız:', err);
+          reject(err);
+        }
+      }, reject);
+    });
+  } catch (err) {
+    console.error('Firebase init hatası:', err);
+    authReady = Promise.resolve(null);
+  }
+}
+
+function getUserDoc(){
+  if (!db || !currentUser) return null;
+  return db.collection('users').doc(currentUser.uid);
+}
+
+async function saveToCloud(){
+  try {
+    if (!db || !currentUser) return;
+    const userDoc = getUserDoc();
+    if (!userDoc) return;
+
+    const snapshotPayload = {
+      exp: state.exp || [],
+      chk: state.chk || {},
+      targetTimezone: state.targetTimezone || 'Europe/Istanbul',
+      criticalNotes: state.criticalNotes || [],
+      travelTickets: state.travelTickets || [],
+      theme: state.theme || 'dark',
+      updatedAt: Date.now()
+    };
+
+    // Kullanıcı ana dokümanı: özet state
+    await userDoc.set(snapshotPayload, { merge: true });
+
+    // Daha profesyonel yapı: alt koleksiyonlara böl
+    const tripsSet = new Set();
+    (state.exp || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
+    (state.travelTickets || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
+
+    const batch = db.batch();
+
+    // trips koleksiyonu
+    tripsSet.forEach(name => {
+      const id = (name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g,'-') || 'default-trip';
+      const tripRef = userDoc.collection('trips').doc(id);
+      batch.set(tripRef, {
+        id,
+        name,
+        updatedAt: Date.now()
+      }, { merge: true });
+    });
+
+    // expenses koleksiyonu
+    (state.exp || []).forEach(x => {
+      const id = x.id || (x.city || '') + '_' + (x.place || '') + '_' + String(x.amt || '');
+      const ref = userDoc.collection('expenses').doc(id);
+      batch.set(ref, {
+        ...x,
+        id,
+        userId: currentUser.uid,
+        updatedAt: Date.now()
+      }, { merge: true });
+    });
+
+    // tickets koleksiyonu
+    (state.travelTickets || []).forEach(t => {
+      const id = t.id || (t.trip || '') + '_' + (t.name || '') + '_' + (t.date || '');
+      const ref = userDoc.collection('tickets').doc(id);
+      batch.set(ref, {
+        ...t,
+        id,
+        userId: currentUser.uid,
+        updatedAt: Date.now()
+      }, { merge: true });
+    });
+
+    // notes koleksiyonu
+    (state.criticalNotes || []).forEach(n => {
+      const id = n.id || (n.trip || '') + '_' + (n.note || '').slice(0,24);
+      const ref = userDoc.collection('notes').doc(id);
+      batch.set(ref, {
+        ...n,
+        id,
+        userId: currentUser.uid,
+        updatedAt: Date.now()
+      }, { merge: true });
+    });
+
+    await batch.commit();
+  } catch (err) {
+    console.error('saveToCloud hatası:', err);
+  }
+}
+
+async function loadFromCloud(){
+  try {
+    if (!db || !currentUser) return;
+    const userDoc = getUserDoc();
+    if (!userDoc) return;
+    const snap = await userDoc.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+
+    if (Array.isArray(data.exp)) state.exp = data.exp;
+    if (data.chk) state.chk = data.chk;
+    if (data.targetTimezone) state.targetTimezone = data.targetTimezone;
+    if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
+    if (Array.isArray(data.travelTickets)) state.travelTickets = data.travelTickets;
+    if (data.theme) state.theme = data.theme;
+  } catch (err) {
+    console.error('loadFromCloud hatası:', err);
+  }
+}
+
+// YENİ FOTOĞRAF SABİTLERİ
+
   const MAX_IMAGES = 3; // Maksimum fotoğraf adedi
   const MAX_IMAGE_WIDTH = 800; // Maksimum yeniden boyutlandırma genişliği (Piksel)
   
-  let chartInst=null, state={};
-
-  // --- Firebase (compat) ile Bulut Kaydı ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
-    authDomain: "seyahat-takip.firebaseapp.com",
-    projectId: "seyahat-takip",
-    storageBucket: "seyahat-takip.firebasestorage.app",
-    messagingSenderId: "740530417306",
-    appId: "1:740530417306:web:62b1538f1f85fa9e8c7923",
-    measurementId: "G-68BX89MR14"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
-  let currentUser = null;
-
-  async function saveToCloud() {
-    try {
-      if (!currentUser) return;
-      const ref = db.collection("users").doc(currentUser.uid);
-
-      // 1) Kullanıcının özet verisi (meta)
-      const payload = {
-        // Eski yapıyla geriye dönük uyumluluk için exp/chk/notes/tickets alanlarını tutmaya devam ediyoruz
-        exp: state.exp || [],
-        chk: state.chk || {},
-        criticalNotes: state.criticalNotes || [],
-        travelTickets: state.travelTickets || [],
-        targetTimezone: state.targetTimezone || 'Europe/Istanbul',
-        theme: state.theme || 'dark',
-        updatedAt: Date.now()
-      };
-      await ref.set(payload, { merge: true });
-
-      // 2) Daha profesyonel Firestore modeli:
-      // users/{uid}/trips
-      // users/{uid}/expenses
-      // users/{uid}/notes
-      // users/{uid}/tickets
-      const batch = db.batch();
-
-      const tripsRef    = ref.collection("trips");
-      const expensesRef = ref.collection("expenses");
-      const notesRef    = ref.collection("notes");
-      const ticketsRef  = ref.collection("tickets");
-
-      const nowTs = Date.now();
-
-      // TRIPS: Harcamalardan benzersiz seyahat isimlerini çıkar
-      const trips = [...new Set((state.exp || [])
-        .map(x => x.trip)
-        .filter(Boolean))];
-
-      trips.forEach(name => {
-        const safeId = (name || 'trip')
-          .toString()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-+|-+$/g, '') || 'trip';
-        const tripDoc = tripsRef.doc(safeId);
-        batch.set(tripDoc, {
-          name,
-          userId: currentUser.uid,
-          updatedAt: nowTs
-        }, { merge: true });
-      });
-
-      // EXPENSES
-      (state.exp || []).forEach(exp => {
-        const expId = exp.id || expensesRef.doc().id;
-        const expDoc = expensesRef.doc(expId);
-        batch.set(expDoc, {
-          ...exp,
-          id: expId,
-          userId: currentUser.uid,
-          trip: exp.trip || null,
-          updatedAt: nowTs
-        }, { merge: true });
-      });
-
-      // NOTES
-      (state.criticalNotes || []).forEach(note => {
-        const noteId = note.id || notesRef.doc().id;
-        const noteDoc = notesRef.doc(noteId);
-        batch.set(noteDoc, {
-          ...note,
-          id: noteId,
-          userId: currentUser.uid,
-          trip: note.trip || null,
-          updatedAt: nowTs
-        }, { merge: true });
-      });
-
-      // TICKETS
-      (state.travelTickets || []).forEach(ticket => {
-        const ticketId = ticket.id || ticketsRef.doc().id;
-        const ticketDoc = ticketsRef.doc(ticketId);
-        batch.set(ticketDoc, {
-          ...ticket,
-          id: ticketId,
-          userId: currentUser.uid,
-          trip: ticket.trip || null,
-          updatedAt: nowTs
-        }, { merge: true });
-      });
-
-      await batch.commit();
-    } catch (err) {
-      console.error("Cloud save error:", err);
-    }
-  }
-
-
-async function loadFromCloud() {
-    try {
-      if (!currentUser) return;
-      const ref = db.collection("users").doc(currentUser.uid);
-      const snap = await ref.get();
-      if (!snap.exists) return;
-
-      const data = snap.data();
-
-      if (Array.isArray(data.exp))            state.exp = data.exp;
-      if (data.chk)                           state.chk = data.chk;
-      if (data.targetTimezone)                state.targetTimezone = data.targetTimezone;
-      if (Array.isArray(data.criticalNotes))  state.criticalNotes = data.criticalNotes;
-      if (Array.isArray(data.travelTickets))  state.travelTickets = data.travelTickets;
-      if (data.theme)                         state.theme = data.theme;
-    } catch (err) {
-      console.error("Cloud load error:", err);
-    }
-  }
-
-  auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-      try {
-        await auth.signInAnonymously();
-        return; // auth değişince tekrar tetiklenecek
-      } catch (err) {
-        console.error("Anonim giriş başarısız:", err);
-        return;
-      }
-    }
-    currentUser = user;
-    // Kullanıcı hazır, buluttan veriyi çek ve varsa ekrana yansıt
-    await loadFromCloud();
-    renderApp();
-  });
-
-
+  let chartInst=null, state={}, db=null, auth=null, currentUser=null, authReady=null;
 
   // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
   function getChartDataset(expenses = state.exp){
@@ -511,8 +510,8 @@ async function loadFromCloud() {
   const CATS={
     food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
     stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
-    transport:{id:'transport',l:'Ulaşım',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
-    fuel:{id:'fuel',l:'Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
+    transport:{id:'transport',l:'Ulaşım/Seyahat',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
+    fuel:{id:'fuel',l:'Yakıt/Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
     shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
     activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
     other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
@@ -659,7 +658,7 @@ async function loadFromCloud() {
         individualFilter: '', // YENİ: 'individual', 'shared'
         search:'',
         selExp:null,
-        modals:{detail:false,chart:false,data:false, tzSelect: false, ticketDetail:false, pwaHelp:false}, 
+        modals:{detail:false,chart:false,data:false, tzSelect: false}, 
         form:getEmptyForm(),
         ticketForm: getEmptyTicketForm(), // Yeni bilet formu state'i
         selectedTicketId: null, // Düzenlenecek veya detay gösterilecek biletin id'si
@@ -709,10 +708,10 @@ async function loadFromCloud() {
     localStorage.setItem(K.TICKET, JSON.stringify(state.travelTickets));
     // TEMA KAYDET
     localStorage.setItem(K.THEME, state.theme);
-
-    // Buluta da kaydet (kullanıcı hazırsa)
-    if (typeof currentUser !== 'undefined' && currentUser) {
-      saveToCloud().catch(console.error);
+    
+    // Buluta da kaydet
+    if (typeof saveToCloud === 'function') {
+      saveToCloud();
     }
   };
   
@@ -1400,13 +1399,6 @@ async function loadFromCloud() {
               </div>
            </button>
            <!-- /YEREL SAAT GÖSTERİMİ -->
-
-<!-- PWA YARDIM BUTONU -->
-<button data-act="open-pwa-help" class="hidden sm:inline-flex items-center justify-center px-2.5 py-1.5 rounded-full border border-[var(--border-color)] text-[0.7rem] text-[var(--text-muted)] hover:text-[var(--text-color)] hover:bg-[var(--bg-card-light)] transition">
-   ${ICONS.info.replace('w-4 h-4','w-3.5 h-3.5')}
-   <span class="ml-1.5 hidden lg:inline">Ana ekrana ekleme yardım</span>
-</button>
-<!-- /PWA YARDIM BUTONU -->
            
            ${state.tab==='exp' ? `
              <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
@@ -2051,7 +2043,7 @@ async function loadFromCloud() {
                           value="${f.ppl}"
                           ${isIndividualActive ? 'disabled' : ''}>
                   </div>
-                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1"></p>' : ''}
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
                </div>
             </div>
             
@@ -2126,43 +2118,6 @@ async function loadFromCloud() {
       `;
     }
     
-if(type==='pwaHelp'){
-  return `
-    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4" data-act="close-mod" data-val="pwaHelp">
-      <div class="theme-modal-bg w-full max-w-sm rounded-xl border p-5 shadow-2xl relative" onclick="event.stopPropagation();">
-        <button data-act="close-mod" data-val="pwaHelp" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">
-          ${ICONS.x}
-        </button>
-        <h3 class="font-bold text-[var(--text-color)] mb-3 text-center">Uygulamayı Ana Ekrana Ekle</h3>
-
-        <div class="space-y-3 text-[0.8rem] text-[var(--text-color)]">
-          <div class="p-2.5 rounded-lg bg-[var(--bg-card-light)] border border-[var(--border-color)]">
-            <div class="font-semibold mb-1">📱 iPhone / iPad (Safari)</div>
-            <ol class="list-decimal pl-4 space-y-1 text-[0.78rem] text-[var(--text-muted)]">
-              <li>Sayfa açıkken alttaki <strong>Paylaş</strong> (□↑) butonuna dokun.</li>
-              <li>Aşağı kaydır ve <strong>Ana Ekrana Ekle</strong> seçeneğini seç.</li>
-              <li>İsmini onaylayıp ekle; uygulama gibi açılır.</li>
-            </ol>
-          </div>
-
-          <div class="p-2.5 rounded-lg bg-[var(--bg-card-light)] border border-[var(--border-color)]">
-            <div class="font-semibold mb-1">🤖 Android (Chrome)</div>
-            <ol class="list-decimal pl-4 space-y-1 text-[0.78rem] text-[var(--text-muted)]">
-              <li>Üst sağdaki <strong>⋮</strong> menüsüne dokun.</li>
-              <li><strong>Ana ekrana ekle</strong> veya benzer seçeneği seç.</li>
-              <li>Onayla; simge ana ekranda görünür.</li>
-            </ol>
-          </div>
-
-          <div class="p-2 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-color)]/40 text-[0.78rem] text-[var(--text-muted)]">
-            Bu ekran sadece bilgi amaçlıdır. Kapatmak için çarpıya veya ekranın dışına dokunabilirsin.
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
     if(type==='detail'){
       const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
       const cat=CATS[x.cat]||CATS.other;
@@ -2480,7 +2435,6 @@ if(type==='pwaHelp'){
         if(state.modals.detail) h+=renderModal('detail');
         if(state.modals.chart) h+=renderModal('chart');
         if(state.modals.data) h+=renderModal('data');
-        if(state.modals.pwaHelp) h+=renderModal('pwaHelp');
         // YENİ MODAL: Rezervasyon Detayı
         if(state.modals.ticketDetail) h+=renderModal('ticketDetail'); 
 
@@ -2864,19 +2818,12 @@ if(type==='pwaHelp'){
     }
     if(act==='detail'){state.selExp=id; state.modals.detail=true; renderApp();}
     
-if(act==='open-pwa-help'){
-    state.modals.pwaHelp = true;
-    renderApp();
-    return;
-}
-
-// Modal Yönetimi
+    // Modal Yönetimi
     if(act==='close-mod'){
       // Hem harcama hem de bilet detayını kapat
       if(val === 'tzSelect') state.modals.tzSelect = false;
       else if(val === 'ticketDetail') state.modals.ticketDetail = false;
-      else if(val === 'pwaHelp') state.modals.pwaHelp = false;
-      else state.modals={detail:false,chart:false,data:false, tzSelect:false, ticketDetail: false, pwaHelp:false}; 
+      else state.modals={detail:false,chart:false,data:false, ticketDetail: false}; 
       renderApp();
     }
     
@@ -3207,8 +3154,23 @@ if(act==='open-pwa-help'){
 
   window.onload = function() {
       initState(); 
-      renderApp();
-      startClock(); 
+      initFirebase();
+      
+      if (authReady && typeof authReady.then === 'function') {
+        authReady.then(async () => {
+          await loadFromCloud();
+          renderApp();
+          startClock(); 
+        }).catch(err => {
+          console.error('Auth / cloud yükleme hatası:', err);
+          renderApp();
+          startClock();
+        });
+      } else {
+        // Firebase yoksa sadece localStorage'dan devam
+        renderApp();
+        startClock();
+      }
       
       // Uygulama yüklendiğinde kur bilgisi çekme kodu kaldırıldı
   };
@@ -3219,16 +3181,5 @@ if(act==='open-pwa-help'){
   };
 })();
 </script>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('service-worker.js').catch(function(err){
-      console.error('Service worker registration failed:', err);
-    });
-  });
-}
-</script>
-
 </body>
 </html>
