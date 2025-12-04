@@ -176,23 +176,99 @@ html, body {
       if (!currentUser) return;
       const ref = db.collection("users").doc(currentUser.uid);
 
+      // 1) Kullanıcının özet verisi (meta)
       const payload = {
+        // Eski yapıyla geriye dönük uyumluluk için exp/chk/notes/tickets alanlarını tutmaya devam ediyoruz
         exp: state.exp || [],
         chk: state.chk || {},
-        targetTimezone: state.targetTimezone || 'Europe/Istanbul',
         criticalNotes: state.criticalNotes || [],
         travelTickets: state.travelTickets || [],
+        targetTimezone: state.targetTimezone || 'Europe/Istanbul',
         theme: state.theme || 'dark',
         updatedAt: Date.now()
       };
-
       await ref.set(payload, { merge: true });
+
+      // 2) Daha profesyonel Firestore modeli:
+      // users/{uid}/trips
+      // users/{uid}/expenses
+      // users/{uid}/notes
+      // users/{uid}/tickets
+      const batch = db.batch();
+
+      const tripsRef    = ref.collection("trips");
+      const expensesRef = ref.collection("expenses");
+      const notesRef    = ref.collection("notes");
+      const ticketsRef  = ref.collection("tickets");
+
+      const nowTs = Date.now();
+
+      // TRIPS: Harcamalardan benzersiz seyahat isimlerini çıkar
+      const trips = [...new Set((state.exp || [])
+        .map(x => x.trip)
+        .filter(Boolean))];
+
+      trips.forEach(name => {
+        const safeId = (name || 'trip')
+          .toString()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'trip';
+        const tripDoc = tripsRef.doc(safeId);
+        batch.set(tripDoc, {
+          name,
+          userId: currentUser.uid,
+          updatedAt: nowTs
+        }, { merge: true });
+      });
+
+      // EXPENSES
+      (state.exp || []).forEach(exp => {
+        const expId = exp.id || expensesRef.doc().id;
+        const expDoc = expensesRef.doc(expId);
+        batch.set(expDoc, {
+          ...exp,
+          id: expId,
+          userId: currentUser.uid,
+          trip: exp.trip || null,
+          updatedAt: nowTs
+        }, { merge: true });
+      });
+
+      // NOTES
+      (state.criticalNotes || []).forEach(note => {
+        const noteId = note.id || notesRef.doc().id;
+        const noteDoc = notesRef.doc(noteId);
+        batch.set(noteDoc, {
+          ...note,
+          id: noteId,
+          userId: currentUser.uid,
+          trip: note.trip || null,
+          updatedAt: nowTs
+        }, { merge: true });
+      });
+
+      // TICKETS
+      (state.travelTickets || []).forEach(ticket => {
+        const ticketId = ticket.id || ticketsRef.doc().id;
+        const ticketDoc = ticketsRef.doc(ticketId);
+        batch.set(ticketDoc, {
+          ...ticket,
+          id: ticketId,
+          userId: currentUser.uid,
+          trip: ticket.trip || null,
+          updatedAt: nowTs
+        }, { merge: true });
+      });
+
+      await batch.commit();
     } catch (err) {
       console.error("Cloud save error:", err);
     }
   }
 
-  async function loadFromCloud() {
+
+async function loadFromCloud() {
     try {
       if (!currentUser) return;
       const ref = db.collection("users").doc(currentUser.uid);
@@ -583,7 +659,7 @@ html, body {
         individualFilter: '', // YENİ: 'individual', 'shared'
         search:'',
         selExp:null,
-        modals:{detail:false,chart:false,data:false, tzSelect: false}, 
+        modals:{detail:false,chart:false,data:false, tzSelect: false, ticketDetail:false, pwaHelp:false}, 
         form:getEmptyForm(),
         ticketForm: getEmptyTicketForm(), // Yeni bilet formu state'i
         selectedTicketId: null, // Düzenlenecek veya detay gösterilecek biletin id'si
@@ -1324,6 +1400,13 @@ html, body {
               </div>
            </button>
            <!-- /YEREL SAAT GÖSTERİMİ -->
+
+<!-- PWA YARDIM BUTONU -->
+<button data-act="open-pwa-help" class="hidden sm:inline-flex items-center justify-center px-2.5 py-1.5 rounded-full border border-[var(--border-color)] text-[0.7rem] text-[var(--text-muted)] hover:text-[var(--text-color)] hover:bg-[var(--bg-card-light)] transition">
+   ${ICONS.info.replace('w-4 h-4','w-3.5 h-3.5')}
+   <span class="ml-1.5 hidden lg:inline">Ana ekrana ekleme yardım</span>
+</button>
+<!-- /PWA YARDIM BUTONU -->
            
            ${state.tab==='exp' ? `
              <button data-act="clean-all-exp" class="bg-gradient-to-r from-red-600/30 to-rose-700/30 hover:from-red-600 hover:to-rose-700 text-rose-400 hover:text-white border border-rose-500/20 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 whitespace-nowrap shadow-lg shadow-rose-900/20">
@@ -2043,6 +2126,43 @@ html, body {
       `;
     }
     
+if(type==='pwaHelp'){
+  return `
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4" data-act="close-mod" data-val="pwaHelp">
+      <div class="theme-modal-bg w-full max-w-sm rounded-xl border p-5 shadow-2xl relative" onclick="event.stopPropagation();">
+        <button data-act="close-mod" data-val="pwaHelp" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">
+          ${ICONS.x}
+        </button>
+        <h3 class="font-bold text-[var(--text-color)] mb-3 text-center">Uygulamayı Ana Ekrana Ekle</h3>
+
+        <div class="space-y-3 text-[0.8rem] text-[var(--text-color)]">
+          <div class="p-2.5 rounded-lg bg-[var(--bg-card-light)] border border-[var(--border-color)]">
+            <div class="font-semibold mb-1">📱 iPhone / iPad (Safari)</div>
+            <ol class="list-decimal pl-4 space-y-1 text-[0.78rem] text-[var(--text-muted)]">
+              <li>Sayfa açıkken alttaki <strong>Paylaş</strong> (□↑) butonuna dokun.</li>
+              <li>Aşağı kaydır ve <strong>Ana Ekrana Ekle</strong> seçeneğini seç.</li>
+              <li>İsmini onaylayıp ekle; uygulama gibi açılır.</li>
+            </ol>
+          </div>
+
+          <div class="p-2.5 rounded-lg bg-[var(--bg-card-light)] border border-[var(--border-color)]">
+            <div class="font-semibold mb-1">🤖 Android (Chrome)</div>
+            <ol class="list-decimal pl-4 space-y-1 text-[0.78rem] text-[var(--text-muted)]">
+              <li>Üst sağdaki <strong>⋮</strong> menüsüne dokun.</li>
+              <li><strong>Ana ekrana ekle</strong> veya benzer seçeneği seç.</li>
+              <li>Onayla; simge ana ekranda görünür.</li>
+            </ol>
+          </div>
+
+          <div class="p-2 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent-color)]/40 text-[0.78rem] text-[var(--text-muted)]">
+            Bu ekran sadece bilgi amaçlıdır. Kapatmak için çarpıya veya ekranın dışına dokunabilirsin.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
     if(type==='detail'){
       const x=state.exp.find(e=>e.id===state.selExp); if(!x) return '';
       const cat=CATS[x.cat]||CATS.other;
@@ -2360,6 +2480,7 @@ html, body {
         if(state.modals.detail) h+=renderModal('detail');
         if(state.modals.chart) h+=renderModal('chart');
         if(state.modals.data) h+=renderModal('data');
+        if(state.modals.pwaHelp) h+=renderModal('pwaHelp');
         // YENİ MODAL: Rezervasyon Detayı
         if(state.modals.ticketDetail) h+=renderModal('ticketDetail'); 
 
@@ -2743,12 +2864,19 @@ html, body {
     }
     if(act==='detail'){state.selExp=id; state.modals.detail=true; renderApp();}
     
-    // Modal Yönetimi
+if(act==='open-pwa-help'){
+    state.modals.pwaHelp = true;
+    renderApp();
+    return;
+}
+
+// Modal Yönetimi
     if(act==='close-mod'){
       // Hem harcama hem de bilet detayını kapat
       if(val === 'tzSelect') state.modals.tzSelect = false;
       else if(val === 'ticketDetail') state.modals.ticketDetail = false;
-      else state.modals={detail:false,chart:false,data:false, ticketDetail: false}; 
+      else if(val === 'pwaHelp') state.modals.pwaHelp = false;
+      else state.modals={detail:false,chart:false,data:false, tzSelect:false, ticketDetail: false, pwaHelp:false}; 
       renderApp();
     }
     
