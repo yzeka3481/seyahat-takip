@@ -510,8 +510,8 @@ async function loadFromCloud(){
   const CATS={
     food:{id:'food',l:'Yeme-İçme',i:'🍽️',g:'from-pink-500 to-orange-400',c:'rgba(236,72,153,0.8)'},
     stay:{id:'stay',l:'Konaklama',i:'🛏️',g:'from-emerald-500 to-teal-500',c:'rgba(16,185,129,0.8)'},
-    transport:{id:'transport',l:'Ulaşım/Seyahat',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
-    fuel:{id:'fuel',l:'Yakıt/Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
+    transport:{id:'transport',l:'Ulaşım',i:'🚕',g:'from-sky-500 to-blue-600',c:'rgba(14,165,233,0.8)'},
+    fuel:{id:'fuel',l:'Akaryakıt',i:'⛽',g:'from-red-500 to-orange-500',c:'rgba(239, 68, 68, 0.8)'}, // YENİ YAKIT KATEGORİSİ
     shopping:{id:'shopping',l:'Alışveriş',i:'🛍️',g:'from-amber-500 to-orange-500',c:'rgba(245,158,11,0.8)'},
     activity:{id:'activity',l:'Müze & Aktivite',i:'🎟️',g:'from-violet-500 to-purple-600',c:'rgba(139,92,246,0.8)'},
     other:{id:'other',l:'Diğer',i:'📦',g:'from-slate-500 to-gray-600',c:'rgba(100,116,139,0.8)'}
@@ -2043,7 +2043,7 @@ async function loadFromCloud(){
                           value="${f.ppl}"
                           ${isIndividualActive ? 'disabled' : ''}>
                   </div>
-                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1">Bireysel harcamalarda kişi sayısı otomatik 1 olarak ayarlanır.</p>' : ''}
+                  ${isIndividualActive ? '<p class="text-[10px] text-sky-400 mt-1"></p>' : ''}
                </div>
             </div>
             
