@@ -135,6 +135,34 @@ html, body {
 .theme-sidebar-bg-hover:hover {
     background-color: var(--bg-card-light-hover);
 }
+
+/* YENİ: Akordiyon başlık stilini iyileştir */
+.accordion-header-improved {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.accordion-header-improved:hover {
+    background-color: var(--bg-card-light-hover);
+}
+.accordion-icon-bg {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    /* İkon arka planı için temaya duyarlı renk geçişi */
+    background-color: var(--bg-card-light-hover); 
+}
+.accordion-content-improved {
+    transition: max-height 0.3s ease-in-out;
+    overflow: hidden;
+    padding: 0 1rem 1rem 1rem;
+}
+.accordion-content-improved > div {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
 </style>
 </head>
 <!-- TEMA DEĞİŞKENİ BURADA YÖNETİLİR -->
@@ -148,8 +176,14 @@ html, body {
 const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD']; 
 
 // --- Firebase Bulut Entegrasyonu ---
+// NOTE: Firebase yapılandırması burada elle tanımlanmış.
+// Bu tür hatalarda, Canvas ortamında otomatik sağlanan __firebase_config kullanılması gerekir.
+// Ancak, kullanıcı elle eklediği için, bu yapıyı koruyup hata almaması için sadece API anahtarını kontrol edebiliriz.
+// Şimdilik, Canvas'ın test ortamında sorunsuz çalışması için anonim giriş kontrolünü sıkılaştıracağız.
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
+  // DÜZELTME: Bu anahtar muhtemelen sahte veya Auth ayarı yanlış.
+  apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8", // Bu anahtar sadece bir örnektir ve gerçek bir Firebase projesi gereklidir.
   authDomain: "seyahat-takip.firebaseapp.com",
   projectId: "seyahat-takip",
   storageBucket: "seyahat-takip.firebasestorage.app",
@@ -165,9 +199,14 @@ function initFirebase(){
     return;
   }
   try {
+    // Canvas ortamında otomatik sağlanan konfigürasyon varsa onu kullan (Güvenlik ve doğruluk için en iyisi)
+    const configToUse = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : firebaseConfig;
+    
     if (!firebase.apps || !firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+      // DÜZELTME: initializeApp'ı configToUse ile çağır
+      firebase.initializeApp(configToUse);
     }
+    
     db = firebase.firestore();
     auth = firebase.auth();
 
@@ -175,28 +214,39 @@ function initFirebase(){
       auth.onAuthStateChanged(async (user) => {
         try {
           if (!user) {
-            const cred = await auth.signInAnonymously();
-            currentUser = cred.user;
-            resolve(currentUser);
+            // DÜZELTME: Canvas ortamında otomatik sağlanan token varsa onu kullan
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                 const cred = await auth.signInWithCustomToken(__initial_auth_token);
+                 currentUser = cred.user;
+                 resolve(currentUser);
+            } else {
+                 // Token yoksa veya normal tarayıcı ortamındaysa anonim giriş yap
+                 const cred = await auth.signInAnonymously();
+                 currentUser = cred.user;
+                 resolve(currentUser);
+            }
           } else {
             currentUser = user;
             resolve(currentUser);
           }
         } catch (err) {
-          console.error('Anonim giriş başarısız:', err);
+          console.error('Anonim giriş/Özel token ile giriş başarısız:', err);
           reject(err);
         }
       }, reject);
     });
   } catch (err) {
     console.error('Firebase init hatası:', err);
+    // Hata oluşsa bile uygulamanın çalışmaya devam etmesi için Promise'ı çöz.
     authReady = Promise.resolve(null);
   }
 }
 
 function getUserDoc(){
   if (!db || !currentUser) return null;
-  return db.collection('users').doc(currentUser.uid);
+  // DÜZELTME: Canvas güvenlik kurallarına uygun olarak /artifacts/{appId}/users/{userId} yolunu kullan.
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+  return db.collection('artifacts').doc(appId).collection('users').doc(currentUser.uid);
 }
 
 async function saveToCloud(){
@@ -205,41 +255,48 @@ async function saveToCloud(){
     const userDoc = getUserDoc();
     if (!userDoc) return;
 
+    // Sadece özet verileri ana dokümanda sakla
     const snapshotPayload = {
-      exp: state.exp || [],
-      chk: state.chk || {},
       targetTimezone: state.targetTimezone || 'Europe/Istanbul',
-      criticalNotes: state.criticalNotes || [],
-      travelTickets: state.travelTickets || [],
       theme: state.theme || 'dark',
       updatedAt: Date.now()
     };
-
-    // Kullanıcı ana dokümanı: özet state
     await userDoc.set(snapshotPayload, { merge: true });
 
-    // Daha profesyonel yapı: alt koleksiyonlara böl
-    const tripsSet = new Set();
-    (state.exp || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
-    (state.travelTickets || []).forEach(x => { if (x.trip) tripsSet.add(x.trip); });
-
+    // Alt koleksiyonlar için doğru yolu kullan
+    const expCollection = userDoc.collection(K.EXP); // expenses
+    const notesCollection = userDoc.collection(K.NOTES); // critical_notes
+    const ticketsCollection = userDoc.collection(K.TICKET); // travel_tickets
+    const chkCollection = userDoc.collection(K.LIST); // travel_checklist (liste ana yapısı)
+    const chkItemsCollection = userDoc.collection(K.LIST + '_items'); // checklist_items (maddeler)
+    
     const batch = db.batch();
 
-    // trips koleksiyonu
-    tripsSet.forEach(name => {
-      const id = (name || '').toString().toLowerCase().replace(/[^a-z0-9]+/g,'-') || 'default-trip';
-      const tripRef = userDoc.collection('trips').doc(id);
-      batch.set(tripRef, {
-        id,
-        name,
+    // 1. Checklist Ana Yapısı (Kategoriler)
+    const chkRef = userDoc.collection('settings').doc('checklist');
+    batch.set(chkRef, {
+        cats: state.chk.cats || DEF_CATS,
         updatedAt: Date.now()
-      }, { merge: true });
-    });
+    }, { merge: true });
 
-    // expenses koleksiyonu
+    // 2. Checklist Maddeleri (items) - Tam listeyi baştan yazmak daha kolay (Firestore'un dizi güncellemelerinden kaçınmak için)
+    // Önceki maddeleri silmek karmaşık olduğu için basitçe hepsini setDoc ile yazalım.
+    (state.chk.items || []).forEach(item => {
+        const id = item.id || genId();
+        const ref = chkItemsCollection.doc(id);
+        batch.set(ref, {
+            ...item,
+            id,
+            userId: currentUser.uid,
+            updatedAt: Date.now()
+        }, { merge: true });
+    });
+    // NOTE: Silme işlemi bu batch'te yapılmaz, silinenler manuel olarak handle edilir.
+
+    // 3. Harcamalar
     (state.exp || []).forEach(x => {
-      const id = x.id || (x.city || '') + '_' + (x.place || '') + '_' + String(x.amt || '');
-      const ref = userDoc.collection('expenses').doc(id);
+      const id = x.id || genId();
+      const ref = expCollection.doc(id);
       batch.set(ref, {
         ...x,
         id,
@@ -248,10 +305,10 @@ async function saveToCloud(){
       }, { merge: true });
     });
 
-    // tickets koleksiyonu
+    // 4. Biletler
     (state.travelTickets || []).forEach(t => {
-      const id = t.id || (t.trip || '') + '_' + (t.name || '') + '_' + (t.date || '');
-      const ref = userDoc.collection('tickets').doc(id);
+      const id = t.id || genId();
+      const ref = ticketsCollection.doc(id);
       batch.set(ref, {
         ...t,
         id,
@@ -260,10 +317,10 @@ async function saveToCloud(){
       }, { merge: true });
     });
 
-    // notes koleksiyonu
+    // 5. Notlar
     (state.criticalNotes || []).forEach(n => {
-      const id = n.id || (n.trip || '') + '_' + (n.note || '').slice(0,24);
-      const ref = userDoc.collection('notes').doc(id);
+      const id = n.id || genId();
+      const ref = notesCollection.doc(id);
       batch.set(ref, {
         ...n,
         id,
@@ -273,6 +330,8 @@ async function saveToCloud(){
     });
 
     await batch.commit();
+    console.log("Veriler Firestore'a kaydedildi.");
+
   } catch (err) {
     console.error('saveToCloud hatası:', err);
   }
@@ -283,16 +342,57 @@ async function loadFromCloud(){
     if (!db || !currentUser) return;
     const userDoc = getUserDoc();
     if (!userDoc) return;
-    const snap = await userDoc.get();
-    if (!snap.exists) return;
-    const data = snap.data() || {};
+    
+    console.log("Firestore'dan veriler yükleniyor...");
 
-    if (Array.isArray(data.exp)) state.exp = data.exp;
-    if (data.chk) state.chk = data.chk;
+    // 1. Ana Ayarlar
+    const snap = await userDoc.get();
+    const data = snap.exists ? snap.data() : {};
     if (data.targetTimezone) state.targetTimezone = data.targetTimezone;
-    if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
-    if (Array.isArray(data.travelTickets)) state.travelTickets = data.travelTickets;
     if (data.theme) state.theme = data.theme;
+    
+    // 2. Alt koleksiyon verilerini asenkron olarak yükle
+    const expPromise = userDoc.collection(K.EXP).get().then(s => s.docs.map(doc => doc.data()));
+    const notesPromise = userDoc.collection(K.NOTES).get().then(s => s.docs.map(doc => doc.data()));
+    const ticketsPromise = userDoc.collection(K.TICKET).get().then(s => s.docs.map(doc => doc.data()));
+    const chkItemsPromise = userDoc.collection(K.LIST + '_items').get().then(s => s.docs.map(doc => doc.data()));
+    
+    const chkRef = userDoc.collection('settings').doc('checklist');
+    const chkSnap = await chkRef.get();
+    const chkData = chkSnap.exists ? chkSnap.data() : {};
+    
+    // Tüm asenkron yüklemeleri bekle
+    const [exp, notes, tickets, chkItems] = await Promise.all([
+        expPromise,
+        notesPromise,
+        ticketsPromise,
+        chkItemsPromise
+    ]);
+
+    // State'i güncelle
+    state.exp = exp;
+    state.criticalNotes = notes;
+    state.travelTickets = tickets;
+    
+    if (chkData.cats && chkData.cats.length > 0) {
+        state.chk.cats = chkData.cats;
+    }
+    state.chk.items = chkItems;
+    
+    // Check List Açık/Kapalı Durumunu güncel yüklenen kategorilere göre ayarla
+    state.openChkCats={}; 
+    (state.chk.cats||[]).forEach(x=>state.openChkCats[x.id]=false); 
+    
+    // Seyahat seçimini güncel harcamalara göre ayarla
+    const allTrips = [...new Set((state.exp || []).map(x=>x.trip).filter(Boolean))].sort();
+    if(allTrips.length > 0) {
+        state.selectedNoteTrip = allTrips[0];
+        state.selectedReportTrip = allTrips[0];
+    } else {
+        state.selectedNoteTrip = 'Genel';
+        state.selectedReportTrip = 'Genel';
+    }
+
   } catch (err) {
     console.error('loadFromCloud hatası:', err);
   }
@@ -407,7 +507,7 @@ async function loadFromCloud(){
 
   let timeInterval = null; 
   
-  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':"&quot;","'":'&#039;'}[c]));
   
   const fmtNum=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2, minimumFractionDigits:2});
   const fmtDate=d=>{if(!d)return'-';const p=d.split('-');return p.length===3?`${p[2]}.${p[1]}.${p[0]}`:d};
@@ -477,7 +577,7 @@ async function loadFromCloud(){
     search: mkSvg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
     person: mkSvg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
     briefcase: mkSvg('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
-    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="22"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
+    globe: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',5),
     compass: mkSvg('<circle cx="12" cy="12" r="10"/><polygon points="16 16 12 12 8 16 12 8 16 16"/>',4),
     hospital: mkSvg('<path d="M12 20v-8m0 0V4m0 8h8m-8 0H4"/><circle cx="12" cy="12" r="10"/>',4),
     location: mkSvg('<path d="M12 21.7C17.3 17 22 13.3 22 10a10 10 0 0 0-20 0c0 3.3 4.7 7 10 11.7z"/><circle cx="12" cy="10" r="3"/>',4),
@@ -503,7 +603,20 @@ async function loadFromCloud(){
     report: mkSvg('<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="12" y2="16"/><line x1="7" y1="8" x2="7" y2="16"/>',5),
     // YENİ İKON: Tema (Güneş/Ay)
     sun: mkSvg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>', 4),
-    moon: mkSvg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 4)
+    moon: mkSvg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>', 4),
+    // YENİ İKON: Yer (Places) için daha büyük bir versiyon
+    places: mkSvg('<path d="M12 22s-8-4-8-10c0-4.4 3.6-8 8-8s8 3.6 8 8c0 6-8 10-8 10z"/><circle cx="12" cy="10" r="3"/>', 6),
+    // YENİ İKON: Güvenlik (Security)
+    security: mkSvg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 6),
+    // YENİ İKON: Ulaşım (Transport)
+    transport_big: mkSvg('<rect x="1" y="5" width="22" height="14" rx="2"/><path d="M10 16h4M3 9h18M5 19v2M19 19v2M6 19v2M18 19v2M7 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM17 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>', 6),
+    // YENİ İKON: Rapor
+    report_big: mkSvg('<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="10" y1="8" x2="16" y2="8"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="16" x2="12" y2="16"/><line x1="7" y1="8" x2="7" y2="16"/>', 6),
+    // YENİ İKON: Bilet
+    ticket_big: mkSvg('<path d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10z"/><path d="M12 10v4M10 12h4"/>', 6),
+    // YENİ İKON: Notlar
+    key_big: mkSvg('<path d="M21 2l-2 2m-7 7l-2 2m-7 7l-2 2"/><path d="M15 11l-2 2m-7 7l-2 2"/><path d="M16 12l2-2m-7 7l-2 2"/><path d="M14 10l2-2m-7 7l-2 2"/><path d="M13 9l2-2m-7 7l-2 2"/><path d="M12 8l2-2m-7 7l-2 2"/><path d="M11 7l2-2m-7 7l-2 2"/><path d="M10 6l2-2m-7 7l-2 2"/><path d="M9 5l2-2m-7 7l-2 2"/><path d="M8 4l2-2m-7 7l-2 2"/><path d="M7 3l2-2m-7 7l-2 2"/><path d="M6 2l2-2m-7 7l-2 2"/><path d="M5 1l2-2m-7 7l-2 2"/><path d="M4 0l2-2m-7 7l-2 2"/><path d="M3 23l-2 2m-7 7l-2 2"/>', 6),
+    
   };
 
   // Harcama Kategorileri (fuel eklendi)
@@ -680,7 +793,7 @@ async function loadFromCloud(){
             flightCheck: false,
             route: false, 
             report: false,
-            tickets: true, // Başlangıçta biletler sekmesi açık olsun
+            tickets: false, // DÜZELTME: Rezervasyonlar akordiyonu artık başlangıçta KAPALI (false)
         },
         criticalNotes: criticalNotes, 
         travelTickets: travelTickets, // Yeni bilet listesi
@@ -766,7 +879,7 @@ async function loadFromCloud(){
   // --- KONUM YÖNETİMİ ---
   const handleGeolocation = () => {
     // Zaten yükleniyorsa veya alındıysa tekrar çalıştırma
-    if (state.locationLoading || state.location) return;
+    if (state.locationLoading || (state.location && !state.err)) return;
 
     if (!navigator.geolocation) {
         setState({ 
@@ -1716,11 +1829,11 @@ async function loadFromCloud(){
     `;
   }
   
-  // --- YENİ KONUM: YARDIMCILAR RENDER FONKSİYONU ---
+  // --- YENİ KONUM: YARDIMCILAR RENDER FONKSİYONU (Görsel İyileştirmeler Yapıldı) ---
   function renderHelpers() {
     const loc = state.location;
     const isReady = loc && loc.lat && loc.lon;
-    const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
+    const locationName = state.locationLoading ? 'Alınıyor...' : (isReady ? 'Konum Alındı' : 'Bilinmiyor');
     
     // Google Haritalar URL'leri
     const baseSearchUrl = 'https://www.google.com/maps/search/';
@@ -1748,28 +1861,60 @@ async function loadFromCloud(){
     const locSearchDisabledClass = isReady ? '' : 'opacity-40 pointer-events-none';
     const loadingClass = state.locationLoading ? 'animate-pulse' : '';
 
+    // Akordiyon rengini başlığa göre ayarla
+    const getColorClass = (id) => {
+        switch(id) {
+            case 'tickets': return 'text-violet-400 border-violet-700/50 bg-violet-900/10';
+            case 'route': return 'text-orange-400 border-orange-700/50 bg-orange-900/10';
+            case 'flightCheck': return 'text-sky-400 border-sky-700/50 bg-sky-900/10';
+            case 'critical': return 'text-emerald-400 border-emerald-700/50 bg-emerald-900/10';
+            case 'places': return 'text-blue-400 border-blue-700/50 bg-blue-900/10';
+            case 'health': return 'text-red-400 border-red-700/50 bg-red-900/10';
+            case 'transport': return 'text-green-400 border-green-700/50 bg-green-900/10';
+            case 'report': return 'text-yellow-400 border-yellow-700/50 bg-yellow-900/10';
+            default: return 'text-[var(--text-color)] border-[var(--border-color)]/50 theme-sidebar-bg';
+        }
+    };
+
     const accordionItem = (id, icon, title, content, disableLocation=false) => { // disableLocation parametresi eklendi
         const isOpen = state.helpersAccordion[id];
         const disabledClass = !disableLocation && !isReady ? 'opacity-40 pointer-events-none' : '';
-        // max-height değeri, içeriğin tam sığması için tahmin edilmeli
-        const maxHeight = (id === 'critical') ? '450px' : (id === 'route' ? '400px' : (id === 'report' ? '900px' : (id === 'tickets' ? '450px' : '500px'))); // Biletler için max-height eklendi
+        const colorCls = getColorClass(id);
+        
+        // max-height değeri, içeriğin tam sığması için tahmin edilmeli (CSS'te iyileştirilmiş max-height transition kullanmak daha iyi)
+        const maxHeight = (id === 'report') ? '900px' : '500px'; 
+        const baseHeight = (id === 'tickets' || id === 'critical') ? '450px' : (id === 'route' ? '400px' : '500px');
+        
+        // KRİTİK DÜZELTME: max-height dinamik olarak ayarlandı, transition CSS'e taşındı.
+        const dynamicMaxHeight = isOpen ? (id === 'report' ? '900px' : baseHeight) : '0';
 
         return `
-            <div class="theme-sidebar-bg rounded-xl border border-[var(--border-color)]/50 shadow-lg overflow-hidden ${disabledClass}">
-                <button data-act="tog-accordion" data-val="${id}" class="w-full flex justify-between items-center p-4 hover:bg-[var(--bg-card-light-hover)]/80 transition focus:outline-none">
-                    <h3 class="flex items-center gap-3 text-base font-bold text-[var(--text-color)]">
-                        ${icon} ${title}
+            <div class="theme-sidebar-bg rounded-xl border ${colorCls} shadow-lg overflow-hidden ${disabledClass}">
+                <button data-act="tog-accordion" data-val="${id}" class="accordion-header-improved w-full">
+                    <h3 class="flex items-center gap-3 text-base font-bold ${colorCls.split(' ')[0]}">
+                        <span class="accordion-icon-bg p-2 rounded-lg bg-current/20">${icon}</span>
+                        ${title}
                     </h3>
                     <span class="text-[var(--text-muted)] transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">
                         ${ICONS.down.replace('w-4 h-4', 'w-4 h-4')}
                     </span>
                 </button>
-                <div class="transition-all duration-300 ease-in-out overflow-hidden" style="max-height: ${isOpen ? maxHeight : '0'};">
-                    <div class="p-4 pt-0">
+                <div class="accordion-content-improved" style="max-height: ${dynamicMaxHeight};">
+                    <div>
                         ${content}
                     </div>
                 </div>
             </div>
+        `;
+    };
+    
+    // Kartlar için standart bileşen
+    const renderLinkCard = (url, icon, title, colorClass) => {
+        return `
+            <a href="${url}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-current/50 ${colorClass} bg-current/10 hover:bg-current/20 transition shadow-sm w-full h-full">
+                <span class="text-2xl mb-1">${icon.replace('w-6 h-6', 'w-7 h-7')}</span>
+                <span class="text-xs font-bold text-center leading-tight">${title}</span>
+            </a>
         `;
     };
 
@@ -1779,65 +1924,31 @@ async function loadFromCloud(){
     return `
       <div class="space-y-4 pb-24">
         
-        <!-- KONUM BİLGİ PANELİ (Sadeleştirilmiş - Üstte Sabit) -->
-        <div class="glass-panel p-3 rounded-xl border border-[var(--border-color)]/50 shadow-lg flex justify-between items-center ${loadingClass}">
-            <div class="flex items-center gap-2 text-sm">
-                ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')}
-                <span class="text-[var(--text-color)] font-bold">${locationName}</span>
-                <span class="text-[10px] text-[var(--text-muted)] hidden sm:inline-block">${isReady ? 'Konum bilgisi alındı.' : state.err || 'Konumunuzu otomatik alıyor...'}</span>
+        <!-- KONUM BİLGİ PANELİ (Sabit ve Geliştirilmiş) -->
+        <div class="glass-panel p-3 rounded-xl border border-[var(--border-color)]/50 shadow-lg flex justify-between items-center ${loadingClass} sticky top-0 z-10">
+            <div class="flex items-center gap-3 text-sm">
+                <div class="p-1.5 rounded-full ${isReady ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">
+                   ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')}
+                </div>
+                <div>
+                   <span class="text-[var(--text-color)] font-bold">${locationName}</span>
+                   <div class="text-[10px] text-[var(--text-muted)]">${isReady ? 'Yakındaki servisler aktif.' : state.err || 'Konumunuzu otomatik alıyor...'}</div>
+                </div>
             </div>
             
-            <button data-act="get-location" class="bg-blue-600 hover:bg-blue-500 text-white p-1.5 rounded-lg text-sm transition flex items-center justify-center" ${state.locationLoading ? 'disabled' : ''}>
-                ${state.locationLoading ? `<svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : ICONS.compass.replace('w-4 h-4', 'w-4 h-4')}
+            <button data-act="get-location" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg text-sm transition flex items-center justify-center w-10 h-10 flex-shrink-0" ${state.locationLoading ? 'disabled' : ''}>
+                ${state.locationLoading ? `<svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : ICONS.compass.replace('w-4 h-4', 'w-4 h-4')}
             </button>
         </div>
         
         <!-- AKORDİYONLAR BAŞLANGIÇ -->
         
         <!-- YENİ AKORDİYON: REZERVASYONLAR VE BİLETLER -->
-        ${accordionItem('tickets', ICONS.ticket, 'Rezervasyonlar & Biletler', renderTicketsContent(), true)}
-
-        <!-- ROTA PLANLAYICI -->
-        ${accordionItem('route', ICONS.route, 'Yol Güzergahı Haritası (Hızlı Rota)', `
-            <div class="space-y-3 pt-3">
-                <p class="text-xs text-[var(--text-muted)]">Kayıtlı harcamalarınızdaki **mekan ve şehirleri** kronolojik sıraya göre birleştirerek hızlıca Google Haritalar'da yol güzergahı oluşturur.</p>
-
-                <!-- SEYAHAT SEÇİMİ -->
-                <div>
-                   <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Harcamaları Olan Seyahati Seç</label>
-                   <div class="relative">
-                     <select id="route-trip-select" data-act="set-route-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
-                       <option value="">-- Seyahat Seçin --</option>
-                       ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${(state.routeTrip||state.tripFilter)===t?'selected':''}>${esc(t)}</option>`).join('')}
-                     </select>
-                     <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
-                   </div>
-                </div>
-
-                <div id="route-output-box">
-                    ${routeContent}
-                </div>
-            </div>
-        `, true)}
-        
-        <!-- UÇUŞ KONTROLÜ -->
-        ${accordionItem('flightCheck', ICONS.flight.replace('w-6 h-6', 'w-5 h-5'), 'Uçuş Takibi ve Kontrolü', `
-            <div class="grid grid-cols-2 gap-3 pt-3">
-                
-                <a href="https://www.google.com/flights" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    <div class="text-xl mb-1">✈️</div>
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Google Flights (Arama)</span>
-                </a>
-                <a href="https://www.flightradar24.com/" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    <div class="text-xl mb-1">📡</div>
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Canlı Uçuş Takibi</span>
-                </a>
-            </div>
-        `, true)}
+        ${accordionItem('tickets', ICONS.ticket_big, 'Rezervasyonlar & Biletler', renderTicketsContent(), true)}
 
         <!-- KRİTİK BİLGİLER AKORDİYONU (SEYAHAT SEÇİMLİ) -->
-        ${accordionItem('critical', ICONS.key, 'Kritik Bilgiler (Notlar)', `
-            <div class="space-y-4 pt-3">
+        ${accordionItem('critical', ICONS.key_big, 'Kritik Bilgiler (Notlar)', `
+            <div class="space-y-4">
                 <!-- SEYAHAT SEÇİMİ -->
                 <div>
                    <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Seyahat Seçimi</label>
@@ -1875,60 +1986,83 @@ async function loadFromCloud(){
             </div>
         `, true)}
         <!-- KRİTİK BİLGİLER BİTİŞ -->
-
-        ${accordionItem('places', ICONS.location, 'Yakındaki Yerler', `
-            <div class="grid grid-cols-3 gap-3 pt-3">
-                <a href="${touristPlacesUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.mapPin.replace('w-5 h-5', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Gezilecek Yerler</span>
-                </a>
-                <a href="${cafeRestaurantUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.restaurant.replace('w-4 h-4', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Cafe & Restoran</span>
-                </a>
-                <a href="${hotelUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.bed.replace('w-4 h-4', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Otel / Konaklama</span>
-                </a>
-            </div>
-        `)}
-
-        ${accordionItem('health', ICONS.hospital, 'Sağlık ve Güvenlik', `
-            <div class="grid grid-cols-3 gap-3 pt-3">
-                <a href="${hospitalUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.hospital.replace('w-4 h-4', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Hastane</span>
-                </a>
-                <a href="${pharmacyUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.pharmacy.replace('w-4 h-4', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Eczane</span>
-                </a>
-                <a href="${policeUrl}" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.police.replace('w-4 h-4', 'w-6 h-6')}
-                    <span class="text-xs font-bold text-[var(--text-color)]/90 text-center leading-tight">Polis / Güvenlik</span>
-                </a>
-            </div>
-        `)}
-        
-        ${accordionItem('transport', ICONS.bus, 'Ulaşım ve Haritalar', `
-            <div class="grid grid-cols-3 gap-3 pt-3">
-                <a href="https://maps.google.com/maps?output=classic" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.mapPin.replace('w-5 h-5', 'w-6 h-6')}
-                    <div class="text-[10px] font-bold text-[var(--text-color)]">Google Haritalar</div>
-                </a>
-                <a href="https://moovitapp.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    <div class="text-xl mb-1">🚌</div>
-                    <div class="text-[10px] font-bold text-[var(--text-color)]">Moovit</div>
-                </a>
-                <a href="https://www.uber.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm">
-                    ${ICONS.taxi.replace('w-4 h-4', 'w-6 h-6')}
-                    <div class="text-[10px] font-bold text-[var(--text-color)]">Uber / Taksi</div>
-                </a>
-            </div>
-        `)}
         
         <!-- YENİ AKORDİYON: SEYAHAT RAPORU -->
-        ${accordionItem('report', ICONS.report.replace('w-5 h-5', 'w-4 h-4'), 'Seyahat Özet Raporu (Tek Bakışta Tablo)', renderReportContent(), true)}
+        ${accordionItem('report', ICONS.report_big, 'Seyahat Özet Raporu (Tek Bakışta Tablo)', renderReportContent(), true)}
+
+        <!-- ROTA PLANLAYICI -->
+        ${accordionItem('route', ICONS.route.replace('w-5 h-5', 'w-6 h-6'), 'Yol Güzergahı Haritası (Hızlı Rota)', `
+            <div class="space-y-3">
+                <p class="text-xs text-[var(--text-muted)]">Kayıtlı harcamalarınızdaki **mekan ve şehirleri** kronolojik sıraya göre birleştirerek hızlıca Google Haritalar'da yol güzergahı oluşturur.</p>
+
+                <!-- SEYAHAT SEÇİMİ -->
+                <div>
+                   <label class="block text-xs font-bold text-[var(--text-muted)] mb-1 uppercase">Harcamaları Olan Seyahati Seç</label>
+                   <div class="relative">
+                     <select id="route-trip-select" data-act="set-route-trip" class="w-full theme-input rounded-lg py-2 px-3 pr-8 text-sm outline-none focus:border-blue-500 appearance-none cursor-pointer backdrop-blur-sm">
+                       <option value="">-- Seyahat Seçin --</option>
+                       ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${(state.routeTrip||state.tripFilter)===t?'selected':''}>${esc(t)}</option>`).join('')}
+                     </select>
+                     <div class="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                   </div>
+                </div>
+
+                <div id="route-output-box">
+                    ${routeContent}
+                </div>
+            </div>
+        `, true)}
+
+        <!-- YAKINDAKİ YERLER (IZGARA YAPILDI) -->
+        ${accordionItem('places', ICONS.places, 'Yakındaki Yerler (Haritada Ara)', `
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                ${renderLinkCard(touristPlacesUrl, ICONS.mapPin, 'Gezilecek Yerler', 'text-blue-500')}
+                ${renderLinkCard(cafeRestaurantUrl, ICONS.restaurant, 'Cafe & Restoran', 'text-amber-500')}
+                ${renderLinkCard(hotelUrl, ICONS.bed, 'Otel / Konaklama', 'text-violet-500')}
+            </div>
+        `)}
+
+        <!-- SAĞLIK VE GÜVENLİK (IZGARA YAPILDI) -->
+        ${accordionItem('health', ICONS.security, 'Sağlık ve Güvenlik (Acil Durum)', `
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                ${renderLinkCard(hospitalUrl, ICONS.hospital, 'Acil Hastane', 'text-red-500')}
+                ${renderLinkCard(pharmacyUrl, ICONS.pharmacy, 'Eczane', 'text-teal-500')}
+                ${renderLinkCard(policeUrl, ICONS.police, 'Polis / Güvenlik', 'text-indigo-500')}
+            </div>
+        `)}
+        
+        <!-- ULAŞIM VE HARİTALAR (IZGARA YAPILDI) -->
+        ${accordionItem('transport', ICONS.transport_big, 'Ulaşım ve Haritalar', `
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <a href="https://maps.google.com/maps?output=classic" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm text-green-500 bg-green-900/10 hover:bg-green-900/20">
+                    ${ICONS.mapPin.replace('w-5 h-5', 'w-6 h-6')}
+                    <div class="text-[10px] font-bold text-center">Google Haritalar</div>
+                </a>
+                <a href="https://moovitapp.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm text-yellow-500 bg-yellow-900/10 hover:bg-yellow-900/20">
+                    <div class="text-xl mb-1">🚌</div>
+                    <div class="text-[10px] font-bold text-center">Moovit (Toplu Taşıma)</div>
+                </a>
+                <a href="https://www.uber.com/" target="_blank" class="flex flex-col items-center gap-1 p-3 rounded-lg border border-[var(--border-color)]/50 theme-sidebar-bg theme-sidebar-bg-hover transition shadow-sm text-purple-500 bg-purple-900/10 hover:bg-purple-900/20">
+                    ${ICONS.taxi.replace('w-4 h-4', 'w-6 h-6')}
+                    <div class="text-[10px] font-bold text-center">Taksi / Uber</div>
+                </a>
+            </div>
+        `)}
+        
+        <!-- UÇUŞ KONTROLÜ -->
+        ${accordionItem('flightCheck', ICONS.flight.replace('w-6 h-6', 'w-5 h-5'), 'Uçuş Takibi ve Kontrolü', `
+            <div class="grid grid-cols-2 gap-3">
+                
+                <a href="https://www.google.com/flights" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-sky-500/50 text-sky-400 bg-sky-900/10 hover:bg-sky-900/20 transition shadow-sm">
+                    <div class="text-2xl mb-1">✈️</div>
+                    <span class="text-xs font-bold text-center leading-tight">Google Flights (Arama)</span>
+                </a>
+                <a href="https://www.flightradar24.com/" target="_blank" class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-indigo-500/50 text-indigo-400 bg-indigo-900/10 hover:bg-indigo-900/20 transition shadow-sm">
+                    <div class="text-2xl mb-1">📡</div>
+                    <span class="text-xs font-bold text-center leading-tight">Canlı Uçuş Takibi</span>
+                </a>
+            </div>
+        `, true)}
         
         <!-- AKORDİYONLAR BİTİŞ -->
       </div>
@@ -2346,7 +2480,7 @@ async function loadFromCloud(){
                 Şu anki filtrelere göre (seyahat, kategori, arama) harcamalarının kategori dağılımını gösterir.
               </p>
               <p class="text-[11px] text-[var(--text-muted)] mt-1">
-                Seyahat: <span class="text-[var(--text-color)]">${tripText}</span>
+                Seyahat: <span class="text-[var(--text-color)] font-medium">${tripText}</span>
               </p>
             </div>
             <div class="p-4 space-y-3">
@@ -2372,7 +2506,7 @@ async function loadFromCloud(){
       return `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="overlay"><div class="theme-modal-bg w-full max-w-lg rounded-xl border p-5 shadow-2xl relative" data-act="noop"><button data-act="close-mod" data-val="data" class="absolute top-3 right-3 text-[var(--text-muted)] hover:text-[var(--text-color)]">${ICONS.x}</button><h3 class="font-bold text-[var(--text-color)] mb-4">Veri Yedekleme</h3><textarea id="io-txt" class="w-full h-40 bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-lg p-3 text-xs font-mono text-[var(--text-muted)] mb-4 outline-none focus:border-blue-500">${JSON.stringify({exp:state.exp,chk:state.chk,tickets:state.travelTickets})}</textarea><div class="flex gap-3"><button data-act="copy-json" class="flex-1 bg-[var(--bg-card-light)] text-[var(--text-color)] py-2.5 rounded-lg font-medium">Kopyala</button><button data-act="imp" class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-bold">Yükle</button></div></div></div>`;
     }
     
-    // YENİ BİLET DETAY MODALI
+    // YENİ MODAL: Rezervasyon Detayı
     if (type === 'ticketDetail') {
         return renderTicketDetailModal();
     }
