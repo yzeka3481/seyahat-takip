@@ -806,11 +806,21 @@ html, body {
   // --- FIREBASE KURULUMU VE YETKİLENDİRME ---
   // KRİTİK DÜZELTME: Firebase yapılandırma hatalarını ele almak için bu fonksiyonu ekledik.
   async function setupFirebase() {
-      // 1. Yapılandırma Kontrolü
-      const firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+      let firebaseConfigString = null;
+      let attempt = 0;
+      const MAX_ATTEMPTS = 20; // 1 saniyeye kadar deneme (20 * 50ms)
+
+      // Yapılandırma bilgisi gelene kadar bekle
+      while (firebaseConfigString === null && attempt < MAX_ATTEMPTS) {
+          firebaseConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+          if (firebaseConfigString) break;
+          await new Promise(resolve => setTimeout(resolve, 50)); // 50ms bekle
+          attempt++;
+      }
+
       if (!firebaseConfigString) {
-          console.error("KRİTİK HATA: Firebase yapılandırma bilgileri eksik (Mobile/Canvas).");
-          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma bilgileri eksik. Uygulama başlatılamadı." });
+          console.error("KRİTİK HATA: Firebase yapılandırma bilgileri eksik (Mobile/Canvas). Süre aşımı.");
+          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma bilgileri eksik. Veri kaydı yapılamıyor." });
           return;
       }
 
@@ -820,7 +830,7 @@ html, body {
           if (!firebaseConfig.apiKey) throw new Error("API Key eksik.");
       } catch (e) {
           console.error("Firebase yapılandırması ayrıştırılamadı:", e);
-          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma verisi bozuk. Uygulama başlatılamadı." });
+          setState({ isAuthReady: true, err: "Giriş Hatası: Firebase yapılandırma verisi bozuk. Veri kaydı yapılamıyor." });
           return;
       }
       
@@ -840,7 +850,7 @@ html, body {
                   setState({
                       userId: user.uid,
                       isAuthReady: true,
-                      err: state.err.includes("başlatılamadı") ? '' : state.err, // Başlatma hatasını temizle
+                      err: '', // Hata varsa temizle
                   });
                   setupFirestoreListener(user.uid);
                   console.log(`Giriş Başarılı: User ID: ${user.uid}`);
@@ -1811,7 +1821,7 @@ html, body {
                     </h3>
                     <span class="text-[var(--text-muted)] transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">
                         ${ICONS.down.replace('w-4 h-4', 'w-4 h-4')}
-                    </span>
+                    </span
                 </button>
                 <div class="transition-all duration-300 ease-in-out overflow-hidden" style="max-height: ${isOpen ? maxHeight : '0'};">
                     <div class="p-4 pt-0">
