@@ -212,6 +212,7 @@ html, body {
 
   // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
   function getChartDataset(expenses = state.exp){
+    // Önce grafik için temel veri setini belirle
     const base = (state._visibleExp && state._visibleExp.length && expenses === state.exp) 
         ? state._visibleExp 
         : expenses;
@@ -219,19 +220,51 @@ html, body {
     const allExp = base.filter(x => !isNaN(Number(x.amt)) && Number(x.amt) > 0);
 
     if(!allExp.length){
-      return {labels:[], data:[], colors:[], currency: state.chartCurrency || BASE_CURRENCY, total:0, trips:[], currencies:[], perCat:{}};
+        return {
+            labels: [],
+            data: [],
+            colors: [],
+            currency: state.chartCurrency || BASE_CURRENCY,
+            total: 0,
+            trips: [],
+            currencies: [],
+            perCat: {}
+        };
     }
 
+    // Ekranda bulunan kayıtların para birimleri
     const currencies = [...new Set(allExp.map(x => x.cur || BASE_CURRENCY))];
-    let cur = state.chartCurrency || BASE_CURRENCY;
-    if(!currencies.includes(cur)) cur = currencies[0] || BASE_CURRENCY;
 
-    if (expenses === state.exp) state.chartCurrency = cur;
+    // 1) Seçili seyahate göre para birimi (öncelik buraya verilecek)
+    let cur = null;
+    if (state.tripFilter) {
+        const tripExps = allExp.filter(x => x.trip === state.tripFilter);
+        const tripCurrencies = [...new Set(tripExps.map(x => x.cur || BASE_CURRENCY))];
 
+        // Seçili seyahatte tek bir para birimi varsa onu kullan
+        if (tripCurrencies.length === 1) {
+            cur = tripCurrencies[0];
+        }
+    }
+
+    // 2) Hâlâ belirlenmediyse; kullanıcı seçimi veya varsayılan
+    if (!cur) {
+        cur = state.chartCurrency || BASE_CURRENCY;
+        if (!currencies.includes(cur)) {
+            cur = currencies[0] || BASE_CURRENCY;
+        }
+    }
+
+    // Bu fonksiyon state.exp için çağrılıyorsa, seçilen para birimini state'te sakla
+    if (expenses === state.exp) {
+        state.chartCurrency = cur;
+    }
+
+    // Grafik için sadece seçilen para birimindeki harcamaları kullan
     const filtered = allExp.filter(x => (x.cur || BASE_CURRENCY) === cur);
 
     const perCat = {};
-    filtered.forEach(x=>{
+    filtered.forEach(x => {
         const cat = x.cat || 'other';
         const amt = Number(x.amt) || 0;
         perCat[cat] = (perCat[cat] || 0) + amt;
@@ -241,11 +274,21 @@ html, body {
     const labels = keys.map(id => (CATS[id] && CATS[id].l) || id);
     const data = keys.map(id => perCat[id]);
     const colors = keys.map(id => (CATS[id] && CATS[id].c) || 'rgba(148,163,184,0.8)');
-    const trips = [...new Set(filtered.map(x=> x.trip || 'Genel'))];
-    const total = data.reduce((a,b)=>a+b,0);
+    const trips = [...new Set(filtered.map(x => x.trip || 'Genel'))];
+    const total = data.reduce((a, b) => a + b, 0);
 
-    return {labels,data,colors,currency:cur,currencies,total,trips, perCat};
-  }
+    return {
+        labels,
+        data,
+        colors,
+        currency: cur,
+        currencies,
+        total,
+        trips,
+        perCat
+    };
+}
+
   
   // --- HARCAMA GRAFİĞİ ÇİZİM ---
   function renderExpenseChart(){
@@ -1564,7 +1607,7 @@ html, body {
 
     const headerText = isFiltered 
         ? `${esc(state.tripFilter)} Seyahati Toplamı`
-        : `Tüm Harcamalar Toplamı`;
+        : `Seçili Seyahat Harcamalar Toplamı`;
 
     const multiCurrencySummary = Object.entries(totalsByCurrency)
         .filter(([cur]) => cur !== baseCur)
@@ -2972,8 +3015,28 @@ html, body {
         if(e.target.closest('[data-act="del-city"]')) return; 
         state.expandedCities[val]=!state.expandedCities[val]; renderApp();
     }
-    if(act==='detail'){state.selExp=id; state.modals.detail=true; renderApp();}
-    
+    if(act==='detail'){
+        // Detay modali ac
+        state.selExp = id;
+        state.modals.detail = true;
+        renderApp();
+        return;
+    }
+    if(act==='edit'){
+        // Harcama duzenleme: secili harcamayi forma tasiyip form gorunumunu ac
+        const x = state.exp.find(e => e.id === state.selExp);
+        if(!x) {
+            return;
+        }
+        state.form = { ...x };
+        state.view = 'form';
+        state.modals.detail = false;
+        state.err = '';
+        renderApp();
+        return;
+    }
+
+
     // Modal Yönetimi
     if(act==='close-mod'){
       if(val === 'tzSelect') state.modals.tzSelect = false;
@@ -3074,7 +3137,14 @@ html, body {
         const i=state.chk.items.find(x=>x.id===t.dataset.id); 
         if(i){i.done=t.checked; save(); renderApp();}
     }
-    if(t.dataset.act==='flt-trip'){state.tripFilter=t.value; renderApp();}
+    if (t.dataset.act === 'flt-trip') {
+    state.tripFilter = t.value;
+    // Seyahat değişince grafik para birimini sıfırla;
+    // bir sonrakinde getChartDataset seçili seyahatin para birimine göre belirlesin
+    state.chartCurrency = '';
+    renderApp();
+}
+
     if(t.dataset.act==='flt-cat'){state.catFilter=t.value; renderApp();}
     if(t.dataset.act==='flt-type'){state.typeFilter=t.value; renderApp();} 
     if(t.dataset.act==='flt-ind'){state.indFilter=t.value; renderApp();} 
