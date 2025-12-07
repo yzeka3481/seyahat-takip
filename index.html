@@ -837,7 +837,9 @@ html, body {
                   // Tarihleri hesapla
                   const startDate = fmtDate(r.startDate);
                   const endDate = r.endDate ? fmtDate(r.endDate) : '';
-                  const dateText = endDate && startDate !== endDate ? `${startDate} - ${endDate}` : startDate;
+                  // Artık sadece başlangıç tarihini göster
+const dateText = startDate;
+
                   
                   // Fiyat
                   const costText = r.cost ? `${fmtNum(r.cost)} ${r.cur}` : 'Ücret: -';
@@ -1482,7 +1484,7 @@ html, body {
                             ${resText.split(':').slice(1).join(':').trim() || resText}
                         </div>
                         <div class="text-xs font-medium ${nextPlan && Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 7 ? 'text-yellow-300' : 'text-white/70'} mt-1">
-                            ${nextPlan ? fmtDate(nextPlan.item.date || nextPlan.item.startDate) + (Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 7 ? ` (${Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} Gün Kaldı)` : '') : 'Mevcut Değil'}
+                            ${nextPlan ? `${Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} Gün Kaldı` : 'Mevcut Değil'}
                         </div>
                     </div>
                 </div>
