@@ -661,16 +661,49 @@ html, body {
 
     navigator.geolocation.getCurrentPosition(
         (position) => {
-            const name = "Konum Başarıyla Alındı";
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
 
-            setState({
-                location: { 
-                    lat: position.coords.latitude, 
-                    lon: position.coords.longitude 
-                },
-                locationLoading: false,
-                locationName: name,
-                err: ''
+            // Coğrafi koordinatlardan şehir ismini almak için ters geocoding
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+
+            fetch(url, {
+                headers: {
+                    'Accept-Language': 'tr'
+                }
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                const addr = data && data.address ? data.address : {};
+                const city =
+                    addr.city ||
+                    addr.town ||
+                    addr.village ||
+                    addr.suburb ||
+                    addr.state ||
+                    data.display_name ||
+                    'Bilinmeyen Konum';
+
+                setState({
+                    location: { 
+                        lat,
+                        lon 
+                    },
+                    locationLoading: false,
+                    locationName: city,
+                    err: ''
+                });
+            })
+            .catch(() => {
+                setState({
+                    location: { 
+                        lat,
+                        lon 
+                    },
+                    locationLoading: false,
+                    locationName: 'Konum Bulunamadı',
+                    err: ''
+                });
             });
         },
         (error) => {
