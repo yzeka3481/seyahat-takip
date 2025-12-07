@@ -3172,7 +3172,34 @@ html, body {
   document.addEventListener('input', e => {
     const t = e.target;
     
-    if(t.dataset.act==='search'){state.search=t.target.value; renderApp(); return;}
+   if (t.dataset.act === 'search') {
+    // Eski input içeriği ve imleç pozisyonu
+    const input = t;
+    const value = input.value;
+    const caret = input.selectionStart ?? value.length;
+
+    // Arama state'ini güncelle
+    state.search = value;
+
+    // Uygulamayı yeniden çiz
+    renderApp();
+
+    // Yeniden çizilen DOM'da arama kutusunu tekrar bul
+    const newInput = document.querySelector('input[data-act="search"]');
+    if (newInput) {
+        // Tekrar odak ver
+        newInput.focus();
+        // İmleci eski pozisyona getir (try/catch: bazı tarayıcılarda hata atmaması için)
+        try {
+            newInput.setSelectionRange(caret, caret);
+        } catch (e) {}
+    }
+
+    // Bu event burada bitti
+    return;
+}
+
+
     
     if(t.dataset.act==='update-new-note'){
         state.newCriticalNote = t.value;
