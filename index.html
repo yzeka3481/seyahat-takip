@@ -1509,7 +1509,7 @@ html, body {
                             <!-- Sağ: Tutar / Base Cur Karşılığı -->
                             <div class="text-right flex-shrink-0">
                                 <div class="text-sm font-bold text-slate-200">${fmtNum(x.amt)} <span class="text-xs font-medium">${x.cur}</span></div>
-                                <div class="text-[10px] text-slate-500 mt-0.5">~ ${fmtNum(estimatedBaseCur)} ${baseCur}</div>
+                                
                             </div>
                         </div>
                     `;
@@ -1592,15 +1592,25 @@ html, body {
 
   function renderDashboardHeader(visibleExp){
     const baseCur = state.baseCurrency; 
-    let totalInBase = 0; 
+    let totalInHeaderCur = 0; 
     const totalsByCurrency = {};
     const isFiltered = !!state.tripFilter;
-    
+
+    // Seçili seyahatin para birimini belirle (tek para birimi kullanılıyorsa)
+    let headerCur = baseCur;
+    if (isFiltered) {
+        const tripExps = visibleExp.filter(x => (x.trip || '') === state.tripFilter);
+        const tripCurrencies = [...new Set(tripExps.map(x => x.cur || baseCur))];
+        if (tripCurrencies.length === 1) {
+            headerCur = tripCurrencies[0];
+        }
+    }
+
     visibleExp.forEach(x => {
-        const cur = x.cur || baseCur; 
+        const cur = x.cur || headerCur; 
         const amt = Number(x.amt) || 0;
-        
-        totalInBase += convertToBase(amt, cur, baseCur);
+
+        totalInHeaderCur += convertToBase(amt, cur, headerCur);
 
         totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
     });
@@ -1610,7 +1620,7 @@ html, body {
         : `Seçili Seyahat Harcamalar Toplamı`;
 
     const multiCurrencySummary = Object.entries(totalsByCurrency)
-        .filter(([cur]) => cur !== baseCur)
+        .filter(([cur]) => cur !== headerCur)
         .sort((a, b) => b[1] - a[1])
         .map(([cur, amt]) => `${fmtNum(amt)} ${cur}`)
         .join(' · ');
@@ -1618,44 +1628,44 @@ html, body {
     const subtitleText = multiCurrencySummary 
         ? `(${multiCurrencySummary}) · ${visibleExp.length} İşlem`
         : `${visibleExp.length} İşlem`;
-        
+
     const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
 
     return `
       <!-- TOPLAM HARCAMA ALANI -->
-      <div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-purple-600 border border-indigo-700/50 rounded-xl p-4 shadow-xl relative overflow-hidden group">
+      <div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-slate-900/80 border border-indigo-700/50 rounded-xl p-4 shadow-xl relative overflow-hidden group">
          <div class="absolute -right-8 -top-8 w-60 h-60 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition duration-1000"></div>
-         
+
          <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
                <div class="text-[10px] uppercase tracking-widest text-white/80 font-bold mb-1 flex items-center gap-1">
                   ${ICONS.calculate} ${headerText}
                </div>
-               
+
                <div class="text-3xl font-extrabold text-white leading-tight mt-1">
-                  ${fmtNum(totalInBase)} <span class="text-lg font-medium">${baseCur}</span>
+                  ${fmtNum(totalInHeaderCur)} <span class="text-lg font-medium">${headerCur}</span>
                </div>
-               
+
                <div class="text-xs text-white/70 mt-2 font-medium">
                   ${subtitleText}
                </div>
-               
+
                <div class="text-[9px] text-white/60 mt-2 p-1 bg-black/30 rounded-md flex items-center gap-1">
                    ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')} 
                    <span>Dinamik Kurlar: ${rateInfo}</span>
                </div>
             </div>
-            
+
             <div class="flex flex-col gap-1 w-auto min-w-[120px] max-w-[150px]">
 
                <label class="text-[10px] text-white/80 font-bold uppercase ml-1">Seyahat Seçimi</label>
                <div class="relative">
-                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-white/30 rounded-lg py-2 px-3 pr-8 text-sm text-white outline-none focus:border-white appearance-none cursor-pointer backdrop-blur-sm">
+                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-white/30 rounded-lg py-2 pl-3 pr-8 text-xs text-slate-100 outline-none focus:border-white appearance-none cursor-pointer backdrop-blur-sm">
                    <option value="">Tüm Seyahatler</option>
                    ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${state.tripFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
                  </select>
-                 <div class="absolute right-3 top-2.5 text-white pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+                 <div class="absolute right-3 top-2.5 text-white/70 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
                </div>
             </div>
          </div>
@@ -1663,7 +1673,7 @@ html, body {
     `;
   }
 
-  function renderTabs(){
+function renderTabs(){
     const t = state.tab;
     const btnCls = "menu-btn-base border-transparent hover:bg-slate-800/50 hover:text-slate-300";
     const activeCls = "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30";
@@ -1760,7 +1770,7 @@ html, body {
             
             <div class="pl-3 text-left flex-1 min-w-0 pr-16">
               <div class="font-bold text-sm text-slate-200">${esc(city)}</div>
-              <div class="text-[10px] text-slate-500 mt-0.5">${lst.length} harcama · Tahmini Toplam: <span class="text-slate-300 font-bold">${sumTxt}</span></div>
+              <div class="text-[10px] text-slate-500 mt-0.5">${lst.length} harcama · Toplam: <span class="text-slate-300 font-bold">${sumTxt}</span></div>
             </div>
             
             <!-- KRİTİK DÜZELTME: Artık data-act="del-city" ile buton içinde. -->
@@ -2088,7 +2098,19 @@ html, body {
     const isImageLimitReached = imagesCount >= MAX_IMAGES;
     
     const isFuelActive = f.cat === 'fuel';
-    
+
+    // Yeni: Seyahat bazlı varsayılan para birimi
+    if (!f.id) {
+        const tripName = (f.trip || state.tripFilter || '').trim();
+        if (tripName) {
+            const tripExps = state.exp.filter(x => (x.trip || '') === tripName && x.cur);
+            const tripCurrencies = [...new Set(tripExps.map(x => x.cur || BASE_CURRENCY))];
+            if (tripCurrencies.length === 1) {
+                f.cur = tripCurrencies[0];
+            }
+        }
+    }
+
     return `
       <div class="form-modal-overlay">
         <div class="bg-slate-900 w-full max-w-lg md:rounded-xl rounded-t-xl form-content-box p-4 border border-slate-800 shadow-2xl self-start mt-0 md:mt-4 mb-4">
@@ -2416,7 +2438,7 @@ html, body {
                            
                            <!-- HARCAMA TİPİ VE BİREYSEL/ORTAK BİLGİSİ -->
                            <div class="text-[10px] text-white/70 mt-1">Ödeme: ${esc(typeInfo.l)} (${x.isIndividual ? 'Bireysel' : 'Ortak'})</div>
-                           <div class="text-[10px] text-white/70 mt-1">Tahmini ${state.baseCurrency}: ${fmtNum(estimatedBaseCur)} ${state.baseCurrency}</div>
+                           <div class="text-[10px] text-white/70 mt-1"></div>
                        </div>
                    </div>
                 </div>
@@ -3016,14 +3038,14 @@ html, body {
         state.expandedCities[val]=!state.expandedCities[val]; renderApp();
     }
     if(act==='detail'){
-        // Detay modali ac
+        // Detay modali aç
         state.selExp = id;
         state.modals.detail = true;
         renderApp();
         return;
     }
     if(act==='edit'){
-        // Harcama duzenleme: secili harcamayi forma tasiyip form gorunumunu ac
+        // Harcama düzenleme: seçili harcamayı forma taşı ve form görünümünü aç
         const x = state.exp.find(e => e.id === state.selExp);
         if(!x) {
             return;
@@ -3282,7 +3304,21 @@ html, body {
         let shouldRender = false; 
 
         switch(t.id) {
-            case 'i-trip': fExp.trip = t.value; break;
+            case 'i-trip': 
+                fExp.trip = t.value; 
+                // Seyahat değişince, o seyahatte tek bir para birimi varsa varsayılanı ona çek
+                (function() {
+                    const tripName = (t.value || '').trim();
+                    if (tripName) {
+                        const tripExps = state.exp.filter(x => (x.trip || '') === tripName && x.cur);
+                        const tripCurrencies = [...new Set(tripExps.map(x => x.cur || BASE_CURRENCY))];
+                        if (tripCurrencies.length === 1) {
+                            fExp.cur = tripCurrencies[0];
+                            shouldRender = true;
+                        }
+                    }
+                })();
+                break;
             case 'i-city': fExp.city = t.value; break;
             case 'i-place': fExp.place = t.value; break;
             case 'i-amt': 
