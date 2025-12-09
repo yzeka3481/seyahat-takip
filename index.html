@@ -1467,8 +1467,8 @@ const dateText = startDate;
 <!-- 2. BUGÜNÜN HARCAMASI ve YAKLAŞAN PLAN Kartları (Yanyana 2 Box) -->
             <div class="grid grid-cols-2 gap-3 mb-4">
                 
-                <!-- BUGÜNÜN HARCAMASI -->
-                <div class="bg-gradient-to-br from-indigo-700/70 to-blue-600/70 border border-indigo-500/50 rounded-xl p-4 shadow-lg h-36">
+                      <!-- BUGÜNÜN HARCAMASI -->
+			<div class="relative overflow-hidden rounded-xl border border-emerald-400/40 bg-emerald-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.45)] h-36 p-4">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                         ${ICONS.calculate.replace('w-4 h-4', 'w-4 h-4')} BUGÜNÜN HARCAMASI
                     </div>
@@ -1482,8 +1482,10 @@ const dateText = startDate;
                     </div>
                 </div>
 
+          
                 <!-- YAKLAŞAN REZERVASYON -->
-                <div class="bg-gradient-to-br from-purple-700/70 to-rose-600/70 border border-purple-500/50 rounded-xl p-4 shadow-lg h-36 flex flex-col justify-between">
+		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
+
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
