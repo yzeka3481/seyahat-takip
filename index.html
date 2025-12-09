@@ -1686,18 +1686,17 @@ const dateText = startDate;
 function renderTabs(){
     const t = state.tab;
 
-    // Üst menü sekmelerinin temel ve aktif/pasif stilleri
-    const btnBaseCls   = "menu-btn-base border transition-all duration-200";
-    const activeBtnCls = "bg-cyan-500/20 border-cyan-400 text-cyan-50 shadow-[0_0_25px_rgba(34,211,238,0.55)]";
-    const passiveBtnCls= "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-100";
+    // Üst menü butonlarının temel ve aktif/pasif stilleri
+    const btnBaseCls    = "menu-btn-base border transition-all duration-200";
+    const activeBtnCls  = "bg-cyan-500/20 border-cyan-400 text-cyan-50 shadow-[0_0_25px_rgba(34,211,238,0.55)]";
+    const passiveBtnCls = "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-100";
 
-    const iconBaseCls  = "menu-btn-icon-box bg-gradient-to-br shadow-lg shadow-black/30";
-    const iconActiveCls= "from-white to-slate-100 text-cyan-700";
-    const iconPassiveCls="from-slate-900/80 to-slate-800/80 text-white/80";
+    // İkon kutusu (gradient burada veriliyor)
+    const iconBaseCls   = "menu-btn-icon-box bg-gradient-to-br shadow-lg shadow-black/30";
 
-    const labelActiveCls = "text-[9px] font-extrabold uppercase leading-none text-cyan-50 mt-1";
-    const labelPassiveCls= "text-[9px] font-extrabold uppercase leading-none text-slate-400 mt-1";
-    
+    const labelActiveCls  = "text-[9px] font-extrabold uppercase leading-none text-cyan-50 mt-1";
+    const labelPassiveCls = "text-[9px] font-extrabold uppercase leading-none text-slate-400 mt-1";
+
     const tabs = [
         {id: 'sum',   label: 'ÖZET',       icon: ICONS.home,      color: MENU_ICON_COLORS.sum},
         {id: 'exp',   label: 'HARCAMA',    icon: ICONS.wallet,    color: MENU_ICON_COLORS.exp},
@@ -1708,14 +1707,15 @@ function renderTabs(){
     return `
       <div class="glass-panel p-1 rounded-xl mb-4 flex gap-1 overflow-x-auto scrl">
         ${tabs.map(tab => {
-            const isActive = t === tab.id;
-            const btnCls   = isActive ? activeBtnCls : passiveBtnCls;
-            const iconCls  = isActive ? iconActiveCls : iconPassiveCls;
-            const labelCls = isActive ? labelActiveCls : labelPassiveCls;
-            
+            const isActive      = t === tab.id;
+            const btnCls        = isActive ? activeBtnCls : passiveBtnCls;
+            const iconGradient  = isActive ? tab.color : 'from-slate-900/80 to-slate-800/80';
+            const iconTextCls   = isActive ? 'text-cyan-900' : 'text-slate-100';
+            const labelCls      = isActive ? labelActiveCls : labelPassiveCls;
+
             return `
                 <button data-act="tab" data-val="${tab.id}" class="${btnBaseCls} ${btnCls}">
-                    <div class="${iconBaseCls} ${tab.color} ${iconCls}">
+                    <div class="${iconBaseCls} ${iconGradient} ${iconTextCls}">
                         ${tab.icon.replace('w-4 h-4', 'w-5 h-5')}
                     </div>
                     <span class="${labelCls}">${tab.label}</span>
@@ -1724,7 +1724,8 @@ function renderTabs(){
         }).join('')}
       </div>
     `;
-  }
+}
+
 
   function renderFilters(){
     return `
