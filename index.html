@@ -1425,38 +1425,46 @@ const dateText = startDate;
         <div class="space-y-4 pb-24">
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
-            <div class="bg-gradient-to-r from-indigo-700 via-violet-700 to-purple-600 border border-indigo-700/50 rounded-xl p-4 shadow-xl relative overflow-hidden group">
-               <div class="absolute -right-8 -top-8 w-60 h-60 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition duration-1000"></div>
-               
-               <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  <div>
-                     <div class="text-[10px] uppercase tracking-widest text-white/80 font-bold mb-1 flex items-center gap-1">
-                        ${ICONS.calculate} TÜM SEYAHATLER TOPLAMI
-                     </div>
-                     
-                     <div class="text-3xl font-extrabold text-white leading-tight mt-1">
-                        ${fmtNum(allTimeTotal)} <span class="text-lg font-medium">${baseCur}</span>
-                     </div>
-                     
-                     <div class="text-[9px] text-white/60 mt-2 p-1 bg-black/30 rounded-md flex items-center gap-1">
-                         ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')} 
-                         <span>Kur: USD ${fmtNum(EXCHANGE_RATES.USD)} | EUR ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})</span>
-                     </div>
-                  </div>
-                  
-                <div class="flex flex-col gap-1 w-[110px] sm:w-auto">
-                     <label class="text-[10px] text-white/80 font-bold uppercase ml-1">Özet Para Birimi</label>
-                     <div class="relative">
-                       <select data-act="set-base-currency" class="w-full bg-slate-950/50 border border-white/30 rounded-lg py-2 px-3 pr-8 text-sm text-white outline-none focus:border-white appearance-none cursor-pointer backdrop-blur-sm">
-                         ${currencyOptions}
-                       </select>
-                       <div class="absolute right-3 top-2.5 text-white pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
-                     </div>
-                  </div>
-               </div>
+            <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/10 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+                <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-cyan-300/50 blur-3xl"></div>
+                <div class="absolute -left-16 -bottom-16 w-56 h-56 rounded-full bg-sky-500/35 blur-3xl"></div>
+                
+                <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
+                            ${ICONS.calculate} TÜM SEYAHATLER TOPLAMI
+                        </div>
+                        
+                        <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
+                            ${fmtNum(allTimeTotal)} 
+                            <span class="text-lg font-semibold">${baseCur}</span>
+                        </div>
+                        
+                        <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-white/45 px-2 py-1 text-[9px] text-slate-900/80">
+                            ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
+                            <span>Kur: USD ${fmtNum(EXCHANGE_RATES.USD)} | EUR ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col gap-1 w-[120px] sm:w-auto">
+                        <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
+                            Özet Para Birimi
+                        </label>
+                        <div class="relative">
+                            <select
+                                data-act="set-base-currency"
+                                class="w-full rounded-xl border border-cyan-500/60 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
+                                ${currencyOptions}
+                            </select>
+                            <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
+                                ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <!-- 2. BUGÜNÜN HARCAMASI ve YAKLAŞAN PLAN Kartları (Yanyana 2 Box) -->
+
+<!-- 2. BUGÜNÜN HARCAMASI ve YAKLAŞAN PLAN Kartları (Yanyana 2 Box) -->
             <div class="grid grid-cols-2 gap-3 mb-4">
                 
                 <!-- BUGÜNÜN HARCAMASI -->
@@ -1677,29 +1685,40 @@ const dateText = startDate;
 
 function renderTabs(){
     const t = state.tab;
-    const btnCls = "menu-btn-base border-transparent hover:bg-slate-800/50 hover:text-slate-300";
-    const activeCls = "bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-900/30";
-    const passiveCls = "bg-transparent text-slate-500 border-transparent";
+
+    // Üst menü sekmelerinin temel ve aktif/pasif stilleri
+    const btnBaseCls   = "menu-btn-base border transition-all duration-200";
+    const activeBtnCls = "bg-cyan-500/20 border-cyan-400 text-cyan-50 shadow-[0_0_25px_rgba(34,211,238,0.55)]";
+    const passiveBtnCls= "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-100";
+
+    const iconBaseCls  = "menu-btn-icon-box bg-gradient-to-br shadow-lg shadow-black/30";
+    const iconActiveCls= "from-white to-slate-100 text-cyan-700";
+    const iconPassiveCls="from-slate-900/80 to-slate-800/80 text-white/80";
+
+    const labelActiveCls = "text-[9px] font-extrabold uppercase leading-none text-cyan-50 mt-1";
+    const labelPassiveCls= "text-[9px] font-extrabold uppercase leading-none text-slate-400 mt-1";
     
     const tabs = [
-        {id: 'sum', label: 'ÖZET', icon: ICONS.home, color: MENU_ICON_COLORS.sum},
-        {id: 'exp', label: 'HARCAMA', icon: ICONS.wallet, color: MENU_ICON_COLORS.exp},
-        {id: 'chk', label: 'CHECK LIST', icon: ICONS.briefcase, color: MENU_ICON_COLORS.chk},
-        {id: 'other', label: 'DİĞER', icon: ICONS.more, color: MENU_ICON_COLORS.other},
+        {id: 'sum',   label: 'ÖZET',       icon: ICONS.home,      color: MENU_ICON_COLORS.sum},
+        {id: 'exp',   label: 'HARCAMA',    icon: ICONS.wallet,    color: MENU_ICON_COLORS.exp},
+        {id: 'chk',   label: 'CHECK LIST', icon: ICONS.briefcase, color: MENU_ICON_COLORS.chk},
+        {id: 'other', label: 'DİĞER',      icon: ICONS.more,      color: MENU_ICON_COLORS.other},
     ];
 
     return `
       <div class="glass-panel p-1 rounded-xl mb-4 flex gap-1 overflow-x-auto scrl">
         ${tabs.map(tab => {
             const isActive = t === tab.id;
-            const statusClass = isActive ? activeCls : passiveCls;
+            const btnCls   = isActive ? activeBtnCls : passiveBtnCls;
+            const iconCls  = isActive ? iconActiveCls : iconPassiveCls;
+            const labelCls = isActive ? labelActiveCls : labelPassiveCls;
             
             return `
-                <button data-act="tab" data-val="${tab.id}" class="${btnCls} ${statusClass}">
-                    <div class="menu-btn-icon-box bg-gradient-to-br ${tab.color} text-white shadow-lg shadow-black/30">
+                <button data-act="tab" data-val="${tab.id}" class="${btnBaseCls} ${btnCls}">
+                    <div class="${iconBaseCls} ${tab.color} ${iconCls}">
                         ${tab.icon.replace('w-4 h-4', 'w-5 h-5')}
                     </div>
-                    <span class="text-[9px] font-extrabold uppercase leading-none">${tab.label}</span>
+                    <span class="${labelCls}">${tab.label}</span>
                 </button>
             `;
         }).join('')}
