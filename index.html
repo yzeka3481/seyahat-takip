@@ -1484,8 +1484,7 @@ const dateText = startDate;
 
           
                 <!-- YAKLAŞAN REZERVASYON -->
-		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
-
+		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
@@ -1602,7 +1601,7 @@ const dateText = startDate;
     `;
   }
 
-  function renderDashboardHeader(visibleExp){
+function renderDashboardHeader(visibleExp){
     const baseCur = state.baseCurrency; 
     let totalInHeaderCur = 0; 
     const totalsByCurrency = {};
@@ -1618,12 +1617,12 @@ const dateText = startDate;
         }
     }
 
+    // Toplamı ve para birimi bazında dağılımı hesapla
     visibleExp.forEach(x => {
         const cur = x.cur || headerCur; 
         const amt = Number(x.amt) || 0;
 
         totalInHeaderCur += convertToBase(amt, cur, headerCur);
-
         totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
     });
 
@@ -1643,48 +1642,60 @@ const dateText = startDate;
 
     const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
+    const trips = [...new Set(state.exp.map(x => x.trip).filter(t => t))].sort();
 
     return `
       <!-- TOPLAM HARCAMA ALANI -->
-      <div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
+      <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-500/10 backdrop-blur-xl shadow-[0_0_35px_rgba(34,211,238,0.55)] p-4 group">
+        <!-- Turkuaz cam arka plan baloncukları -->
+        <div class="absolute -right-10 -top-10 w-40 h-40 bg-cyan-400/40 blur-3xl group-hover:bg-cyan-300/45 transition duration-700"></div>
+        <div class="absolute -left-16 -bottom-16 w-56 h-56 bg-sky-500/30 blur-3xl"></div>
 
-         <div class="absolute -right-8 -top-8 w-60 h-60 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition duration-1000"></div>
-
-         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div>
-               <div class="text-[10px] uppercase tracking-widest text-white/80 font-bold mb-1 flex items-center gap-1">
-                  ${ICONS.calculate} ${headerText}
-               </div>
-
-               <div class="text-3xl font-extrabold text-white leading-tight mt-1">
-                  ${fmtNum(totalInHeaderCur)} <span class="text-lg font-medium">${headerCur}</span>
-               </div>
-
-               <div class="text-xs text-white/70 mt-2 font-medium">
-                  ${subtitleText}
-               </div>
-
-               <div class="text-[9px] text-white/60 mt-2 p-1 bg-black/30 rounded-md flex items-center gap-1">
-                   ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')} 
-                   <span>Dinamik Kurlar: ${rateInfo}</span>
-               </div>
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <!-- Sol taraf: Toplam bilgi -->
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.25em] text-white/80 font-bold mb-1 flex items-center gap-1">
+              ${ICONS.calculate} ${headerText}
             </div>
 
-            <div class="flex flex-col gap-1 w-auto min-w-[120px] max-w-[150px]">
-
-               <label class="text-[10px] text-white/80 font-bold uppercase ml-1">Seyahat Seçimi</label>
-               <div class="relative">
-                 <select data-act="flt-trip" class="w-full bg-slate-950/50 border border-white/30 rounded-lg py-2 pl-3 pr-8 text-xs text-slate-100 outline-none focus:border-white appearance-none cursor-pointer backdrop-blur-sm">
-                   <option value="">Tüm Seyahatler</option>
-                   ${[...new Set(state.exp.map(x=>x.trip).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}" ${state.tripFilter===t?'selected':''}>${esc(t)}</option>`).join('')}
-                 </select>
-                 <div class="absolute right-3 top-2.5 text-white/70 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
-               </div>
+            <div class="text-3xl font-extrabold text-white leading-tight mt-1">
+              ${fmtNum(totalInHeaderCur)} <span class="text-lg font-semibold">${headerCur}</span>
             </div>
-         </div>
+
+            <div class="text-xs text-white/70 mt-2 font-medium">
+              ${subtitleText}
+            </div>
+
+            <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-black/20 px-2 py-1 text-[10px] text-white/80">
+              ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
+              <span>Dinamik Kurlar: ${rateInfo}</span>
+            </div>
+          </div>
+
+          <!-- Sağ taraf: Seyahat filtresi -->
+          <div class="flex flex-col gap-1 w-full md:w-auto md:min-w-[160px] max-w-[200px]">
+            <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
+              Seyahat Seçimi
+            </label>
+            <div class="relative">
+              <select
+                data-act="flt-trip"
+                class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
+                <option value="">Tüm Seyahatler</option>
+                ${trips.map(t => `
+                  <option value="${esc(t)}" ${state.tripFilter===t ? 'selected' : ''}>${esc(t)}</option>
+                `).join('')}
+              </select>
+              <div class="pointer-events-none absolute right-3 top-2.5 text-white/80">
+                ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
-  }
+}
+
 
 function renderTabs(){
     const t = state.tab;
@@ -2613,7 +2624,7 @@ function renderTabs(){
 
           // Yalnızca Harcamalar sekmesindeyken + butonu göster
           if(state.tab==='exp'){
-            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full shadow-2xl shadow-cyan-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
           }
         } else {
           h+= renderForm();
