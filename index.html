@@ -139,7 +139,7 @@ html, body {
       {id: 'flight', l: 'Uçak Bileti', i: '✈️', color: 'from-blue-600 to-sky-500'},
       {id: 'hotel', l: 'Otel/Konaklama', i: '🏨', color: 'from-emerald-600 to-teal-500'},
       {id: 'activity', l: 'Etkinlik/Bilet', i: '🎟️', color: 'from-purple-600 to-fuchsia-500'},
-      {id: 'transport', l: 'Ulaşım', i: '🚌', color: 'from-orange-600 to-amber-500'},
+      {id: 'transport', l: 'Tren/Otobüs', i: '🚌', color: 'from-orange-600 to-amber-500'},
       {id: 'other', l: 'Diğer', i: '📝', color: 'from-slate-600 to-gray-500'},
   ];
 
@@ -436,7 +436,7 @@ html, body {
     home: mkSvg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>', 4), 
     more: mkSvg('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>', 4), 
     calendar: mkSvg('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 4),
-    currency: mkSvg('<circle cx="12" cy="12" r="10"/><path d="M12 18V6"/><path d="M9 9h6"/><path d="M9 15h6"]/>'),
+    currency: mkSvg('<circle cx="12" cy="12" r="10"/><path d="M12 18V6"/><path d="M9 9h6"/><path d="M9 15h6"/>'),
     reserve: mkSvg('<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="7" cy="7" r="4"/><path d="M14 7h6a2 2 0 0 1 2 2v2M2 9v2M12 15h0"/>', 4),
   };
   
@@ -508,6 +508,7 @@ html, body {
       cur: BASE_CURRENCY,
       notes: '',
       completed: false,
+      isIndividual: false,
   });
   
   function initState(){
@@ -537,7 +538,10 @@ html, body {
     // YENİ: Rezervasyonları yükle
     try{r=JSON.parse(localStorage.getItem(K.RES)||'[]');}catch(err){r = [];}
     
-    try{prefTZ=localStorage.parse(localStorage.getItem(K.PREF+'_tz')||initialTZ);}catch(err){}
+    try{
+        const storedTZ = localStorage.getItem(K.PREF+'_tz');
+        if(storedTZ){ prefTZ = storedTZ; }
+    }catch(err){}
     try{criticalNotes=JSON.parse(localStorage.getItem(K.NOTES)||'[]');}catch(err){criticalNotes = [];}
     try{preferredBaseCurrency=localStorage.getItem(K.PREF+'_base_cur')||'TRY';}catch(err){preferredBaseCurrency = 'TRY';}
 
@@ -573,6 +577,7 @@ html, body {
         type: item.type || RESERVATION_TYPES[0].id,
         completed: item.completed !== undefined ? item.completed : false,
         notes: item.notes || '',
+        isIndividual: item.isIndividual !== undefined ? item.isIndividual : false,
     }));
 
     const allTrips = [...new Set((e || []).map(x=>x.trip).filter(Boolean).concat((r || []).map(x=>x.trip).filter(Boolean)))].sort(); // Rezervasyonlardan da seyahat adı al
@@ -956,6 +961,31 @@ const dateText = startDate;
                  </div>
               </div>
               
+              <!-- BİREYSEL / ORTAK -->
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bu Rezervasyon</label>
+                <div class="inline-flex gap-2 rounded-lg bg-slate-800/80 p-1 border border-slate-700">
+                  <button
+                    type="button"
+                    data-act="set-res-ind"
+                    data-val="shared"
+                    class="flex-1 text-xs font-semibold px-3 py-1.5 rounded-md ${
+                      !f.isIndividual ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/60' : 'text-slate-300 border border-transparent'
+                    }">
+                    Ortak
+                  </button>
+                  <button
+                    type="button"
+                    data-act="set-res-ind"
+                    data-val="individual"
+                    class="flex-1 text-xs font-semibold px-3 py-1.5 rounded-md ${
+                      f.isIndividual ? 'bg-amber-500/25 text-amber-100 border border-amber-400/70' : 'text-slate-300 border border-transparent'
+                    }">
+                    Bireysel
+                  </button>
+                </div>
+              </div>
+
               <!-- NOTLAR -->
               <textarea id="i-res-notes" rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Ekstra Notlar (Check-in saati, koltuk no, vb.)">${esc(f.notes)}</textarea>
 
@@ -1365,8 +1395,15 @@ const dateText = startDate;
       let todayTotal = 0;
       let allTimeTotal = 0;
       
+      // Harcama kayıtları
       state.exp.forEach(x => {
           allTimeTotal += convertToBase(x.amt, x.cur, baseCur);
+      });
+
+      // Rezervasyon maliyetleri (toplam harcamaya dahil)
+      state.res.forEach(r => {
+          if (!r.cost) return;
+          allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur);
       });
 
       const todayExpenses = state.exp.filter(x => x.date === today);
@@ -2624,7 +2661,7 @@ function renderTabs(){
 
           // Yalnızca Harcamalar sekmesindeyken + butonu göster
           if(state.tab==='exp'){
-            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full shadow-2xl shadow-cyan-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
           }
         } else {
           h+= renderForm();
@@ -2994,6 +3031,10 @@ function renderTabs(){
     // Rezervasyon Formu İşlemleri
     if(act === 'set-res-type'){
         state.resForm.type = val;
+        renderApp();
+    }
+    if(act === 'set-res-ind'){
+        state.resForm.isIndividual = (val === 'individual');
         renderApp();
     }
     if(act === 'save-res'){
