@@ -436,7 +436,7 @@ html, body {
     home: mkSvg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>', 4), 
     more: mkSvg('<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>', 4), 
     calendar: mkSvg('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 4),
-    currency: mkSvg('<circle cx="12" cy="12" r="10"/><path d="M12 18V6"/><path d="M9 9h6"/><path d="M9 15h6"/>'),
+    currency: mkSvg('<circle cx="12" cy="12" r="10"/><path d="M12 18V6"/><path d="M9 9h6"/><path d="M9 15h6"]/>'),
     reserve: mkSvg('<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="7" cy="7" r="4"/><path d="M14 7h6a2 2 0 0 1 2 2v2M2 9v2M12 15h0"/>', 4),
   };
   
@@ -538,10 +538,7 @@ html, body {
     // YENİ: Rezervasyonları yükle
     try{r=JSON.parse(localStorage.getItem(K.RES)||'[]');}catch(err){r = [];}
     
-    try{
-        const storedTZ = localStorage.getItem(K.PREF+'_tz');
-        if(storedTZ){ prefTZ = storedTZ; }
-    }catch(err){}
+    try{prefTZ=localStorage.parse(localStorage.getItem(K.PREF+'_tz')||initialTZ);}catch(err){}
     try{criticalNotes=JSON.parse(localStorage.getItem(K.NOTES)||'[]');}catch(err){criticalNotes = [];}
     try{preferredBaseCurrency=localStorage.getItem(K.PREF+'_base_cur')||'TRY';}catch(err){preferredBaseCurrency = 'TRY';}
 
@@ -1394,23 +1391,33 @@ const dateText = startDate;
       const today = new Date().toISOString().slice(0, 10);
       let todayTotal = 0;
       let allTimeTotal = 0;
-      
-      // Harcama kayıtları
-      state.exp.forEach(x => {
+      const indFilter = state.indFilter || '';
+
+      // Harcama kayıtları (bireysel/ortak filtresine göre)
+      const filteredExpForSum = state.exp.filter(x => {
+          if (indFilter === 'individual' && x.isIndividual !== true) return false;
+          if (indFilter === 'shared' && x.isIndividual !== false) return false;
+          return true;
+      });
+
+      filteredExpForSum.forEach(x => {
           allTimeTotal += convertToBase(x.amt, x.cur, baseCur);
       });
 
-      // Rezervasyon maliyetleri (toplam harcamaya dahil)
-      state.res.forEach(r => {
-          if (!r.cost) return;
-          allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur);
-      });
-
-      const todayExpenses = state.exp.filter(x => x.date === today);
+      // Bugünün harcamaları (sadece fiili harcamalar, bireysel/ortak filtresine göre)
+      const todayExpenses = filteredExpForSum.filter(x => x.date === today);
       todayExpenses.forEach(x => {
           todayTotal += convertToBase(x.amt, x.cur, baseCur);
       });
-      
+
+      // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak filtresine göre)
+      state.res.forEach(r => {
+          if (!r.cost) return;
+          if (indFilter === 'individual' && r.isIndividual !== true) return;
+          if (indFilter === 'shared' && r.isIndividual !== false) return;
+          allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur);
+      });
+
       // YAKLAŞAN REZERVASYONLAR
       const now = new Date();
       const nextReservation = state.res
@@ -1483,21 +1490,43 @@ const dateText = startDate;
                         </div>
                     </div>
                     
-                    <div class="flex flex-col gap-1 w-[120px] sm:w-auto">
-                        <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
-                            Özet Para Birimi
-                        </label>
-                        <div class="relative">
-                            <select
-                                data-act="set-base-currency"
-                                class="w-full rounded-xl border border-cyan-500/60 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
-                                ${currencyOptions}
-                            </select>
-                            <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
-                                ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                    
+                    <div class="flex flex-col gap-2 w-full sm:w-auto">
+                        <div class="flex flex-row gap-3">
+                            <div class="flex flex-col gap-1 w-[120px] sm:w-auto">
+                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
+                                    Özet Para Birimi
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        data-act="set-base-currency"
+                                        class="w-full rounded-xl border border-slate-300/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
+                                        ${currencyOptions}
+                                    </select>
+                                    <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
+                                        ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-1 w-[140px] sm:w-auto">
+                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
+                                    Harcama Kapsamı
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        data-act="flt-ind"
+                                        class="w-full rounded-xl border border-slate-300/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
+                                        ${INDIVIDUAL_FILTERS.map(f=>`<option value="${f.id}" ${state.indFilter===f.id?'selected':''}>${esc(f.l)}</option>`).join('')}
+                                    </select>
+                                    <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
+                                        ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+</div></div>
                 </div>
             </div>
 
@@ -1521,7 +1550,7 @@ const dateText = startDate;
 
           
                 <!-- YAKLAŞAN REZERVASYON -->
-		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
+		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
@@ -1648,16 +1677,43 @@ function renderDashboardHeader(visibleExp){
     let headerCur = baseCur;
     if (isFiltered) {
         const tripExps = visibleExp.filter(x => (x.trip || '') === state.tripFilter);
-        const tripCurrencies = [...new Set(tripExps.map(x => x.cur || baseCur))];
+        const tripRes = state.res.filter(r => (r.trip || '') === state.tripFilter && r.cost);
+        const tripCurrencies = [...new Set(
+            tripExps.map(x => x.cur || baseCur).concat(
+                tripRes.map(r => r.cur || baseCur)
+            )
+        )];
         if (tripCurrencies.length === 1) {
             headerCur = tripCurrencies[0];
         }
     }
 
-    // Toplamı ve para birimi bazında dağılımı hesapla
+    const indFilter = state.indFilter || '';
+
+    // Toplamı ve para birimi bazında dağılımı hesapla (harcamalar)
     visibleExp.forEach(x => {
+        if (indFilter === 'individual' && x.isIndividual !== true) return;
+        if (indFilter === 'shared' && x.isIndividual !== false) return;
+
         const cur = x.cur || headerCur; 
         const amt = Number(x.amt) || 0;
+
+        totalInHeaderCur += convertToBase(amt, cur, headerCur);
+        totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
+    });
+
+    // Seçili seyahat ve bireysel/ortak filtresine göre rezervasyon maliyetlerini ekle
+    const resForHeader = state.res.filter(r => {
+        if (isFiltered && (r.trip || '') !== state.tripFilter) return false;
+        if (!r.cost) return false;
+        if (indFilter === 'individual' && r.isIndividual !== true) return false;
+        if (indFilter === 'shared' && r.isIndividual !== false) return false;
+        return true;
+    });
+
+    resForHeader.forEach(r => {
+        const cur = r.cur || headerCur;
+        const amt = Number(r.cost) || 0;
 
         totalInHeaderCur += convertToBase(amt, cur, headerCur);
         totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
@@ -2661,7 +2717,7 @@ function renderTabs(){
 
           // Yalnızca Harcamalar sekmesindeyken + butonu göster
           if(state.tab==='exp'){
-            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full shadow-2xl shadow-cyan-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
+            h+=`<button data-act="new" class="fixed bottom-6 right-6 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 z-40 border border-white/10">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>`;
           }
         } else {
           h+= renderForm();
