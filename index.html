@@ -4329,9 +4329,11 @@ if(act==='quick-set-cat'){
             const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
 
             if(isIOS){
-                // iOS için: data: URL ile aç, takvim veya paylaşıma yönlendir
-                const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-                window.location.href = dataUrl;
+                // iOS: yeni sekmede/blokta aç, Safari içinden paylaş/Takvim'e ekle
+                const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                setTimeout(()=>URL.revokeObjectURL(url), 15000);
             }else{
                 // Diğer tarayıcılar için klasik download akışı
                 const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
