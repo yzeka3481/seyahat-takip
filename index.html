@@ -2829,6 +2829,7 @@ const helperCard = (href, emoji, label) => {
   ${helperCard('#helper-health',      '⚕️', 'Sağlık')}
   ${helperCard('#helper-transport',   '🚌', 'Ulaşım')}
   ${helperCard('#helper-data',        '💾', 'Veri / Yedek')}
+  ${helperCard('#helper-help',        '❓', 'Yardım')}
 </div>
 
       <!-- REZERVASYONLAR POPUP -->
@@ -3068,7 +3069,40 @@ const helperCard = (href, emoji, label) => {
         </div>
       </div>
 
-      <!-- VERİ / YEDEK POPUP -->
+            <!-- YARDIM POPUP -->
+      <div id="helper-help" class="helper-modal">
+        <div class="helper-modal-inner relative">
+          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+            ${ICONS.x}
+          </a>
+          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yardım &amp; Kısa Kullanım Kılavuzu</h3>
+          <div class="space-y-3 text-sm text-slate-200">
+            <p class="text-slate-300">
+              Bu uygulama; seyahat bazlı harcamalarını, rezervasyonlarını ve küçük notlarını tek ekranda toplaman için tasarlandı.
+            </p>
+            <ol class="list-decimal list-inside space-y-1 text-[13px] text-slate-300">
+              <li><span class="font-semibold">Giriş (Login):</span> Sağ üstteki ikonla Google hesabınla giriş yap. Giriş başarılıysa ikon yeşile döner. İkona tekrar basarak e-posta adresini görebilir ve çıkış yapabilirsin.</li>
+              <li><span class="font-semibold">Ana Sekmeler:</span> Özet, Seyahatler, Harcamalar, Rezervasyonlar ve Notlar / Checklist sekmelerini kullanarak tüm seyahat bilgilerini takip edebilirsin.</li>
+              <li><span class="font-semibold">Detaylı Harcama Ekleme:</span> Harcamalar sekmesindeki turkuaz + butonuyla seyahat, şehir/mekan, kategori, tutar, para birimi ve tarih girerek detaylı harcama kaydı oluşturabilirsin.</li>
+              <li><span class="font-semibold">Hızlı Harcama:</span> Turuncu cüzdan butonuyla yalnızca seyahat, kategori ve tutar girerek hızlı harcama ekleyebilirsin. Para birimi, seçili seyahat için en sık kullandığın para birimine göre otomatik seçilir.</li>
+              <li><span class="font-semibold">Yaklaşan Plan:</span> Tarihli rezervasyonlar ve checklist maddeleri arasından en yakını, Özet ekranındaki &quot;Yaklaşan Plan&quot; kutusunda özetlenir.</li>
+              <li><span class="font-semibold">Para Birimi Özeti:</span> Özet ekranında &quot;Özet Para Birimi&quot; seçerek tüm seyahat toplamını seçtiğin para birimine çevrilmiş olarak görebilirsin.</li>
+            </ol>
+            <p class="text-[12px] text-slate-400">
+              Daha detaylı anlatım için aşağıdaki PDF kısa kılavuzu kullanabilirsin.
+            </p>
+            <a href="quick_guide_tr.pdf" target="_blank"
+               class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-[13px] font-medium text-slate-100 hover:bg-slate-700">
+              📄 Kısa Kullanım Kılavuzu (PDF)
+            </a>
+            <p class="text-[11px] text-slate-500">
+              Not: PDF dosyasının çalışması için, uygulamanın barındırıldığı klasörde <code>quick_guide_tr.pdf</code> dosyasının bulunması gerekir.
+            </p>
+          </div>
+        </div>
+      </div>
+
+<!-- VERİ / YEDEK POPUP -->
       <div id="helper-data" class="helper-modal">
         <div class="helper-modal-inner relative">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
@@ -3763,6 +3797,21 @@ function renderApp(){
   window.handleDrop = (e) => { e.preventDefault(); };
   window.handleDragEnd = (e) => { e.preventDefault(); };
   
+
+  function refreshReportModal(){
+    const modal = document.getElementById('helper-report');
+    if(!modal) return;
+    modal.innerHTML = `
+        <div class="helper-modal-inner relative">
+          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+            ${ICONS.x}
+          </a>
+          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Özet Raporu</h3>
+          ${renderReportContent()}
+        </div>
+    `;
+  }
+
   document.addEventListener('click',e=>{
     const t=e.target.closest('[data-act]'); 
     if(!t) {
@@ -4689,13 +4738,15 @@ if(act==='quick-set-cat'){
     if(t.dataset.act==='set-report-trip'){
         state.selectedReportTrip = t.value;
         state.helpersAccordion.report = true; 
-        renderApp();
+        refreshReportModal();
+        return;
     }
     
     if(t.dataset.act==='set-report-currency'){
         state.reportCurrency = t.value;
         state.helpersAccordion.report = true; 
-        renderApp();
+        refreshReportModal();
+        return;
     }
 
 
