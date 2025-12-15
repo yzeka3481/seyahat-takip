@@ -4329,11 +4329,9 @@ if(act==='quick-set-cat'){
             const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent);
 
             if(isIOS){
-                // iOS Safari için: blob URL'yi doğrudan konuma ver, download attribute kullanma
-                const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
-                const url = URL.createObjectURL(blob);
-                window.location.href = url;
-                setTimeout(()=>URL.revokeObjectURL(url), 5000);
+                // iOS için: data: URL ile aç, takvim veya paylaşıma yönlendir
+                const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+                window.location.href = dataUrl;
             }else{
                 // Diğer tarayıcılar için klasik download akışı
                 const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
