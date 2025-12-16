@@ -159,6 +159,16 @@
             top: 0.75rem;
             right: 0.75rem;
         }
+
+        /* KRİTİK: Form inputlarının modal dışına taşmasını engelle */
+        input, select, textarea {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="date"]{
+            min-width: 0;
+        }
+
     </style>
 
 
@@ -1665,16 +1675,14 @@
                                 <input id="i-trip-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="Örn: İtalya Yaz Tatili" value="${esc(f.name)}">
                             </div>
 
-
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div class="min-w-0">
+                            <div class="space-y-3">
+                                <div>
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Başlangıç</label>
-                                    <input id="i-trip-start" type="date" class="w-full min-w-0 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.startDate}">
+                                    <input id="i-trip-start" type="date" class="w-full max-w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.startDate}">
                                 </div>
-                                <div class="min-w-0">
+                                <div>
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bitiş (Opsiyonel)</label>
-                                    <input id="i-trip-end" type="date" class="w-full min-w-0 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.endDate}">
+                                    <input id="i-trip-end" type="date" class="w-full max-w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.endDate}">
                                 </div>
                             </div>
 
