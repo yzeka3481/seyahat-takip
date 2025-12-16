@@ -159,16 +159,7 @@
             top: 0.75rem;
             right: 0.75rem;
         }
-
-        /* KRİTİK: Form inputlarının modal dışına taşmasını engelle */
-        input, select, textarea {
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-        input[type="date"]{width:100%;max-width:100%;min-width:0;display:block;}
-        input[type="date"]::-webkit-date-and-time-value{ text-align:left; }
-        input[type="date"]::-webkit-datetime-edit{ padding:0; }
-</style>
+    </style>
 
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1011,7 +1002,7 @@
                 // YENİ: Rezervasyonları yükle
                 try { r = JSON.parse(localStorage.getItem(K.RES) || '[]'); } catch (err) { r = []; }
 
-                try { prefTZ = JSON.parse(localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
+                try { prefTZ = localStorage.parse(localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
                 try { criticalNotes = JSON.parse(localStorage.getItem(K.NOTES) || '[]'); } catch (err) { criticalNotes = []; }
                 try { preferredBaseCurrency = localStorage.getItem(K.PREF + '_base_cur') || 'TRY'; } catch (err) { preferredBaseCurrency = 'TRY'; }
 
@@ -1074,6 +1065,7 @@
                     indFilter: '',
                     selExp: null,
                     selRes: null, // Yeni: Seçili Rezervasyon
+                    selRes: null, // Yeni: Seçili Rezervasyon
                     modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, // resForm ve tripForm eklendi
                     form: getEmptyForm(),
                     resForm: getEmptyResForm(), // Yeni: Rezervasyon formu state'i
@@ -1122,6 +1114,7 @@
                 localStorage.setItem(K.RES, JSON.stringify(state.res)); // Rezervasyonları kaydet
                 localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
                 localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
+                localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
                 localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
                 localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
                 if (!isGuest()) {
@@ -1166,6 +1159,7 @@
                             }
                             if (data.baseCurrency) {
                                 state.baseCurrency = data.baseCurrency;
+                                state.reportCurrency = data.baseCurrency;
                                 state.reportCurrency = data.baseCurrency;
                                 state.chartCurrency = data.baseCurrency;
                             }
@@ -1477,12 +1471,15 @@
                  <div>
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat</label>
                    <div class="relative">
-                      <input id="i-res-trip" list="dl-res-trip" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}">
-                      <datalist id="dl-res-trip">${allTrips.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-  <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-xs">
-    ▾
-  </span>
-</div>
+                      <select id="i-res-trip" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                          <option value="">Seyahat Seç...</option>
+                          ${allTrips.map(t => `<option value="${esc(t)}" ${f.trip === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+                          <option value="__new__" class="font-bold text-emerald-400">+ Yeni Seyahat Oluştur</option>
+                      </select>
+                      <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      </div>
+                   </div>
                
                  </div>
                  <div>
@@ -1662,7 +1659,7 @@
                 const f = state.tripForm;
                 return `
                 <div class="form-modal-overlay">
-                    <div class="bg-slate-900 w-full max-w-md mx-auto box-border md:rounded-xl rounded-t-xl form-content-box p-4 border border-slate-800 shadow-2xl self-center mt-4 overflow-hidden">
+                    <div class="bg-slate-900 w-full max-w-md md:rounded-xl rounded-t-xl form-content-box p-4 border border-slate-800 shadow-2xl self-center mt-4">
                         <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
                             <h2 class="font-bold text-lg text-white">Yeni Seyahat Oluştur</h2>
                             <button data-act="cancel-trip" class="text-slate-400 hover:text-white transition">${ICONS.x}</button>
@@ -1674,18 +1671,14 @@
                                 <input id="i-trip-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="Örn: İtalya Yaz Tatili" value="${esc(f.name)}">
                             </div>
 
-                            <div class="space-y-3">
-                                <div>
+                            <div class="block sm:grid sm:grid-cols-2 sm:gap-3 space-y-3 sm:space-y-0 w-full">
+                                <div class="w-full">
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Başlangıç</label>
-                                    <div class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-3 overflow-hidden box-border">
-                                        <input id="i-trip-start" type="date" class="block w-full min-w-0 max-w-full bg-transparent text-sm text-slate-200 outline-none focus:outline-none" value="${f.startDate}">
-                                    </div>
+                                    <input id="i-trip-start" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 box-border min-w-0 max-w-full block" value="${f.startDate}">
                                 </div>
-                                <div>
+                                <div class="w-full">
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bitiş (Opsiyonel)</label>
-                                    <div class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-3 overflow-hidden box-border">
-                                        <input id="i-trip-end" type="date" class="block w-full min-w-0 max-w-full bg-transparent text-sm text-slate-200 outline-none focus:outline-none" value="${f.endDate}">
-                                    </div>
+                                    <input id="i-trip-end" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500 box-border min-w-0 max-w-full block" value="${f.endDate}">
                                 </div>
                             </div>
 
@@ -2435,7 +2428,7 @@
              <span class="text-[11px]">👤</span>
            </button>
            <!-- Kullanıcı menüsü (sadece giriş yapıldığında kullanılır) -->
-           <div id="auth-user-menu" class="hidden absolute right-0 top-5 z-40">
+           <div id="auth-user-menu" class="hidden absolute right-0 top--5 z-40">
              <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-lg px-3 py-2 min-w-[180px]">
                <div id="auth-user-email" class="text-[11px] text-slate-300 mb-2 break-all">
                  Oturum açılmadı
@@ -3028,7 +3021,10 @@
               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Harcamaları Olan Seyahati Seç</label>
               <div class="relative">
                 <select id="route-trip-select" data-act="set-route-trip"
-                  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
+                  <select
+  data-act="set-report-trip"
+  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
+
                   <option value="">-- Seyahat Seçin --</option>
                   ${tripsWithSpending.map(t => `<option value="${esc(t)}" ${esc(state.routeTrip || '') === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                 </select>
@@ -3054,7 +3050,10 @@
               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat Seçimi</label>
               <div class="relative">
                 <select data-act="set-note-trip"
-                  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
+                  <select
+  data-act="set-report-trip"
+  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
+
                   ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNotes ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                 </select>
                 </div>
@@ -3918,6 +3917,31 @@
                     }
                 }
             }
+
+            // YENİ: CHANGE EVENT LISTENER (Trip Select Box İçin)
+            document.addEventListener('change', e => {
+                // Harcama Formu Trip Seçimi
+                if (e.target.id === 'i-trip') {
+                    if (e.target.value === '__new__') {
+                        state.tripForm = getEmptyTripForm();
+                        state.modals.tripForm = true;
+                        // Seçimi sıfırla ki modal kapanınca "yeni" seçili kalmasın
+                        e.target.value = '';
+                        renderApp();
+                    }
+                }
+
+                // Rezervasyon Formu Trip Seçimi
+                if (e.target.id === 'i-res-trip') {
+                    if (e.target.value === '__new__') {
+                        state.tripForm = getEmptyTripForm();
+                        state.modals.tripForm = true;
+                        // Seçimi sıfırla
+                        e.target.value = '';
+                        renderApp();
+                    }
+                }
+            });
 
             // DRAG AND DROP HANDLERS (Kaldırıldı)
             window.handleDragStart = (e) => { e.preventDefault(); };
