@@ -1002,7 +1002,7 @@
                 // YENİ: Rezervasyonları yükle
                 try { r = JSON.parse(localStorage.getItem(K.RES) || '[]'); } catch (err) { r = []; }
 
-                try { prefTZ = localStorage.parse(localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
+                try { prefTZ = JSON.parse(localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
                 try { criticalNotes = JSON.parse(localStorage.getItem(K.NOTES) || '[]'); } catch (err) { criticalNotes = []; }
                 try { preferredBaseCurrency = localStorage.getItem(K.PREF + '_base_cur') || 'TRY'; } catch (err) { preferredBaseCurrency = 'TRY'; }
 
@@ -1065,7 +1065,6 @@
                     indFilter: '',
                     selExp: null,
                     selRes: null, // Yeni: Seçili Rezervasyon
-                    selRes: null, // Yeni: Seçili Rezervasyon
                     modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, // resForm ve tripForm eklendi
                     form: getEmptyForm(),
                     resForm: getEmptyResForm(), // Yeni: Rezervasyon formu state'i
@@ -1114,7 +1113,6 @@
                 localStorage.setItem(K.RES, JSON.stringify(state.res)); // Rezervasyonları kaydet
                 localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
                 localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
-                localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
                 localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
                 localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
                 if (!isGuest()) {
@@ -1159,7 +1157,6 @@
                             }
                             if (data.baseCurrency) {
                                 state.baseCurrency = data.baseCurrency;
-                                state.reportCurrency = data.baseCurrency;
                                 state.reportCurrency = data.baseCurrency;
                                 state.chartCurrency = data.baseCurrency;
                             }
@@ -1668,14 +1665,14 @@
                                 <input id="i-trip-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="Örn: İtalya Yaz Tatili" value="${esc(f.name)}">
                             </div>
 
-                            <div class="block sm:grid sm:grid-cols-2 sm:gap-3 space-y-3 sm:space-y-0">
-                                <div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="min-w-0">
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Başlangıç</label>
-                                    <input id="i-trip-start" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.startDate}">
+                                    <input id="i-trip-start" type="date" class="w-full min-w-0 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.startDate}">
                                 </div>
-                                <div>
+                                <div class="min-w-0">
                                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bitiş (Opsiyonel)</label>
-                                    <input id="i-trip-end" type="date" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.endDate}">
+                                    <input id="i-trip-end" type="date" class="w-full min-w-0 bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-emerald-500" value="${f.endDate}">
                                 </div>
                             </div>
 
@@ -2425,7 +2422,7 @@
              <span class="text-[11px]">👤</span>
            </button>
            <!-- Kullanıcı menüsü (sadece giriş yapıldığında kullanılır) -->
-           <div id="auth-user-menu" class="hidden absolute right-0 top--5 z-40">
+           <div id="auth-user-menu" class="hidden absolute right-0 top-5 z-40">
              <div class="bg-slate-900 border border-slate-700 rounded-xl shadow-lg px-3 py-2 min-w-[180px]">
                <div id="auth-user-email" class="text-[11px] text-slate-300 mb-2 break-all">
                  Oturum açılmadı
@@ -3018,10 +3015,7 @@
               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Harcamaları Olan Seyahati Seç</label>
               <div class="relative">
                 <select id="route-trip-select" data-act="set-route-trip"
-                  <select
-  data-act="set-report-trip"
-  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
-
+                  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
                   <option value="">-- Seyahat Seçin --</option>
                   ${tripsWithSpending.map(t => `<option value="${esc(t)}" ${esc(state.routeTrip || '') === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                 </select>
@@ -3047,10 +3041,7 @@
               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat Seçimi</label>
               <div class="relative">
                 <select data-act="set-note-trip"
-                  <select
-  data-act="set-report-trip"
-  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
-
+                  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
                   ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNotes ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                 </select>
                 </div>
