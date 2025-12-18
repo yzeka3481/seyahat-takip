@@ -469,7 +469,7 @@
                 // Sadece seçili seyahatin harcamalarını getir
                 return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
             }
-            function buildReportHtml(payload) {
+            function buildPdfReportHtml(payload) {
                 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const dateRange = (payload.dateFrom && payload.dateTo)
                     ? `${payload.dateFrom} – ${payload.dateTo}`
@@ -2300,7 +2300,7 @@
             }
 
             // YENİ FONKSİYON: RAPOR HTML OLUŞTURUCU
-            function buildReportHtml(data) {
+            function buildReportHtmlLegacy(data) {
                 const { trip, reportCurrency, generatedAt, summary, expenses, reservations } = data;
 
                 const fmt = (n) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -5659,7 +5659,7 @@
                     };
 
                     // 7) HTML raporu oluştur ve yeni sekmede aç
-                    const html = buildReportHtml(payload);
+                    const html = buildPdfReportHtml(payload);
                     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
                     const url = URL.createObjectURL(blob);
                     window.open(url, '_blank');
