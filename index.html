@@ -886,6 +886,17 @@
 
             const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
+            // Para formatlama (tr-TR). Uygulama genelinde kullanılır.
+            const fmtMoney = (n) => {
+                const x = Number(n);
+                const v = Number.isFinite(x) ? x : 0;
+                try {
+                    return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } catch (e) {
+                    return (Math.round(v * 100) / 100).toFixed(2);
+                }
+            };
+
             const fmtNum = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
             const fmtDate = d => { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d };
             const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
