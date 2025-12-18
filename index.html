@@ -1612,7 +1612,7 @@
                           <div class="mt-3">
                              <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Ödemeyi Yapan</label>
                              <div class="relative">
-                                <select id="i-res-payer" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                                <select id="i-res-payer" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
                                    <option value="">-- Seçiniz --</option>
                                    ${payerOptions}
                                 </select>
@@ -1918,35 +1918,25 @@ function calculateDebts(tripName, targetCurrency = (state.baseCurrency || BASE_C
     const balances = {};
     persons.forEach(p => balances[p] = 0);
 
-    const dataWarnings = [];
     let totalSharedCost = 0;
 
-    const addPaid = (payerName, amount, meta) => {
-        const valid = (payerName && Object.prototype.hasOwnProperty.call(balances, payerName));
-        const payer = valid ? payerName : persons[0];
-
-        if (!valid) {
-            dataWarnings.push({
-                type: 'missing_payer',
-                trip: tripName,
-                fallback: payer,
-                meta: meta || null
-            });
-        }
-
+    const addPaid = (payerName, amount) => {
+        const payer = (payerName && Object.prototype.hasOwnProperty.call(balances, payerName))
+            ? payerName
+            : persons[0]; // ödeyen boş/yanlışsa: ilk kişi varsay
         balances[payer] += amount;
     };
 
     sharedExps.forEach(x => {
         const amt = convertToBase(Number(x.amt) || 0, x.cur || targetCurrency, targetCurrency);
         totalSharedCost += amt;
-        addPaid(x.payer, amt, { kind: 'expense', id: x.id, place: x.place, city: x.city });
+        addPaid(x.payer, amt);
     });
 
     sharedRes.forEach(r => {
         const amt = convertToBase(Number(r.cost) || 0, r.cur || targetCurrency, targetCurrency);
         totalSharedCost += amt;
-        addPaid(r.payer, amt, { kind: 'reservation', id: r.id, name: r.name, location: r.location });
+        addPaid(r.payer, amt);
     });
 
     const sharePerPerson = totalSharedCost / persons.length;
@@ -1996,7 +1986,6 @@ function calculateDebts(tripName, targetCurrency = (state.baseCurrency || BASE_C
         sharePerPerson,
         transactions,
         balances: cleanedBalances,
-        dataWarnings,
         currency: targetCurrency
     };
 }
@@ -2138,24 +2127,6 @@ function calculateDebts(tripName, targetCurrency = (state.baseCurrency || BASE_C
                 </div>
              `).join('');
 
-const warnHtml = (debtInfo.dataWarnings && debtInfo.dataWarnings.length)
-                    ? `
-                <div class="mt-2 text-[11px] bg-amber-900/20 border border-amber-700/40 rounded p-2">
-                    <div class="font-bold text-amber-300 mb-1">Veri Uyarıları</div>
-                    <div class="text-slate-200">Bazı kalemlerde “Ödeyen” bilgisi eksik/uyumsuz. Bu raporda sistem geçici olarak ilk kişiyi varsayarak hesapladı. Lütfen ilgili kaydı düzenleyip doğru kişiyi seçin.</div>
-                    <ul class="mt-2 space-y-1">
-                        ${debtInfo.dataWarnings.slice(0, 12).map(w => {
-                            const meta = w.meta || {};
-                            const label = (meta.kind === 'expense')
-                                ? `Harcama: ${esc(meta.place || '')}${meta.city ? ' (' + esc(meta.city) + ')' : ''}`
-                                : `Rezervasyon: ${esc(meta.name || '')}${meta.location ? ' (' + esc(meta.location) + ')' : ''}`;
-                            return `<li class="text-amber-100">• ${label}</li>`;
-                        }).join('')}
-                    </ul>
-                </div>
-                    `
-                    : '';
-
                     debtHtml = `
             <!-- Borç Dağılımı (YENİ) -->
             <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -2168,7 +2139,6 @@ const warnHtml = (debtInfo.dataWarnings && debtInfo.dataWarnings.length)
                         <div class="flex justify-between"><span>Kişi Başı Düşen Pay:</span> <span class="text-slate-200 font-mono">${fmtNum(debtInfo.sharePerPerson)} ${debtInfo.currency}</span></div>
                     </div>
                     ${debtRows}
-                    ${warnHtml}
                 </div>
             </div>
              `;
@@ -2639,45 +2609,6 @@ function buildReportHtml(data) {
             `
             : `<p class="hint">${badge('Tamam', 'ok')} Hesaplaşma gerekmiyor: herkes payını dengelemiş görünüyor.</p>`;
 
-        const balRows = debts.balances ? Object.entries(debts.balances).map(([p, bal]) => ({ p, bal })) : [];
-        const balTable = balRows.length ? `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Kişi</th>
-                        <th class="amt">Net Bakiye</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${balRows.map(x => `
-                        <tr>
-                            <td>${escStr(x.p)}</td>
-                            <td class="amt">${fmt(x.bal)} ${escStr(cur)}<span class="sub">${x.bal > 0.01 ? 'Alacaklı' : (x.bal < -0.01 ? 'Borçlu' : 'Dengede')}</span></td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        ` : '';
-
-        // Veri uyarıları (eski / eksik kayıtlar)
-        const warnings = (debts && debts.dataWarnings) ? debts.dataWarnings : [];
-        const warnHtml = warnings.length ? `
-            <div class="panel" style="border-color:#f59e0b;">
-                <p class="hint">
-                    ${badge('Uyarı', 'warn')}
-                    Aşağıdaki kalemlerde “Ödeyen” bilgisi eksik/uyumsuz görünüyor. Bu raporda sistem <b>geçici olarak</b> ilk kişiyi varsayarak hesapladı. Lütfen ilgili kaydı düzenleyip doğru kişiyi seçin.
-                </p>
-                <ul style="margin:8px 0 0 18px; color:#0f172a;">
-                    ${warnings.slice(0, 25).map(w => {
-                        const meta = w.meta || {};
-                        const label = meta.kind === 'expense'
-                            ? `Harcama: ${escStr(meta.place || '')}${meta.city ? ' (' + escStr(meta.city) + ')' : ''}`
-                            : `Rezervasyon: ${escStr(meta.name || '')}${meta.location ? ' (' + escStr(meta.location) + ')' : ''}`;
-                        return `<li style="margin:4px 0;">${label}</li>`;
-                    }).join('')}
-                </ul>
-            </div>
-        ` : '';
 
         return `
             <div class="panel">
@@ -2687,8 +2618,6 @@ function buildReportHtml(data) {
                     <span class="sub">Toplam dağıtılan ortak tutar: <b>${fmt(debts.totalShared || 0)} ${escStr(cur)}</b> · Kişi başı pay: <b>${fmt(debts.sharePerPerson || 0)} ${escStr(cur)}</b></span>
                 </p>
                 ${txTable}
-                    ${warnHtml}
-                ${balTable ? `<div style="margin-top:12px">${balTable}</div>` : ''}
             </div>
         `;
     })();
@@ -2737,9 +2666,9 @@ function buildReportHtml(data) {
                 <thead>
                     <tr>
                         <th>Tarih</th>
-                        <th>Rezervasyon</th>
+                        <th>Detay</th>
                         <th>Ödeyen</th>
-                        <th class="amt">Maliyet</th>
+                        <th class="amt">Tutar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2747,13 +2676,11 @@ function buildReportHtml(data) {
                         <tr>
                             <td style="width:140px">
                                 <b>${escStr(r.startDate || '')}</b>
-                                ${r.endDate ? `<span class="sub">→ ${escStr(r.endDate)}</span>` : ''}
+                                ${(r.endDate && r.endDate !== r.startDate) ? `<span class="sub">→ ${escStr(r.endDate)}</span>` : ''}
                             </td>
                             <td>
-                                <b>${escStr(r.name || '')}</b>
-                                ${r.type ? `<span class="sub">Tip: ${escStr(r.type)}${r.location ? ' · ' + escStr(r.location) : ''}</span>` : ''}
-                                ${r.code ? `<span class="sub">Kod: ${escStr(r.code)}</span>` : ''}
-                                ${r.notes ? `<span class="sub">Not: ${escStr(r.notes)}</span>` : ''}
+                                <b>Rezervasyon</b>${r.name ? ` · ${escStr(r.name)}` : ''}
+                                ${(r.type || r.location) ? `<span class="sub">${escStr(r.type || '')}${r.location ? ' · ' + escStr(r.location) : ''}</span>` : ''}
                                 <div class="rowmeta">
                                     ${badge(r.isIndividual ? 'Bireysel' : 'Ortak', r.isIndividual ? 'ind' : 'shared')}
                                     ${r.isSettled ? badge('Ödendi', 'ok') : ''}
@@ -2771,6 +2698,95 @@ function buildReportHtml(data) {
         `
         : `<div class="panel"><p class="hint">${badge('Bilgi', 'slate')} Rezervasyon kaydı bulunmamaktadır.</p></div>`;
 
+    const categorySummary = (() => {
+        const totals = {};
+        const add = (key, amt) => {
+            const k = String(key || 'Diğer').trim() || 'Diğer';
+            if (!totals[k]) totals[k] = { sum: 0, count: 0 };
+            totals[k].sum += (Number(amt) || 0);
+            totals[k].count += 1;
+        };
+
+        expenses.forEach(x => add(x.cat || 'Diğer', (typeof x.amtReport === 'number') ? x.amtReport : (Number(x.amt) || 0)));
+        reservations.forEach(r => add('Rezervasyon', (typeof r.costReport === 'number') ? r.costReport : (Number(r.cost) || 0)));
+
+        const rows = Object.entries(totals)
+            .map(([k, v]) => ({ k, sum: v.sum, count: v.count }))
+            .filter(x => x.sum !== 0 || x.count !== 0)
+            .sort((a, b) => b.sum - a.sum);
+
+        const grand = rows.reduce((s, x) => s + (Number(x.sum) || 0), 0);
+
+        if (!rows.length) {
+            return `<div class="panel"><p class="hint">${badge('Bilgi', 'slate')} Özetlenecek kalem bulunmamaktadır.</p></div>`;
+        }
+
+        return `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kategori</th>
+                        <th class="amt">Toplam</th>
+                        <th class="amt">Pay</th>
+                        <th class="amt">Adet</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => `
+                        <tr>
+                            <td><b>${escStr(r.k)}</b></td>
+                            <td class="amt">${fmt(r.sum)} ${escStr(reportCurrency)}</td>
+                            <td class="amt">${grand > 0 ? Math.round((r.sum / grand) * 100) : 0}%</td>
+                            <td class="amt">${escStr(r.count)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    })();
+
+    const payerSummary = (() => {
+        const totals = {};
+        const add = (payer, amt) => {
+            const p = String(payer || '').trim();
+            if (!p) return;
+            if (!totals[p]) totals[p] = { sum: 0, count: 0 };
+            totals[p].sum += (Number(amt) || 0);
+            totals[p].count += 1;
+        };
+
+        expenses.forEach(x => add(x.payer, (typeof x.amtReport === 'number') ? x.amtReport : (Number(x.amt) || 0)));
+        reservations.forEach(r => add(r.payer, (typeof r.costReport === 'number') ? r.costReport : (Number(r.cost) || 0)));
+
+        const rows = Object.entries(totals)
+            .map(([p, v]) => ({ p, sum: v.sum, count: v.count }))
+            .sort((a, b) => b.sum - a.sum);
+
+        if (!rows.length) {
+            return `<div class="panel"><p class="hint">${badge('Bilgi', 'slate')} Ödeyen bilgisi olan kalem bulunmamaktadır.</p></div>`;
+        }
+
+        return `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ödeyen</th>
+                        <th class="amt">Toplam Ödeme</th>
+                        <th class="amt">Kalem</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.map(r => `
+                        <tr>
+                            <td><b>${escStr(r.p)}</b></td>
+                            <td class="amt">${fmt(r.sum)} ${escStr(reportCurrency)}</td>
+                            <td class="amt">${escStr(r.count)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    })();
     const notes = (() => {
         const notesArr = [];
 
@@ -2794,8 +2810,7 @@ function buildReportHtml(data) {
             notesArr.push(`<b>Katılımcılar:</b> Hesaplaşma için seyahatte kişi listesi (virgülle) tanımlanmalıdır.`);
         }
 
-        notesArr.push(`<b>Ödeyen alanı:</b> Ortak kalemlerde “Ödeyen” seçimi zorunludur; boş bırakılırsa sistem kaydetmeye izin vermez.`);
-        notesArr.push(`<b>Veri uyarıları:</b> Eğer raporda “Veri Uyarıları” bölümü oluşursa, eski kayıtlarda “Ödeyen” eksik/uyumsuz olabilir; ilgili kaydı düzenleyip doğru kişiyi seçmeniz gerekir.`);
+        notesArr.push(`<b>Ödeyen alanı:</b> Ortak kalemlerde “Ödeyen” seçimi <b>zorunludur</b>. Bu nedenle “Ödeyen Özeti” ve “Kim-kime” hesapları ödeyen bilgisi bulunan ortak kalemleri temel alır.`);
 
         if (ratesInfo && ratesInfo.updatedAt) {
             const rs = ratesInfo.rates || {};
@@ -2865,6 +2880,15 @@ function buildReportHtml(data) {
                         </div>
                     </div>
 
+                    <div class="section">
+                        <h2><span class="dot"></span>Kategori Özeti</h2>
+                        ${categorySummary}
+                    </div>
+
+                    <div class="section">
+                        <h2><span class="dot"></span>Ödeyen Özeti · Kim ne kadar ödemiş</h2>
+                        ${payerSummary}
+                    </div>
                     <div class="section">
                         <h2><span class="dot"></span>Hesaplaşma · Kim kime ne kadar verecek</h2>
                         ${debtsSection}
@@ -4248,7 +4272,7 @@ function buildReportHtml(data) {
                  <div class="animate-[fadeIn_0.3s]">
                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Harcamayı Yapan</label>
                     <div class="relative">
-                       <select id="i-payer" required class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                       <select id="i-payer" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
                           <option value="">-- Seçiniz --</option>
                           ${payerOptions}
                        </select>
@@ -5627,25 +5651,17 @@ function buildReportHtml(data) {
                     const payerInput = document.getElementById('i-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
 
-                    // Ortak kalemlerde "Harcamayı Yapan" zorunlu
-                    if (!f.isIndividual) {
-                        if (!payerInput) {
-                            state.err = 'Ortak harcamalarda "Harcamayı Yapan" seçebilmek için önce ilgili seyahatte kişi tanımlayın.';
-                            renderApp();
-                            return;
-                        }
-                        if (!payerInput.value) {
-                            state.err = 'Ortak harcamalarda "Harcamayı Yapan" seçimi zorunludur.';
-                            renderApp();
-                            return;
-                        }
-                    }
-
                     const isFuelActive = f.cat === 'fuel';
                     f.isFuel = isFuelActive;
 
                     if (!f.city || !f.place || !f.amt || !f.cat) {
                         state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).';
+                        renderApp();
+                        return;
+                    }
+
+                    if (!f.isIndividual && (!f.payer || !String(f.payer).trim())) {
+                        state.err = 'Ortak harcamalarda “Ödeyen” seçimi zorunludur.';
                         renderApp();
                         return;
                     }
@@ -5737,21 +5753,6 @@ function buildReportHtml(data) {
                     // Payer ve Settled bilgisini al
                     const payerInput = document.getElementById('i-res-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
-
-                    // Ortak rezervasyonlarda "Ödeyen" zorunlu
-                    if (!f.isIndividual) {
-                        if (!payerInput) {
-                            state.err = 'Ortak rezervasyonlarda "Ödeyen" seçebilmek için önce ilgili seyahatte kişi tanımlayın.';
-                            renderApp();
-                            return;
-                        }
-                        if (!payerInput.value) {
-                            state.err = 'Ortak rezervasyonlarda "Ödeyen" seçimi zorunludur.';
-                            renderApp();
-                            return;
-                        }
-                    }
-
                     const settledInput = document.getElementById('i-res-settled');
                     f.isSettled = settledInput ? settledInput.checked : false;
 
@@ -5766,6 +5767,12 @@ function buildReportHtml(data) {
 
                     if (!f.name || !f.location || !f.startDate || !f.trip) {
                         state.err = 'Rezervasyon Adı, Konum, Tarih ve Seyahat alanları zorunludur.';
+                        renderApp();
+                        return;
+                    }
+
+                    if (!f.isIndividual && (!f.payer || !String(f.payer).trim())) {
+                        state.err = 'Ortak rezervasyonlarda “Ödeyen” seçimi zorunludur.';
                         renderApp();
                         return;
                     }
