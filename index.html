@@ -476,13 +476,6 @@
                     : 'Tarih bilgisi yok';
 
                 const s = payload.summary || {};
-
-                // Yeni: Kişi bazlı ödenen (cebimden çıkan) ve özetler
-                const paidBy = (s.paidBy && typeof s.paidBy === 'object') ? s.paidBy : {};
-                const catSummary = (s.categorySummary && typeof s.categorySummary === 'object') ? s.categorySummary : {};
-                const resTypeSummary = (s.resTypeSummary && typeof s.resTypeSummary === 'object') ? s.resTypeSummary : {};
-                const settlement = payload.settlement || null;
-
                 const scopeLabel =
                     payload.scope === 'individual' ? 'Bireysel Harcamalar' :
                         payload.scope === 'shared' ? 'Ortak Harcamalar' :
@@ -614,109 +607,31 @@
     </div>
   </div>
 
-  
   <div class="card">
-    <h2>2) Kim Ne Kadar Ödedi? (Cebimden Çıkan)</h2>
-    <table>
-      <thead>
-        <tr><th>Kişi</th><th style="text-align:right;">Toplam</th></tr>
-      </thead>
-      <tbody>
-        ${Object.keys(paidBy).length
-            ? Object.entries(paidBy).map(([p, a]) => `<tr><td>${esc(p)}</td><td class="amt">${fmt(Number(a)||0)} ${esc(payload.reportCurrency)}</td></tr>`).join('')
-            : '<tr><td colspan="2">Kişi bazlı özet bulunmamaktadır.</td></tr>'}
-      </tbody>
-    </table>
-    <div class="footer-note">
-      Bu bölüm “Mahsuplaşıldı” kalemleri de dahil olmak üzere, seçilen rapor kapsamına giren tüm kalemlerde ödeyen kişinin cebinden çıkan tutarı gösterir.
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>3) Özet Dağılımlar</h2>
-    <div class="grid-2">
-      <div>
-        <h3 style="margin:0 0 6px 0;">Harcama Kategorileri</h3>
-        <table>
-          <thead><tr><th>Kategori</th><th style="text-align:right;">Toplam</th></tr></thead>
-          <tbody>
-            ${Object.keys(catSummary).length
-                ? Object.entries(catSummary).map(([k, a]) => `<tr><td>${esc(k)}</td><td class="amt">${fmt(Number(a)||0)} ${esc(payload.reportCurrency)}</td></tr>`).join('')
-                : '<tr><td colspan="2">Kategori özeti bulunmamaktadır.</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-      <div>
-        <h3 style="margin:0 0 6px 0;">Rezervasyon Tipleri</h3>
-        <table>
-          <thead><tr><th>Tip</th><th style="text-align:right;">Toplam</th></tr></thead>
-          <tbody>
-            ${Object.keys(resTypeSummary).length
-                ? Object.entries(resTypeSummary).map(([k, a]) => `<tr><td>${esc(k)}</td><td class="amt">${fmt(Number(a)||0)} ${esc(payload.reportCurrency)}</td></tr>`).join('')
-                : '<tr><td colspan="2">Tip özeti bulunmamaktadır.</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>4) Hesaplaşma (Kim kime ne kadar verecek)</h2>
-    ${settlement && settlement.transactions && settlement.transactions.length
-        ? `<div class="footer-note">Hesaplaşma, yalnızca <strong>Ortak</strong> ve <strong>Mahsuplaşıldı değil</strong> kalemler üzerinden yapılır.</div>
-           <table>
-              <thead><tr><th>Kim</th><th></th><th>Kime</th><th style="text-align:right;">Tutar</th></tr></thead>
-              <tbody>
-                ${settlement.transactions.map(t => `<tr><td>${esc(t.from)}</td><td style="text-align:center;">→</td><td>${esc(t.to)}</td><td class="amt">${fmt(Number(t.amount)||0)} ${esc(settlement.currency || payload.reportCurrency)}</td></tr>`).join('')}
-              </tbody>
-           </table>`
-        : '<div class="footer-note">Hesaplaşma gerektiren ortak kalem bulunmamaktadır (veya tüm kalemler mahsuplaşılmıştır).</div>'}
-  </div>
-
-<div class="card">
-    <h2>5) Rezervasyon Dökümü</h2>
-    
+    <h2>2) Rezervasyon Özeti</h2>
     <table>
       <thead>
         <tr>
           <th>Tarih</th>
           <th>Tip</th>
-          <th>Başlık / Lokasyon</th>
-          <th>Ödeyen</th>
-          <th style="text-align:right;">Tutar (Orijinal)</th>
+          <th>Başlık</th>
+          <th>Lokasyon</th>
+          <th>Kod</th>
+          <th style="text-align:right;">Maliyet</th>
           <th>Kapsam</th>
         </tr>
       </thead>
       <tbody>
-        ${(() => {
-            const rows = (payload.reservations || []).map(r => {
-                const dt = r.startDate || '';
-                const scopeBadge = r.isIndividual ? 'Bireysel' : 'Ortak';
-                const settled = r.isSettled ? ' · Mahsuplaşıldı' : '';
-                const payerTxt = r.payer ? esc(r.payer) : '-';
-                const title = esc(r.name || '') + (r.location ? `<br><span class="note">${esc(r.location)}</span>` : '');
-                const cost = `${fmt(Number(r.cost)||0)} ${esc(r.cur || payload.reportCurrency)}`;
-                return `<tr>
-                    <td width="15%">${esc(dt)}</td>
-                    <td width="12%">${esc(r.type || '')}</td>
-                    <td>${title}${r.code ? `<div class="note">Kod: ${esc(r.code)}</div>` : ''}${r.notes ? `<div class="note">${esc(r.notes)}</div>` : ''}</td>
-                    <td width="14%">${payerTxt}</td>
-                    <td class="amt" width="15%">${cost}</td>
-                    <td width="12%"><span class="tag ${r.isIndividual ? 'tag-ind' : 'tag-sh'}">${scopeBadge}${settled}</span></td>
-                </tr>`;
-            }).join('');
-            return rows || '<tr><td colspan="6">Kayıtlı rezervasyon bulunmamaktadır.</td></tr>';
-        })()}
+        ${resRows || '<tr><td colspan="7">Kayıtlı rezervasyon bulunmamaktadır.</td></tr>'}
       </tbody>
     </table>
-
     <div class="footer-note">
       Rezervasyon maliyetleri toplam harcamaya dahildir. Bireysel/ortak bilgisi uygulamadaki işaretlemelere göre alınmıştır.
     </div>
   </div>
 
   <div class="card">
-    <h2>6) Günlük Harcama Dökümü</h2>
+    <h2>3) Günlük Harcama Dökümü</h2>
     <table>
       <thead>
         <tr>
@@ -735,10 +650,9 @@
   </div>
 
   <div class="card">
-    <h2>7) Notlar</h2>
+    <h2>4) Notlar</h2>
     <p class="footer-note">
       • Rezervasyon maliyetleri toplam harcamaya dahil edilmiştir.<br/>
-      • “Mahsuplaşıldı” işaretli kalemler kişi bazlı ödenen (cebimden çıkan) toplamına dahildir; ancak hesaplaşma (kim kime) hesabına dahil edilmez.<br/>
       • Bireysel/ortak ayrımı seyahat cüzdanı uygulamasındaki işaretlemelere göre yapılmıştır.<br/>
       • Rapor para birimi ${esc(payload.reportCurrency)}’dir; diğer para birimlerindeki harcamalar uygulamadaki kur bilgilerine göre dönüştürülmüştür.
     </p>
@@ -886,18 +800,16 @@
 
             const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
-            // Para formatlama (tr-TR). Uygulama genelinde kullanılır.
-            const fmtMoney = (n) => {
-                const x = Number(n);
-                const v = Number.isFinite(x) ? x : 0;
-                try {
-                    return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                } catch (e) {
-                    return (Math.round(v * 100) / 100).toFixed(2);
-                }
-            };
-
             const fmtNum = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+            // Para formatlayıcı: bazı modüller (Rapor/Diğer) fmtMoney bekliyor.
+            // fmtMoney(n) -> '1.234,56' ; fmtMoney(n,'TRY') -> '1.234,56 TRY'
+            function fmtMoney(n, cur = '') {
+                const num = Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+                return cur ? `${num} ${cur}` : num;
+            }
+            // Güvenlik: bazı handlerlar global scope'ta fmtMoney arayabiliyor.
+            try { window.fmtMoney = fmtMoney; } catch (_) {}
+
             const fmtDate = d => { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d };
             const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -1042,9 +954,6 @@
                 endKm: '',
                 fuelAmount: '',
                 type: EXPENSE_TYPES[0].id,
-                payer: '',
-                isSettled: false,
-
                 isIndividual: false,
             });
 
@@ -1061,8 +970,6 @@
                 cost: '',
                 cur: BASE_CURRENCY,
                 notes: '',
-                payer: '',
-                isSettled: false,
                 completed: false,
                 isIndividual: false,
                 addToCalendar: false, // Varsayılan: Kapalı
@@ -1697,7 +1604,7 @@
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase opacity-0">D</label>
                    <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-[7px] h-[38px]">
                       <input type="checkbox" id="i-res-settled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-700 cursor-pointer">
-                      <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Mahsuplaşıldı</label>
+                      <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Ödendi</label>
                    </div>
                 </div>
               </div>
@@ -1994,11 +1901,8 @@
                 const persons = trip.persons.split(',').map(p => p.trim()).filter(Boolean);
                 if (persons.length < 2) return null;
 
-                const sharedExps = state.exp.filter(x => x.trip === tripName && !x.isIndividual && !x.isSettled);
-
-                // Rezervasyonları da dahil et (Ortak + Mahsuplaşıldı hariç)
-                const sharedRes = state.res.filter(r => r.trip === tripName && !r.isIndividual && !r.isSettled);
-                if (!sharedExps.length && !sharedRes.length) return null;
+                const sharedExps = state.exp.filter(x => x.trip === tripName && !x.isIndividual);
+                if (!sharedExps.length) return null;
 
                 // Herkesin bakiyesi (pozitif: alacaklı, negatif: borçlu)
                 const balances = {};
@@ -2017,8 +1921,9 @@
                 });
 
                 // REZERVASYONLARI DA DAHİL ET (YENİ)
+                const sharedRes = state.res.filter(r => r.trip === tripName && !r.isIndividual);
                 sharedRes.forEach(r => {
-                    // Eğer "Mahsuplaşıldı" ise borç hesabına katma (genel bütçede durur ama dağıtılmaz)
+                    // Eğer "Ödendi/Settled" ise borç hesabına katma (genel bütçede durur ama dağıtılmaz)
                     if (r.isSettled) return;
 
                     const cost = Number(r.cost);
@@ -2213,42 +2118,6 @@
                 const debtInfo = calculateDebts(selectedTrip);
                 let debtHtml = '';
 
-                // Ödeyen bazlı (cebimden çıkan) toplamlar — Mahsuplaşıldı dahil (hesaplaşmadan bağımsız)
-                const paidBy = {};
-                const addPaid = (payer, amt, cur) => {
-                    if (!payer) return;
-                    const v = convertToBase(Number(amt) || 0, cur || BASE_CURRENCY, reportCur);
-                    paidBy[payer] = (paidBy[payer] || 0) + v;
-                };
-
-                // Harcamalar
-                tripExpenses.forEach(x => addPaid(x.payer, x.amt, x.cur));
-
-                // Rezervasyonlar
-                const tripReservationsAll = (state.res || []).filter(r => r.trip === selectedTrip);
-                tripReservationsAll.forEach(r => addPaid(r.payer, r.cost, r.cur));
-
-                const paidHtml = (() => {
-                    const entries = Object.entries(paidBy).sort((a, b) => (b[1] || 0) - (a[1] || 0));
-                    if (!entries.length) return '';
-                    const rows = entries.map(([p, a]) => `
-                        <div class="flex justify-between items-center bg-slate-700/50 p-2 rounded text-xs border border-slate-600/50">
-                            <span class="font-semibold text-slate-100">${esc(p)}</span>
-                            <span class="font-bold text-emerald-300">${fmtMoney(a)} ${esc(reportCur)}</span>
-                        </div>
-                    `).join('');
-                    return `
-                        <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                            <h4 class="text-sm font-bold text-white">Kim ne kadar ödedi? (Cebimden çıkan)</h4>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${rows}</div>
-                            <div class="text-[10px] text-slate-400">
-                                Not: “Mahsuplaşıldı” kalemler bu toplamda dahildir; ancak “kim kime ne kadar verecek” hesabına dahil edilmez.
-                            </div>
-                        </div>
-                    `;
-                })();
-
-
                 if (debtInfo && debtInfo.transactions.length > 0) {
                     const debtRows = debtInfo.transactions.map(t => `
                 <div class="flex justify-between items-center bg-slate-700/50 p-2 rounded text-xs border border-slate-600/50">
@@ -2324,8 +2193,6 @@
 
               <!-- BORÇ / HESAPLAŞMA BÖLÜMÜ (En üste yakın) -->
               ${debtHtml}
-
-              ${paidHtml}
 
               <!-- 1. Toplam Harcama (Orijinal Kurlar) -->
               <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
@@ -2513,7 +2380,7 @@
                                             <span class="note">${escStr(r.location)}</span>
                                             ${r.notes ? `<div class="note">${escStr(r.notes)}</div>` : ''}
                                             ${r.payer ? `<div class="payer-info">Ödeyen: ${escStr(r.payer)}</div>` : ''}
-                                            ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Mahsuplaşıldı</div>` : ''}
+                                            ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Ödeme Yapıldı (Ödendi)</div>` : ''}
                                         </td>
                                         <td class="amt">
                                             ${fmt(r.cost)} ${r.cur}
@@ -3975,22 +3842,10 @@
                     </label>
                     <span class="text-[10px] text-slate-500">İşaretliyse ortak hesaba dahil edilmez</span>
                 </div>
-                <input type="checkbox" id="i-isIndividual" ${f.isIndividual ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 focus:ring-blue-500" onchange="document.getElementById('payer-wrapper').style.display = this.checked ? 'none' : 'block'; document.getElementById('exp-settled-wrapper').style.display = this.checked ? 'none' : 'flex'">
+                <input type="checkbox" id="i-isIndividual" ${f.isIndividual ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 focus:ring-blue-500" onchange="document.getElementById('payer-wrapper').style.display = this.checked ? 'none' : 'block'">
             </div>
 
-            
-            <!-- MAHSUPLAŞILDI (İS SETTLED) -->
-            <div id="exp-settled-wrapper" style="display: ${f.isIndividual ? 'none' : 'flex'}" class="mt-2 flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
-                <div class="flex flex-col">
-                    <label for="i-exp-settled" class="text-sm font-bold text-slate-200 cursor-pointer">
-                        Mahsuplaşıldı
-                    </label>
-                    <span class="text-[10px] text-slate-500">İşaretliyse “kim kime ne kadar verecek” hesabına dahil edilmez</span>
-                </div>
-                <input type="checkbox" id="i-exp-settled" ${f.isSettled ? 'checked' : ''} class="w-5 h-5 rounded border-slate-600 bg-slate-700 cursor-pointer">
-            </div>
-
-<!-- KATEGORİ SEÇİMİ (YUKARI TAŞINDI) -->
+            <!-- KATEGORİ SEÇİMİ (YUKARI TAŞINDI) -->
             <div class="mb-3">
                <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Kategori</label>
                <div class="flex gap-2 overflow-x-auto pb-2 scrl">
@@ -5321,20 +5176,6 @@
                     const payerInput = document.getElementById('i-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
 
-                    // Mahsuplaşıldı bilgisini al (Ortak kalemler için)
-                    const expSettledInput = document.getElementById('i-exp-settled');
-                    f.isSettled = (expSettledInput && !f.isIndividual) ? !!expSettledInput.checked : false;
-
-                    // Ortak kalemlerde (ve seyahatte 2+ kişi varsa) ödeyen zorunlu
-                    const _tripObjForPayer = (state.trips || []).find(t => t.name === titleCase(f.trip || '')) || (state.trips || []).find(t => t.name === (f.trip || ''));
-                    const _tripPersonsForPayer = _tripObjForPayer && _tripObjForPayer.persons ? _tripObjForPayer.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
-                    if (!f.isIndividual && _tripPersonsForPayer.length >= 2 && !f.payer) {
-                        state.err = 'Ortak harcamalarda “Ödeyen” alanı zorunludur.';
-                        renderApp();
-                        return;
-                    }
-
-
                     const isFuelActive = f.cat === 'fuel';
                     f.isFuel = isFuelActive;
 
@@ -5431,32 +5272,8 @@
                     // Payer ve Settled bilgisini al
                     const payerInput = document.getElementById('i-res-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
-
-                    // Mahsuplaşıldı bilgisini al (Ortak kalemler için)
-                    const expSettledInput = document.getElementById('i-exp-settled');
-                    f.isSettled = (expSettledInput && !f.isIndividual) ? !!expSettledInput.checked : false;
-
-                    // Ortak kalemlerde (ve seyahatte 2+ kişi varsa) ödeyen zorunlu
-                    const _tripObjForPayer = (state.trips || []).find(t => t.name === titleCase(f.trip || '')) || (state.trips || []).find(t => t.name === (f.trip || ''));
-                    const _tripPersonsForPayer = _tripObjForPayer && _tripObjForPayer.persons ? _tripObjForPayer.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
-                    if (!f.isIndividual && _tripPersonsForPayer.length >= 2 && !f.payer) {
-                        state.err = 'Ortak harcamalarda “Ödeyen” alanı zorunludur.';
-                        renderApp();
-                        return;
-                    }
-
                     const settledInput = document.getElementById('i-res-settled');
                     f.isSettled = settledInput ? settledInput.checked : false;
-
-                    // Ortak rezervasyonlarda (ve seyahatte 2+ kişi varsa) ödeyen zorunlu
-                    const _tripObjForResPayer = (state.trips || []).find(t => t.name === titleCase(f.trip || '')) || (state.trips || []).find(t => t.name === (f.trip || ''));
-                    const _tripPersonsForResPayer = _tripObjForResPayer && _tripObjForResPayer.persons ? _tripObjForResPayer.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
-                    if (!f.isIndividual && _tripPersonsForResPayer.length >= 2 && !f.payer) {
-                        state.err = 'Ortak rezervasyonlarda “Ödeyen” alanı zorunludur.';
-                        renderApp();
-                        return;
-                    }
-
 
                     // Takvime ekle seçeneğini al
                     const calendarInput = document.getElementById('i-res-calendar');
@@ -5788,45 +5605,13 @@
                     }
                     const finalDailyAvg = finalDayCount > 0 ? totalReport / finalDayCount : 0;
 
-                    
-                    // 6) Özet kırılımlarını hesapla (rapor para biriminde)
-                    const paidBy = {};
-                    const categorySummary = {};
-                    const resTypeSummary = {};
-
-                    const addPaid = (payer, amt, cur) => {
-                        if (!payer) return;
-                        const v = convertToBase(Number(amt) || 0, cur || BASE_CURRENCY, reportCur);
-                        paidBy[payer] = (paidBy[payer] || 0) + v;
-                    };
-
-                    // Harcamalar: (Mahsuplaşıldı dahil) ödeyen bazlı toplam ve kategori özeti
-                    filteredExpenses.forEach(x => {
-                        addPaid(x.payer, x.amt, x.cur);
-                        const k = x.catLabel || x.cat || 'Diğer';
-                        const v = convertToBase(Number(x.amt) || 0, x.cur || BASE_CURRENCY, reportCur);
-                        categorySummary[k] = (categorySummary[k] || 0) + v;
-                    });
-
-                    // Rezervasyonlar: (Mahsuplaşıldı dahil) ödeyen bazlı toplam ve tip özeti
-                    filteredReservations.forEach(r => {
-                        addPaid(r.payer, r.cost, r.cur);
-                        const k = r.type || 'Rezervasyon';
-                        const v = convertToBase(Number(r.cost) || 0, r.cur || BASE_CURRENCY, reportCur);
-                        resTypeSummary[k] = (resTypeSummary[k] || 0) + v;
-                    });
-
-                    // Hesaplaşma: Ortak + Mahsuplaşıldı hariç
-                    const settlement = calculateDebts(selectedTrip);
-
-// 6) Payload hazırla
+                    // 6) Payload hazırla
                     const payload = {
                         trip: selectedTrip,
                         reportCurrency: reportCur,
                         scope, // 'all' | 'individual' | 'shared'
                         baseCurrency: state.baseCurrency || BASE_CURRENCY,
                         generatedAt: new Date().toISOString(),
-                        settlement,
                         dateFrom,
                         dateTo,
                         summary: {
@@ -5838,10 +5623,7 @@
                             indivTotal,
                             sharedTotal,
                             expenseCount: filteredExpenses.length,
-                            reservationCount: filteredReservations.length,
-                            paidBy,
-                            categorySummary,
-                            resTypeSummary
+                            reservationCount: filteredReservations.length
                         },
                         expenses: filteredExpenses.map(x => ({
                             id: x.id,
@@ -5855,8 +5637,7 @@
                             amt: Number(x.amt) || 0,
                             cur: x.cur || BASE_CURRENCY,
                             isIndividual: !!x.isIndividual,
-                            payer: x.payer || '',
-                            isSettled: !!x.isSettled
+                            payer: x.payer || ''
                         })),
                         reservations: filteredReservations.map(r => ({
                             id: r.id,
