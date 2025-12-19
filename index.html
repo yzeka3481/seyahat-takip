@@ -469,7 +469,7 @@
                 // Sadece seçili seyahatin harcamalarını getir
                 return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
             }
-            function buildPdfReportHtml(payload) {
+            function buildReportHtmlLegacy(payload) {
                 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const dateRange = (payload.dateFrom && payload.dateTo)
                     ? `${payload.dateFrom} – ${payload.dateTo}`
@@ -801,13 +801,11 @@
             const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
             const fmtNum = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-            // Para formatlayıcı: bazı modüller (Rapor/Diğer) fmtMoney bekliyor.
-            // fmtMoney(n) -> '1.234,56' ; fmtMoney(n,'TRY') -> '1.234,56 TRY'
+            // Para formatlayıcı: rapor/diğer ekranlarında fmtMoney bekleniyor.
             function fmtMoney(n, cur = '') {
                 const num = Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
                 return cur ? `${num} ${cur}` : num;
             }
-            // Güvenlik: bazı handlerlar global scope'ta fmtMoney arayabiliyor.
             try { window.fmtMoney = fmtMoney; } catch (_) {}
 
             const fmtDate = d => { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d };
@@ -2300,7 +2298,7 @@
             }
 
             // YENİ FONKSİYON: RAPOR HTML OLUŞTURUCU
-            function buildReportHtmlLegacy(data) {
+            function buildReportHtmlModern(data) {
                 const { trip, reportCurrency, generatedAt, summary, expenses, reservations } = data;
 
                 const fmt = (n) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -2435,7 +2433,7 @@
                             ${resRows}
 
                             <div class="footer">
-                                Gemini Travel Tracker tarafından oluşturulmuştur.
+                                Seyahat Takip tarafından oluşturulmuştur. Şablon: v2025-12-19.1
                             </div>
                         </div>
                     </body>
@@ -5659,7 +5657,7 @@
                     };
 
                     // 7) HTML raporu oluştur ve yeni sekmede aç
-                    const html = buildPdfReportHtml(payload);
+                    const html = buildReportHtmlModern(payload);
                     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
                     const url = URL.createObjectURL(blob);
                     window.open(url, '_blank');
