@@ -609,7 +609,7 @@
 
   <div class="card">
     <h2>2) Rezervasyon Özeti</h2>
-    <table>
+    <table class="table">
       <thead>
         <tr>
           <th>Tarih</th>
@@ -632,7 +632,7 @@
 
   <div class="card">
     <h2>3) Günlük Harcama Dökümü</h2>
-    <table>
+    <table class="table">
       <thead>
         <tr>
           <th>Tarih / Saat</th>
@@ -2492,8 +2492,7 @@
                     if (_rName) subtitleParts.push(_rName);
                     const _rLoc = cleanPart(r.location, 60);
                     if (_rLoc) subtitleParts.push(_rLoc);
-                    if (r.code) subtitleParts.push(`#${r.code}`);
-                    items.push({
+items.push({
                         date: r.startDate || '',
                         kind: 'reservation',
                         title: `Rezervasyon • ${resTypeLabel(r.type)}`,
@@ -2752,8 +2751,10 @@ body{
 .table th, .table td{
   padding:10px 10px;
   border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line);
   vertical-align:top;
 }
+.table th:last-child, .table td:last-child{ border-right:none; }
 .table th{
   background:linear-gradient(180deg, rgba(148,163,184,.16), rgba(148,163,184,.06));
   font-size:11px;
@@ -2916,7 +2917,7 @@ body{
 
     <div class="section">
       <h2>Kişi Bazlı Harcama</h2>
-      <table>
+      <table class="table">
         <thead>
           <tr>
             <th>Kişi</th>
@@ -2935,7 +2936,7 @@ body{
       <h2>Hesaplaşma Özeti</h2>
       ${persons.length >= 2
         ? `
-        <table>
+        <table class="table">
           <thead>
             <tr>
               <th>Kişi</th>
@@ -2960,7 +2961,7 @@ body{
 
     <div class="section">
       <h2>Kategori Özeti</h2>
-      <table>
+      <table class="table">
         <thead>
           <tr>
             <th>Kategori</th>
