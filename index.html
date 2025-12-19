@@ -584,7 +584,7 @@
           <td><strong>${esc(e.place || '')}</strong></td>
           <td>${esc(e.city || '')}</td>
           <td class="amt-cell">${fmt(e.amt)} <span style="font-size:10px; color:#64748b;">${esc(e.cur)}</span></td>
-          <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span></td>
+          <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span>${(!e.isIndividual && e.isSettled) ? ` <span class="badge badge-settled">Ödendi</span>` : ''}</td>
         </tr>
     `).join('');
 
@@ -1410,6 +1410,7 @@
                 fuelAmount: '',
                 type: EXPENSE_TYPES[0].id,
                 isIndividual: false,
+                            isSettled: false,
             });
 
             // YENİ FONKSİYON: Boş Rezervasyon Formu
@@ -1524,6 +1525,7 @@
                         endKm: item.endKm || '',
                         fuelAmount: item.fuelAmount || '',
                         type: item.type || EXPENSE_TYPES[0].id,
+                        isSettled: !!item.isSettled,
                         isIndividual: item.isIndividual !== undefined ? item.isIndividual : false,
                     };
                     delete updated.fuelLocation;
@@ -2458,13 +2460,21 @@
                     if (!amtCtx || isNaN(amtCtx)) return;
 
                     totalSharedAll += amtCtx;
-                    totalSharedForSettlement += amtCtx;
 
-                    const payer = (x.payer && String(x.payer).trim()) ? String(x.payer).trim() : persons[0];
-                    if (balances.hasOwnProperty(payer)) {
-                        balances[payer] += amtCtx;
-                        personPayments[payer] += amtCtx;
-                        personPaymentsAll[payer] += amtCtx;
+                    const payerRaw = (x.payer && String(x.payer).trim()) ? String(x.payer).trim() : '';
+                    if (payerRaw && personPaymentsAll.hasOwnProperty(payerRaw)) {
+                        personPaymentsAll[payerRaw] += amtCtx;
+                    }
+
+                    // Mahsuplaşma hesabına sadece "Ödendi" olmayan kayıtlar dahil edilir
+                    if (!x.isSettled) {
+                        totalSharedForSettlement += amtCtx;
+
+                        const payer = payerRaw || persons[0];
+                        if (balances.hasOwnProperty(payer)) {
+                            balances[payer] += amtCtx;
+                            personPayments[payer] += amtCtx;
+                        }
                     }
                 });
 
@@ -3724,7 +3734,7 @@
                        </div>
                        <div class="flex items-center justify-end gap-1.5 mt-0.5">
                            <span class="text-[9px] text-slate-500 mr-1">${esc(typeInfo.l)}</span>
-                           <span class="text-slate-600 font-medium">(${x.isIndividual ? 'Bireysel' : 'Ortak'}${!x.isIndividual && x.payer ? ` · <span class="text-emerald-600 font-bold">${esc(x.payer)}</span>` : ''})</span>
+                           <span class="text-slate-600 font-medium">(${x.isIndividual ? 'Bireysel' : 'Ortak'}${!x.isIndividual && x.payer ? ` · <span class="text-emerald-600 font-bold">${esc(x.payer)}</span>` : ''}${(!x.isIndividual && x.isSettled) ? ` · <span class="text-emerald-700 font-bold">Ödendi</span>` : ''})</span>
                        </div>
                    </div>
 
@@ -4527,7 +4537,18 @@ const helperCard = (href, emoji, label) => {
                     </label>
                     <span class="text-[10px] text-slate-500">İşaretliyse ortak hesaba dahil edilmez</span>
                 </div>
-                <input type="checkbox" id="i-isIndividual" ${f.isIndividual ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 focus:ring-blue-500" onchange="document.getElementById('payer-wrapper').style.display = this.checked ? 'none' : 'block'">
+                <input type="checkbox" id="i-isIndividual" ${f.isIndividual ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 focus:ring-blue-500" onchange="document.getElementById('payer-wrapper').style.display = this.checked ? 'none' : 'block'; const sw=document.getElementById('settled-wrapper'); if(sw) sw.style.display = this.checked ? 'none' : 'flex'">
+            </div>
+
+            
+            <div id="settled-wrapper" class="${f.isIndividual ? 'hidden' : ''} flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg mb-3">
+                <div class="flex flex-col">
+                    <label for="i-isSettled" class="text-sm font-bold text-slate-200 cursor-pointer">
+                        Ödendi (Mahsuplaşılmış)
+                    </label>
+                    <span class="text-[10px] text-slate-500">Kim-kime hesabına dahil edilmez; kişi başı harcamaya dahil edilir</span>
+                </div>
+                <input type="checkbox" id="i-isSettled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border border-slate-600 bg-slate-900/40">
             </div>
 
             <!-- KATEGORİ SEÇİMİ (YUKARI TAŞINDI) -->
@@ -5879,6 +5900,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     // Payer bilgisini al
                     const payerInput = document.getElementById('i-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
+
+                    const settledInput = document.getElementById('i-isSettled');
+                    f.isSettled = (!f.isIndividual && settledInput) ? !!settledInput.checked : false;
 
                     const isFuelActive = f.cat === 'fuel';
                     f.isFuel = isFuelActive;
