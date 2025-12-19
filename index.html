@@ -469,7 +469,99 @@
                 // Sadece seçili seyahatin harcamalarını getir
                 return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
             }
-            function buildReportHtmlLegacy(payload) {
+            // --- BORÇ HESAPLAMA YARDIMCISI ---
+            function calculateDebtsLegacy(tripName) {
+                if (!tripName) return null;
+
+                const tripObj = state.trips.find(t => t.name === tripName);
+                if (!tripObj || !tripObj.persons) return null;
+
+                const persons = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                if (persons.length < 2) return null;
+
+                const reportCur = state.reportCurrency || state.baseCurrency || BASE_CURRENCY;
+
+                // Bakiyeler: Herkes 0 ile başlar
+                const balances = {};
+                persons.forEach(p => balances[p] = 0);
+
+                let totalShared = 0;
+
+                // 1) Ortak Harcamalar
+                const tripExps = getTripExpenses(tripName).filter(x => !x.isIndividual);
+                tripExps.forEach(x => {
+                    const amtCtx = convertToBase(Number(x.amt) || 0, x.cur || reportCur, reportCur);
+                    totalShared += amtCtx;
+
+                    // Ödeyen (Payer) varsa o kişi "ödemiş" sayılır (+), yoksa "kendi ödedi" varsayımı yapılmaz.
+                    const payer = x.payer;
+                    if (payer && balances.hasOwnProperty(payer)) {
+                        balances[payer] += amtCtx;
+                    }
+                });
+
+                // 2) Ortak Rezervasyonlar
+                const tripRes = (state.res || []).filter(r => r.trip === tripName && !r.isIndividual && !isNaN(Number(r.cost)));
+                tripRes.forEach(r => {
+                    const amtCtx = convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur, reportCur);
+                    totalShared += amtCtx;
+
+                    const payer = r.payer;
+                    if (payer && balances.hasOwnProperty(payer)) {
+                        balances[payer] += amtCtx;
+                    }
+                });
+
+                // Kişi başı düşen pay
+                const sharePerPerson = totalShared / persons.length;
+
+                // Net durumu hesapla: Ödediği - Olması Gereken
+                Object.keys(balances).forEach(p => {
+                    balances[p] -= sharePerPerson;
+                });
+
+                // Eşleştirme (Basit Greedy)
+                const debtors = [];
+                const creditors = [];
+
+                Object.entries(balances).forEach(([p, amount]) => {
+                    if (amount < -0.01) debtors.push({ p, amount });
+                    else if (amount > 0.01) creditors.push({ p, amount });
+                });
+
+                debtors.sort((a, b) => a.amount - b.amount);
+                creditors.sort((a, b) => b.amount - a.amount);
+
+                const transactions = [];
+                let i = 0;
+                let j = 0;
+
+                while (i < debtors.length && j < creditors.length) {
+                    const debtor = debtors[i];
+                    const creditor = creditors[j];
+
+                    const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+
+                    if (amount > 0) {
+                        transactions.push({ from: debtor.p, to: creditor.p, amount: amount });
+                    }
+
+                    debtor.amount += amount;
+                    creditor.amount -= amount;
+
+                    if (Math.abs(debtor.amount) < 0.01) i++;
+                    if (creditor.amount < 0.01) j++;
+                }
+
+                return {
+                    currency: reportCur,
+                    totalShared,
+                    sharePerPerson,
+                    transactions
+                };
+            }
+
+            function buildReportHtml(payload) {
                 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const dateRange = (payload.dateFrom && payload.dateTo)
                     ? `${payload.dateFrom} – ${payload.dateTo}`
@@ -487,12 +579,12 @@
 
                 const expRows = payload.expenses.map(e => `
         <tr>
-          <td>${esc(e.date || '')} ${esc(e.time || '')}</td>
+          <td>${esc(e.date || '')} <span style="color:#94a3b8; font-size:10px;">${esc(e.time || '')}</span></td>
           <td>${esc(e.cat || '')}</td>
-          <td>${esc(e.place || '')}</td>
+          <td><strong>${esc(e.place || '')}</strong></td>
           <td>${esc(e.city || '')}</td>
-          <td style="text-align:right;">${fmt(e.amt)} ${esc(e.cur)}</td>
-          <td>${e.isIndividual ? 'Bireysel' : 'Ortak'}</td>
+          <td class="amt-cell">${fmt(e.amt)} <span style="font-size:10px; color:#64748b;">${esc(e.cur)}</span></td>
+          <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span></td>
         </tr>
     `).join('');
 
@@ -500,162 +592,534 @@
         <tr>
           <td>${esc(r.startDate || '')}</td>
           <td>${esc(r.type || '')}</td>
-          <td>${esc(r.name || '')}</td>
+          <td><strong>${esc(r.name || '')}</strong></td>
           <td>${esc(r.location || '')}</td>
-          <td>${esc(r.code || '')}</td>
-          <td style="text-align:right;">${fmt(r.cost)} ${esc(r.cur)}</td>
-          <td>${r.isIndividual ? 'Bireysel' : 'Ortak'}</td>
+<td class="amt-cell">${fmt(r.cost)} <span style="font-size:10px; color:#64748b;">${esc(r.cur)}</span></td>
+          <td><span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span></td>
         </tr>
     `).join('');
+
+                // BORÇ HESAPLAMA (YENİ)
+                const debtInfo = payload.debtInfo;
+                let debtSection = '';
+
+                if (debtInfo && debtInfo.persons && debtInfo.persons.length > 1) {
+                    const totalAll = Number(debtInfo.totalShared) || 0;
+                    const shareAll = Number(debtInfo.sharePerPerson) || 0;
+
+                    const totalSettle = Number(debtInfo.totalSharedForSettlement || 0);
+                    const shareSettle = Number(debtInfo.sharePerPersonForSettlement ?? 0);
+
+                    const persons = debtInfo.persons || [];
+                    const paySettleMap = debtInfo.personPayments || {};
+                    const payAllMap = debtInfo.personPaymentsAll || {};
+
+                    const hasTx = debtInfo.transactions && debtInfo.transactions.length > 0;
+
+                    const debtRows = hasTx
+                        ? debtInfo.transactions.map(t => `
+        <tr>
+          <td><span style="font-weight:600; color:#dc2626;">${esc(t.from)}</span></td>
+          <td style="text-align:center; color:#94a3b8;">→</td>
+          <td><span style="font-weight:600; color:#059669;">${esc(t.to)}</span></td>
+          <td class="amt-cell" style="background:#f0f9ff; color:#0369a1;">${fmt(t.amount)} ${esc(debtInfo.currency)}</td>
+        </tr>
+    `).join('')
+                        : `
+        <tr>
+          <td colspan="4" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">
+            Mahsuplaşma gerektiren borç bulunmuyor.
+          </td>
+        </tr>
+    `;
+
+                    const personRows = persons.map(p => {
+                        const paidSettle = Number(paySettleMap[p]) || 0;
+                        const balance = paidSettle - (Number(debtInfo.sharePerPersonForSettlement) || 0);
+
+                        const absBal = Math.abs(balance);
+                        const status = balance > 0.01 ? 'Alacaklı' : (balance < -0.01 ? 'Borçlu' : 'Dengede');
+                        const badge = balance > 0.01 ? 'badge-shared' : (balance < -0.01 ? 'badge-ind' : 'badge-cur');
+                        const netColor = balance > 0.01 ? '#059669' : (balance < -0.01 ? '#dc2626' : '#334155');
+
+                        return `
+        <tr>
+          <td><strong>${esc(p)}</strong></td>
+          <td class="amt-cell">${fmt(paidSettle)} ${esc(debtInfo.currency)}</td>
+          <td class="amt-cell">${fmt(shareSettle)} ${esc(debtInfo.currency)}</td>
+          <td class="amt-cell" style="background:#f8fafc; font-weight:700; color:${netColor};">
+            ${fmt(absBal)} ${esc(debtInfo.currency)}
+          </td>
+          <td><span class="badge ${badge}">${status}</span></td>
+        </tr>`;
+                    }).join('');
+
+                    debtSection = `
+  <div class="card debt-card">
+    <div class="section-title" style="margin-top:0;">
+        <span style="background:#f3e8ff; color:#7c3aed;">💰</span>
+        <div style="font-size:16px; color:#581c87;">Mahsuplaşma ve Kişi Bazlı Harcama</div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:12px;">
+      <div class="stat-box" style="background:white; border-color:#e9d5ff;">
+        <div class="stat-label" style="color:#7c3aed;">Toplam Ortak Harcama (Toplam)</div>
+        <div class="stat-value" style="color:#581c87;">${fmt(totalAll)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
+      </div>
+      <div class="stat-box" style="background:white; border-color:#e9d5ff;">
+        <div class="stat-label" style="color:#7c3aed;">Kişi Başı Harcama (Toplam)</div>
+        <div class="stat-value" style="color:#581c87;">${fmt(shareAll)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
+      </div>
+    </div>
+
+    <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:14px;">
+      <div class="stat-box" style="background:white; border-color:#e9d5ff;">
+        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Ortak Harcama</div>
+        <div class="stat-value" style="color:#581c87;">${fmt(totalSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
+      </div>
+      <div class="stat-box" style="background:white; border-color:#e9d5ff;">
+        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Kişi Payı</div>
+        <div class="stat-value" style="color:#581c87;">${fmt(shareSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px; color:#6b7280; margin:-2px 0 16px 0; line-height:1.4;">
+      <strong>Not:</strong> <em>Ödendi</em> işaretli rezervasyonlar alacak-verecek hesabına dahil edilmez; ancak kişi başı harcama payına dahil edilir.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Borçlu (Ödeyecek)</th>
+          <th style="width:40px;"></th>
+          <th>Alacaklı (Alacak)</th>
+          <th style="text-align:right;">Tutar</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${debtRows}
+      </tbody>
+    </table>
+
+    <div style="height:14px;"></div>
+
+    <div class="section-title" style="margin-top:0;">
+        <span style="background:#f3e8ff; color:#7c3aed;">👤</span>
+        <div style="font-size:14px; color:#581c87;">Kişi Bazlı Özet (Mahsuplaşma)</div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden; border:none; box-shadow:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>Kişi</th>
+            <th style="text-align:right;">Ödediği (Mahsup)</th>
+            <th style="text-align:right;">Kişi Payı (Mahsup)</th>
+            <th style="text-align:right;">Net (Alacak/Verecek)</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${personRows || '<tr><td colspan="5" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">Kişi özeti üretilemedi.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>
+`;
+                }
 
                 const html = `<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
+  <!-- Cache-Buster: ${Date.now()} -->
   <title>Seyahat Cüzdanı – ${esc(payload.trip)} Raporu</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 24px;
-      color: #111827;
-      background: #f3f4f6;
-    }
-    h1,h2,h3 { margin: 0 0 8px 0; }
-    .small { font-size: 11px; color: #4b5563; }
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 10px rgba(15,23,42,0.08);
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 6px;
-      font-size: 12px;
-    }
-    th, td {
-      border: 1px solid #e5e7eb;
-      padding: 6px 8px;
-    }
-    th {
-      background: #f9fafb;
-      text-align: left;
-      font-weight: 600;
-    }
-    .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      background: #e5e7eb;
-      color: #111827;
-    }
-    .tag-scope { background:#dbebff; color:#1d4ed8; }
-    .tag-cur   { background:#dcfce7; color:#166534; }
-    .footer-note {
-      font-size: 10px;
-      color: #6b7280;
-      margin-top: 4px;
-    }
-    @media print {
-      body { margin: 0; }
-      .no-print { display: none; }
-    }
-  </style>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 40px;
+            color: #1e293b;
+            background: #f8fafc;
+            line-height: 1.5;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* Modern Grid Layout */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Header Section */
+        header {
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .meta-item {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .meta-item strong {
+            color: #334155;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        /* Sections & Cards */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 30px 0 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-title span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #e0e7ff;
+            color: #4f46e5;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+            border: 1px solid #f1f5f9;
+            margin-bottom: 20px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .stat-sub {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th:first-child { border-top-left-radius: 8px; border-left: 1px solid #e2e8f0; }
+        th:last-child { border-top-right-radius: 8px; border-right: 1px solid #e2e8f0; }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }
+        
+        td:first-child { border-left: 1px solid #f1f5f9; }
+        td:last-child { border-right: 1px solid #f1f5f9; }
+
+        tr:last-child td { border-bottom: 1px solid #e2e8f0; }
+        tr:last-child td:first-child { border-bottom-left-radius: 8px; }
+        tr:last-child td:last-child { border-bottom-right-radius: 8px; }
+
+        tr:nth-child(even) td {
+            background: #fcfcfc;
+        }
+
+        .amt-cell {
+            text-align: right;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        /* Debt Section */
+        .debt-card {
+            background: linear-gradient(145deg, #ffffff 0%, #fbfdff 100%);
+            border: 1px solid #bfdbfe;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .debt-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: #3b82f6;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .badge-ind { background: #e0f2fe; color: #0284c7; }
+        .badge-shared { background: #f1f5f9; color: #475569; }
+        .badge-cur { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+        /* Notes Box */
+        .notes-box {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 12px;
+            padding: 15px;
+        }
+        
+        .notes-title {
+            color: #92400e;
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .note-text {
+            color: #78350f;
+            font-size: 11px;
+            margin-bottom: 6px;
+            padding-left: 10px;
+            border-left: 2px solid #f59e0b;
+        }
+
+        /* Footer */
+        .report-footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media print {
+            body { 
+                background: white; 
+                padding: 0; 
+                margin: 15mm;
+            }
+            .no-print { display: none !important; }
+            .card, .debt-card, table { page-break-inside: avoid; }
+            .section-title { margin-top: 20px; }
+            box-shadow: none !important;
+        }
+    </style>
 </head>
 <body>
-  <div class="no-print" style="margin-bottom:12px; font-size:11px; color:#6b7280;">
-    Bu sayfayı tarayıcınızdan <strong>Yazdır → PDF olarak kaydet</strong> seçeneği ile PDF’e dönüştürebilirsiniz.
+  <div class="no-print" style="max-width:800px; margin:0 auto 20px auto; font-size:11px; color:#b45309; background:#fffbeb; padding:12px; border-radius:10px; border:1px solid #fcd34d; display:flex; align-items:center; gap:8px;">
+    <span>💡</span> 
+    <span><strong>İpucu:</strong> Bu sayfayı tarayıcınızdan <strong>Yazdır → PDF olarak kaydet</strong> seçeneği ile temiz bir PDF'e dönüştürebilirsiniz.</span>
   </div>
 
-  <div class="card">
-    <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
-    <div class="small">
-      <div><strong>Seyahat:</strong> ${esc(payload.trip)}</div>
-      <div><strong>Tarih Aralığı:</strong> ${esc(dateRange)}</div>
-      <div><strong>Rapor Para Birimi:</strong> <span class="tag tag-cur">${esc(payload.reportCurrency)}</span></div>
-      <div><strong>Harcama Kapsamı:</strong> <span class="tag tag-scope">${esc(scopeLabel)}</span></div>
-      <div><strong>Oluşturulma Tarihi:</strong> ${esc(payload.generatedAt)}</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>1) Genel Özet</h2>
-    <div class="grid-2">
-      <div>
-        <div><strong>Toplam Harcama:</strong> ${fmt(s.totalReport || 0)} ${esc(payload.reportCurrency)}</div>
-        <div><strong>Rezervasyon Maliyetleri:</strong> ${fmt(s.totalResReport || 0)} ${esc(payload.reportCurrency)}</div>
-        <div><strong>Harcamalar (Gün içi):</strong> ${fmt(s.totalExpReport || 0)} ${esc(payload.reportCurrency)}</div>
+  <div class="container">
+      <header>
+          <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
+          <div class="meta-grid">
+              <div class="meta-item">
+                  <strong>Seyahat</strong>
+                  ${esc(payload.trip)}
+              </div>
+              <div class="meta-item">
+                  <strong>Tarih Aralığı</strong>
+                  ${esc(dateRange)}
+              </div>
+              <div class="meta-item">
+                  <strong>Rapor Para Birimi</strong>
+                  <span class="badge badge-cur">${esc(payload.reportCurrency)}</span>
+              </div>
+              <div class="meta-item">
+                  <strong>Kapsam</strong>
+                  <span class="badge badge-shared" style="background:#f1f5f9;">${esc(scopeLabel)}</span>
+              </div>
+              <div class="meta-item">
+                  <strong>Oluşturulma</strong>
+                  ${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}
+              </div>
+          </div>
+      </header>
+    
+      <!-- 1) Genel Özet -->
+      <div class="section-title">
+          <span>📊</span> Genel Özet
       </div>
-      <div>
-        <div><strong>Günlük Ortalama:</strong> ${fmt(s.dailyAvg || 0)} ${esc(payload.reportCurrency)} / gün</div>
-        <div><strong>Gün Sayısı:</strong> ${s.dayCount || 0}</div>
-        <div><strong>İşlem Sayısı:</strong> ${s.expenseCount || 0} harcama + ${s.reservationCount || 0} rezervasyon</div>
+      
+      <div class="stats-grid">
+          <div class="stat-box">
+              <div class="stat-label">Toplam Harcama</div>
+              <div class="stat-value" style="color:#4f46e5;">${fmt(s.totalReport || 0)}</div>
+              <div class="stat-sub">${esc(payload.reportCurrency)}</div>
+          </div>
+          <div class="stat-box">
+              <div class="stat-label">Günlük Ortalama</div>
+              <div class="stat-value">${fmt(s.dailyAvg || 0)}</div>
+              <div class="stat-sub">${esc(payload.reportCurrency)} / gün</div>
+          </div>
+          <div class="stat-box">
+              <div class="stat-label">İşlem Hacmi</div>
+              <div class="stat-value">${s.expenseCount || 0} <span style="font-size:12px; color:#94a3b8; font-weight:normal;">Harcama</span></div>
+              <div class="stat-sub">+ ${s.reservationCount || 0} Rezervasyon</div>
+          </div>
       </div>
-    </div>
-    <div style="margin-top:8px; font-size:11px;">
-      <strong>Bireysel:</strong> ${fmt(s.indivTotal || 0)} ${esc(payload.reportCurrency)}
-      &nbsp;·&nbsp;
-      <strong>Ortak:</strong> ${fmt(s.sharedTotal || 0)} ${esc(payload.reportCurrency)}
-    </div>
-  </div>
+      
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
+           <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
+               <div class="stat-label">Bireysel Harcamalar</div>
+               <div class="stat-value" style="font-size:15px; color:#0284c7;">${fmt(s.indivTotal || 0)} ${esc(payload.reportCurrency)}</div>
+           </div>
+           <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
+               <div class="stat-label">Ortak Harcamalar</div>
+               <div class="stat-value" style="font-size:15px; color:#475569;">${fmt(s.sharedTotal || 0)} ${esc(payload.reportCurrency)}</div>
+           </div>
+      </div>
 
-  <div class="card">
-    <h2>2) Rezervasyon Özeti</h2>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Tarih</th>
-          <th>Tip</th>
-          <th>Başlık</th>
-          <th>Lokasyon</th>
-          <th>Kod</th>
-          <th style="text-align:right;">Maliyet</th>
-          <th>Kapsam</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${resRows || '<tr><td colspan="7">Kayıtlı rezervasyon bulunmamaktadır.</td></tr>'}
-      </tbody>
-    </table>
-    <div class="footer-note">
-      Rezervasyon maliyetleri toplam harcamaya dahildir. Bireysel/ortak bilgisi uygulamadaki işaretlemelere göre alınmıştır.
-    </div>
-  </div>
+      <!-- BORÇ BÖLÜMÜ -->
+      <div style="margin-top:30px;">
+        ${debtSection}
+      </div>
 
-  <div class="card">
-    <h2>3) Günlük Harcama Dökümü</h2>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Tarih / Saat</th>
-          <th>Kategori</th>
-          <th>Yer / Açıklama</th>
-          <th>Şehir</th>
-          <th style="text-align:right;">Tutar (Orijinal)</th>
-          <th>Kapsam</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${expRows || '<tr><td colspan="6">Kayıtlı harcama bulunmamaktadır.</td></tr>'}
-      </tbody>
-    </table>
-  </div>
+      <!-- 2) Rezervasyonlar -->
+      <div class="section-title">
+         <span>🏨</span> Rezervasyon Özeti
+      </div>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <table>
+          <thead>
+            <tr>
+              <th>Tarih</th>
+              <th>Tip</th>
+              <th>Başlık</th>
+              <th>Lokasyon</th>
+<th style="text-align:right;">Maliyet</th>
+              <th>Kapsam</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${resRows || '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Kayıtlı rezervasyon bulunmamaktadır.</td></tr>'}
+          </tbody>
+        </table>
+        ${resRows ? '' : ''}
+      </div>
 
-  <div class="card">
-    <h2>4) Notlar</h2>
-    <p class="footer-note">
-      • Rezervasyon maliyetleri toplam harcamaya dahil edilmiştir.<br/>
-      • Bireysel/ortak ayrımı seyahat cüzdanı uygulamasındaki işaretlemelere göre yapılmıştır.<br/>
-      • Rapor para birimi ${esc(payload.reportCurrency)}’dir; diğer para birimlerindeki harcamalar uygulamadaki kur bilgilerine göre dönüştürülmüştür.
-    </p>
+      <!-- 3) Harcamalar -->
+      <div class="section-title">
+         <span>💳</span> Günlük Harcama Dökümü
+      </div>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <table>
+          <thead>
+            <tr>
+              <th>Tarih / Saat</th>
+              <th>Kategori</th>
+              <th>Yer / Açıklama</th>
+              <th>Şehir</th>
+              <th style="text-align:right;">Tutar (Orijinal)</th>
+              <th>Kapsam</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${expRows || '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Kayıtlı harcama bulunmamaktadır.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 4) Notlar ve Açıklamalar -->
+      <div class="section-title">
+         <span>📋</span> Rapor Bilgileri
+      </div>
+      
+      <div class="notes-box">
+         <div class="notes-title">📌 Rapor Hakkında Bilinmesi Gerekenler</div>
+         
+         <div class="note-text">
+            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(payload.reportCurrency)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
+         </div>
+         <div class="note-text">
+             <strong>Borç Hesaplama:</strong> Sadece "Ortak" işaretli harcamalar ve rezervasyonlar borç hesaplamasına dahil edilir. Kişi başı düşen pay hesaplanarak mahsuplaşma tablosu oluşturulur.
+         </div>
+         <div class="note-text">
+             <strong>Veri Kaynağı:</strong> Rapor verileri anlık olarak cihazınızdaki veritabanından üretilmiştir. Kur bilgileri piyasa verilerinden farklılık gösterebilir.
+         </div>
+      </div>
+      
+      <div class="report-footer">
+        Seyahat Cüzdanı PDF Rapor <strong style="color:#6366f1;">v2024.12.19-MODERN-V2</strong> &bull; ${new Date().getFullYear()}
+      </div>
   </div>
 </body>
 </html>`;
@@ -801,13 +1265,6 @@
             const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
             const fmtNum = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-            // Para formatlayıcı: rapor/diğer ekranlarında fmtMoney bekleniyor.
-            function fmtMoney(n, cur = '') {
-                const num = Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
-                return cur ? `${num} ${cur}` : num;
-            }
-            try { window.fmtMoney = fmtMoney; } catch (_) {}
-
             const fmtDate = d => { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d };
             const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -1041,7 +1498,7 @@
                 // YENİ: Rezervasyonları yükle
                 try { r = JSON.parse(localStorage.getItem(K.RES) || '[]'); } catch (err) { r = []; }
 
-                try { prefTZ = localStorage.parse(localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
+                try { prefTZ = (localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
                 try { criticalNotes = JSON.parse(localStorage.getItem(K.NOTES) || '[]'); } catch (err) { criticalNotes = []; }
                 try { preferredBaseCurrency = localStorage.getItem(K.PREF + '_base_cur') || 'TRY'; } catch (err) { preferredBaseCurrency = 'TRY'; }
 
@@ -1152,7 +1609,6 @@
                 localStorage.setItem(K.LIST, JSON.stringify(state.chk));
                 localStorage.setItem(K.RES, JSON.stringify(state.res)); // Rezervasyonları kaydet
                 localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
-                localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
                 localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
                 localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
                 localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
@@ -1602,7 +2058,7 @@
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase opacity-0">D</label>
                    <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-[7px] h-[38px]">
                       <input type="checkbox" id="i-res-settled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-700 cursor-pointer">
-                      <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Mahsuplaşıldı</label>
+                      <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Ödendi</label>
                    </div>
                 </div>
               </div>
@@ -1899,54 +2355,85 @@
                 const persons = trip.persons.split(',').map(p => p.trim()).filter(Boolean);
                 if (persons.length < 2) return null;
 
-                const sharedExps = state.exp.filter(x => x.trip === tripName && !x.isIndividual);
-                const sharedRes = state.res.filter(r => r.trip === tripName && !r.isIndividual);
-                if (!sharedExps.length && !sharedRes.length) return null;
+                const baseCur = state.baseCurrency || BASE_CURRENCY;
 
                 // Herkesin bakiyesi (pozitif: alacaklı, negatif: borçlu)
+                // NOT: "Ödendi/Mahsuplaşıldı" işaretli rezervasyonlar alacak-verecek hesabına DAHİL EDİLMEZ,
+                // fakat kişi başı harcama payına (toplam tüketim) DAHİL EDİLİR.
                 const balances = {};
-                persons.forEach(p => balances[p] = 0);
+                const personPayments = {};       // Mahsuplaşma hesabına dahil ödemeler (borç/alacak hesabı)
+                const personPaymentsAll = {};    // Toplam ödemeler (settled dahil, ödeyen bilgisi varsa)
 
-                let totalSharedCost = 0;
-
-                sharedExps.forEach(x => {
-                    if (x.isSettled) return; // Mahsuplaşıldı kalemleri hesaplaşmaya dahil etme
-                    const amtCtx = convertToBase(x.amt, x.cur, state.baseCurrency || BASE_CURRENCY); // Hepsi baz para birimine çevrilir
-                    totalSharedCost += amtCtx;
-
-                    const payer = x.payer || persons[0]; // Payer seçilmediyse ilk kişiyi varsay (veya hata yapmamak için)
-                    if (balances.hasOwnProperty(payer)) {
-                        balances[payer] += amtCtx;
-                    }
-                });
-
-                // REZERVASYONLARI DA DAHİL ET (YENİ)
-                // sharedRes yukarıda tanımlandı
-                sharedRes.forEach(r => {
-                    // Eğer "Mahsuplaşıldı/Settled" ise borç hesabına katma (genel bütçede durur ama dağıtılmaz)
-                    if (r.isSettled) return;
-
-                    const cost = Number(r.cost);
-                    if (!cost || cost <= 0) return;
-
-                    const amtCtx = convertToBase(cost, r.cur, state.baseCurrency || BASE_CURRENCY);
-                    totalSharedCost += amtCtx;
-
-                    const payer = r.payer || persons[0];
-                    if (balances.hasOwnProperty(payer)) {
-                        balances[payer] += amtCtx;
-                    }
-                });
-
-                const sharePerPerson = totalSharedCost / persons.length;
-
-                // Herkes kendi payını (sharePerPerson) ödemeli.
-                // Bakiyeden pay düşülür.
                 persons.forEach(p => {
-                    balances[p] -= sharePerPerson;
+                    balances[p] = 0;
+                    personPayments[p] = 0;
+                    personPaymentsAll[p] = 0;
                 });
 
-                // Hesaplaşma Algoritması
+                let totalSharedAll = 0;          // Ortak harcamaların toplamı (settled dahil)
+                let totalSharedForSettlement = 0; // Mahsuplaşma hesabına dahil ortak harcama toplamı (settled hariç)
+
+                // 1) Ortak Harcamalar (günlük harcamalar) - Settled alanı yoksa tamamı mahsuba dahildir
+                const sharedExps = (state.exp || []).filter(x => x.trip === tripName && !x.isIndividual);
+                sharedExps.forEach(x => {
+                    const amt = Number(x.amt) || 0;
+                    if (amt <= 0) return;
+
+                    const amtCtx = convertToBase(amt, x.cur, baseCur);
+                    if (!amtCtx || isNaN(amtCtx)) return;
+
+                    totalSharedAll += amtCtx;
+                    totalSharedForSettlement += amtCtx;
+
+                    const payer = (x.payer && String(x.payer).trim()) ? String(x.payer).trim() : persons[0];
+                    if (balances.hasOwnProperty(payer)) {
+                        balances[payer] += amtCtx;
+                        personPayments[payer] += amtCtx;
+                        personPaymentsAll[payer] += amtCtx;
+                    }
+                });
+
+                // 2) Ortak Rezervasyonlar (konaklama/ulaşım vb.)
+                const sharedRes = (state.res || []).filter(r => r.trip === tripName && !r.isIndividual);
+                sharedRes.forEach(r => {
+                    const cost = Number(r.cost) || 0;
+                    if (cost <= 0) return;
+
+                    const amtCtx = convertToBase(cost, r.cur, baseCur);
+                    if (!amtCtx || isNaN(amtCtx)) return;
+
+                    // Toplam tüketime her durumda dahil
+                    totalSharedAll += amtCtx;
+
+                    // Ödeyen bilgisi varsa, toplam ödeme istatistiğine ekle (settled dahil)
+                    const payerRaw = (r.payer && String(r.payer).trim()) ? String(r.payer).trim() : '';
+                    if (payerRaw && personPaymentsAll.hasOwnProperty(payerRaw)) {
+                        personPaymentsAll[payerRaw] += amtCtx;
+                    }
+
+                    // Mahsuplaşma hesabına sadece "Ödendi" olmayan kayıtlar dahil edilir
+                    if (!r.isSettled) {
+                        totalSharedForSettlement += amtCtx;
+
+                        const payer = payerRaw || persons[0];
+                        if (balances.hasOwnProperty(payer)) {
+                            balances[payer] += amtCtx;
+                            personPayments[payer] += amtCtx;
+                        }
+                    }
+                });
+
+                if (totalSharedAll <= 0) return null;
+
+                const sharePerPersonAll = totalSharedAll / persons.length;
+                const sharePerPersonForSettlement = totalSharedForSettlement / persons.length;
+
+                // Mahsuplaşma hesabı için net bakiye: Ödediği (mahsuba dahil) - Kişi payı (mahsuba dahil)
+                persons.forEach(p => {
+                    balances[p] -= sharePerPersonForSettlement;
+                });
+
+                // Borçlu/alacaklı listesi
                 const debtors = [];
                 const creditors = [];
 
@@ -1957,8 +2444,8 @@
 
                 const transactions = [];
 
-                debtors.sort((a, b) => a.bal - b.bal); // En çok borcu olan önce
-                creditors.sort((a, b) => b.bal - a.bal); // En çok alacağı olan önce
+                debtors.sort((a, b) => a.bal - b.bal);     // En çok borcu olan önce
+                creditors.sort((a, b) => b.bal - a.bal);   // En çok alacağı olan önce
 
                 let i = 0; // debtor index
                 let j = 0; // creditor index
@@ -1967,14 +2454,12 @@
                     const debtor = debtors[i];
                     const creditor = creditors[j];
 
-                    // Borcun tamamı mı yoksa bir kısmı mı ödenecek?
-                    // debtor.bal negatif, creditor.bal pozitif
-                    const amount = Math.min(Math.abs(debtor.bal), creditor.bal);
+                    const amount = Math.min(-debtor.bal, creditor.bal);
 
                     transactions.push({
                         from: debtor.p,
                         to: creditor.p,
-                        amount: amount
+                        amount: Math.round(amount * 100) / 100
                     });
 
                     debtor.bal += amount;
@@ -1985,14 +2470,23 @@
                 }
 
                 return {
-                    totalShared: totalSharedCost,
-                    sharePerPerson,
+                    // Ekran/PDF istatistikleri için toplam tüketim
+                    totalShared: totalSharedAll,
+                    sharePerPerson: sharePerPersonAll,
+
+                    // Borç/alacak hesabı (settled hariç)
+                    totalSharedForSettlement,
+                    sharePerPersonForSettlement,
+
                     transactions,
-                    currency: state.baseCurrency || BASE_CURRENCY
+                    currency: baseCur,
+
+                    // Kişi bazlı
+                    personPayments,        // mahsuba dahil ödemeler
+                    personPaymentsAll,     // toplam ödemeler (ödeyen bilgisi varsa)
+                    persons
                 };
             }
-
-            // YENİ FONKSİYON: RAPOR AKORDİYON İÇERİĞİ
             function renderReportContent() {
                 const allTrips = [...new Set(state.exp.map(x => x.trip).filter(Boolean).concat(state.res.map(x => x.trip).filter(Boolean)))].sort();
                 let selectedTrip = state.selectedReportTrip;
@@ -2120,26 +2614,90 @@
 
                 if (debtInfo && debtInfo.transactions.length > 0) {
                     const debtRows = debtInfo.transactions.map(t => `
-                <div class="flex justify-between items-center bg-slate-700/50 p-2 rounded text-xs border border-slate-600/50">
-                    <span class="text-red-400 font-bold w-1/3 truncate">${esc(t.from)}</span>
-                    <span class="text-slate-500 text-center w-8">➡️</span>
-                    <span class="text-emerald-400 font-bold w-1/3 truncate text-right">${esc(t.to)}</span>
-                    <span class="font-bold text-white w-1/4 text-right">${fmtNum(t.amount)} ${debtInfo.currency}</span>
+                <div class="flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-700/60 p-3 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition">
+                    <span class="text-red-300 font-bold w-1/3 truncate text-sm">${esc(t.from)}</span>
+                    <span class="text-slate-400 text-center w-12 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </span>
+                    <span class="text-emerald-300 font-bold w-1/3 truncate text-right text-sm">${esc(t.to)}</span>
+                    <span class="font-bold text-white w-1/4 text-right bg-blue-600/30 px-2 py-1 rounded text-sm">${fmtNum(t.amount)} ${debtInfo.currency}</span>
                 </div>
              `).join('');
 
-                    debtHtml = `
-            <!-- Borç Dağılımı (YENİ) -->
-            <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                <h4 class="text-sm font-bold text-slate-300 uppercase flex items-center gap-2">
-                   👥 Borç / Alacak Durumu (Hesaplaşma)
-                </h4>
-                <div class="space-y-2">
-                    <div class="text-[10px] text-slate-400 mb-2 p-2 bg-slate-900/50 rounded border border-slate-800">
-                        <div class="flex justify-between"><span>Toplam Ortak Harcama:</span> <span class="text-slate-200 font-mono">${fmtNum(debtInfo.totalShared)} ${debtInfo.currency}</span></div>
-                        <div class="flex justify-between"><span>Kişi Başı Düşen Pay:</span> <span class="text-slate-200 font-mono">${fmtNum(debtInfo.sharePerPerson)} ${debtInfo.currency}</span></div>
+                    // YENİ: Kişi Bazlı Ödeme Özeti
+                    const personSummaryRows = debtInfo.persons.map(person => {
+                        const paid = debtInfo.personPayments[person] || 0;
+                        const share = (debtInfo.sharePerPersonForSettlement ?? debtInfo.sharePerPerson);
+                        const balance = paid - share;
+                        const isCreditor = balance > 0.01;
+                        const isDebtor = balance < -0.01;
+                        const statusText = isCreditor ? 'Alacaklı' : isDebtor ? 'Borçlu' : 'Dengede';
+                        const statusColor = isCreditor ? 'text-emerald-400' : isDebtor ? 'text-red-400' : 'text-slate-400';
+                        const balanceSign = balance > 0 ? '+' : '';
+
+                        return `
+                <div class="bg-slate-800/60 rounded-lg p-3 border border-slate-700/40 hover:border-slate-600/60 transition">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-white font-bold text-sm">${esc(person)}</span>
+                        <span class="${statusColor} text-xs font-semibold">${statusText}</span>
                     </div>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Ödediği:</span>
+                            <span class="text-white font-mono">${fmtNum(paid)} ${debtInfo.currency}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">Payı:</span>
+                            <span class="text-slate-300 font-mono">${fmtNum(share)} ${debtInfo.currency}</span>
+                        </div>
+                        <div class="flex justify-between pt-1 border-t border-slate-700/50">
+                            <span class="text-slate-400 font-semibold">Durum:</span>
+                            <span class="${statusColor} font-bold font-mono">${balanceSign}${fmtNum(Math.abs(balance))} ${debtInfo.currency}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+                    }).join('');
+
+                    debtHtml = `
+            <!-- Kişi Bazlı Ödeme Özeti (YENİ) -->
+            <div class="bg-gradient-to-br from-indigo-900/30 via-slate-800/50 to-cyan-900/30 border border-indigo-500/30 rounded-xl p-5 space-y-4 shadow-lg">
+                <h4 class="text-base font-bold text-white uppercase flex items-center gap-2">
+                   <span class="text-2xl">👥</span> Kişi Bazlı Ödeme Özeti
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${personSummaryRows}
+                </div>
+            </div>
+
+            <!-- Borç Dağılımı (YENİ) -->
+            <div class="bg-gradient-to-br from-purple-900/30 via-slate-800/50 to-blue-900/30 border border-purple-500/30 rounded-xl p-5 space-y-4 shadow-lg">
+                <h4 class="text-base font-bold text-white uppercase flex items-center gap-2">
+                   <span class="text-2xl">💰</span> Kim Kime Ne Kadar Verecek?
+                </h4>
+                <div class="bg-slate-900/60 rounded-lg p-3 border border-slate-700/50 space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Toplam Ortak Harcama:</span> 
+                        <span class="text-white font-bold font-mono">${fmtNum(debtInfo.totalShared)} ${debtInfo.currency}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Kişi Başı Düşen Pay:</span> 
+                        <span class="text-emerald-400 font-bold font-mono">${fmtNum(debtInfo.sharePerPerson)} ${debtInfo.currency}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Mahsuplaşmaya Dahil Kişi Payı:</span> 
+                        <span class="text-amber-300 font-bold">${fmtNum(debtInfo.sharePerPersonForSettlement || 0)} ${debtInfo.currency}</span>
+                    </div>
+                </div>
+                <div class="space-y-2">
                     ${debtRows}
+                </div>
+                <div class="text-xs text-slate-400 bg-slate-900/40 p-2 rounded border border-slate-700/30">
+                    <span class="text-red-300 font-semibold">●</span> Borçlu (ödeyecek) 
+                    <span class="mx-2">→</span>
+                    <span class="text-emerald-300 font-semibold">●</span> Alacaklı (alacak)
                 </div>
             </div>
              `;
@@ -2241,6 +2799,42 @@
                   </h4>
                   ${imagePreview}
               </div>
+              
+              <!-- YENİ: RAPOR NOTLARI VE AÇIKLAMALAR -->
+              <div class="bg-gradient-to-br from-amber-900/20 via-slate-800/50 to-orange-900/20 border border-amber-600/30 rounded-xl p-5 space-y-3">
+                  <h4 class="text-base font-bold text-amber-200 uppercase flex items-center gap-2">
+                     📋 Rapor Hakkında Bilinmesi Gerekenler
+                  </h4>
+                  <div class="space-y-3 text-xs text-slate-300">
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-amber-300 mb-1.5">💱 Para Birimi Dönüşümleri</div>
+                          <p class="leading-relaxed">Tüm harcamalar seçtiğiniz rapor para birimine (${reportCur}) dönüştürülmüştür. Dönüşüm işlemi uygulamada kayıtlı güncel kur bilgilerine göre yapılmaktadır. Orijinal para birimlerindeki tutarlar "Orijinal Para Birimi Bazında Toplam Harcama" bölümünde gösterilmektedir.</p>
+                      </div>
+                      
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-emerald-300 mb-1.5">👥 Borç Hesaplama Mantığı</div>
+                          <p class="leading-relaxed">Borç hesaplaması sadece "Ortak" olarak işaretlenmiş harcamalar ve rezervasyonlar için yapılır. "Ödendi/Settled" işaretli rezervasyonlar toplam maliyete ve kişi başı paya dahil edilir ancak borç hesaplamasına dahil edilmez (çünkü zaten ödenmiş ve mahsuplaşılmıştır). Sistem, her kişinin ödediği toplam tutarı hesaplar ve kişi başına düşen payı belirler. Fazla ödeyenler alacaklı, az ödeyenler borçlu olarak listelenir. Hesaplama algoritması minimum işlem sayısıyla dengeyi sağlamayı hedefler.</p>
+                      </div>
+                      
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-blue-300 mb-1.5">📊 Kategori ve Mekan Sıralaması</div>
+                          <p class="leading-relaxed">En çok harcanan kategoriler ve mekanlar, seçilen rapor para birimine dönüştürülmüş tutarlara göre sıralanmaktadır. Sadece ilk 3 sıra gösterilir. Birden fazla para birimi kullanıldıysa, tüm tutarlar rapor para birimine çevrilerek karşılaştırılır.</p>
+                      </div>
+                      
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-purple-300 mb-1.5">🔍 Bireysel ve Ortak Harcamalar</div>
+                          <p class="leading-relaxed">Harcamalar "Bireysel" veya "Ortak" olarak işaretlenebilir. Bireysel harcamalar sadece ilgili kişiye ait olup borç hesaplamasına dahil edilmez. Ortak harcamalar tüm seyahat katılımcıları arasında eşit olarak paylaştırılır ve borç hesaplamasında kullanılır.</p>
+                      </div>
+                      
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-rose-300 mb-1.5">⚠️ Önemli Uyarılar</div>
+                          <p class="leading-relaxed">• Rezervasyon maliyetleri de ortak harcamalara dahil edilir.<br/>
+                          • Kur bilgileri uygulamada kayıtlı verilerden alınır, güncel piyasa kurlarından farklılık gösterebilir.<br/>
+                          • PDF dökümü için giriş yapmanız gerekmektedir.<br/>
+                          • Rapor verileri anlık olarak hesaplanır ve değişiklikler otomatik yansıtılır.</p>
+                      </div>
+                  </div>
+              </div>
           </div>
       `;
             }
@@ -2300,691 +2894,146 @@
             }
 
             // YENİ FONKSİYON: RAPOR HTML OLUŞTURUCU
-                        // YENİ FONKSİYON: RAPOR HTML OLUŞTURUCU (MODERN + HESAPLAŞMA + KİŞİ BAZLI)
-            function buildReportHtmlModern(data) {
-                const {
-                    trip,
-                    reportCurrency,
-                    generatedAt,
-                    dateFrom = '',
-                    dateTo = '',
-                    summary = {},
-                    expenses = [],
-                    reservations = [],
-                    persons: personsFromPayload = []
-                } = data || {};
+            function buildReportHtmlLegacy(data) {
+                const { trip, reportCurrency, generatedAt, summary, expenses, reservations } = data;
 
-                const fmt = (n) => new Intl.NumberFormat('tr-TR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                }).format(Number(n || 0));
+                const fmt = (n) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+                const escStr = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-                const esc = (s) => (s ?? '').toString()
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
-
-                // Uzun linkler PDF düzenini bozmasın: http(s)/www içeren parçaları çıkar.
-                const stripUrls = (txt) => (txt ?? '').toString()
-                    .replace(/https?:\/\/\S+/gi, '')
-                    .replace(/\bwww\.\S+/gi, '')
-                    .trim();
-
-                const cleanPart = (txt, maxLen = 80) => {
-                    const s = stripUrls(txt).replace(/\s+/g, ' ').trim();
-                    if (!s) return '';
-                    if (s.length > maxLen) return s.slice(0, maxLen - 1) + '…';
-                    return s;
-                };
-
-
-                // Kur: rapor para birimine çevir
-                const conv = (amount, currency) => {
-                    try {
-                        return convertToBase(Number(amount) || 0, currency || reportCurrency || BASE_CURRENCY, reportCurrency || BASE_CURRENCY);
-                    } catch (_) {
-                        return Number(amount) || 0;
-                    }
-                };
-
-                // Kişiler: payload varsa onu kullan; yoksa state.trips'ten fallback
-                const persons = (() => {
-                    const arr = (personsFromPayload || []).map(x => (x || '').trim()).filter(Boolean);
-                    if (arr.length) return arr;
-                    try {
-                        const t = (state.trips || []).find(x => x.name === trip);
-                        if (t && t.persons) {
-                            return t.persons.split(',').map(p => p.trim()).filter(Boolean);
-                        }
-                    } catch (_) {}
-                    return [];
-                })();
-                const selfFallback = persons[0] || '';
-
-                // Etiketler
-                const unknownPayer = 'Belirtilmemiş';
-                const catLabel = (catId) => {
-                    try {
-                        return (CATS && CATS[catId] && CATS[catId].l) ? CATS[catId].l : (catId || 'Diğer');
-                    } catch (_) {
-                        return catId || 'Diğer';
-                    }
-                };
-                const resTypeLabel = (typeId) => {
-                    try {
-                        const t = (RESERVATION_TYPES || []).find(x => x.id === typeId);
-                        return t ? t.l : (typeId || 'Rezervasyon');
-                    } catch (_) {
-                        return typeId || 'Rezervasyon';
-                    }
-                };
-
-                // 1) Kişi bazlı "cebindən çıkan" (tüm kalemler, mahsuplaşıldı dahil)
-                const paidAll = {};
-                const paidAllCount = {};
-                const ensurePerson = (p) => {
-                    if (!paidAll.hasOwnProperty(p)) {
-                        paidAll[p] = 0;
-                        paidAllCount[p] = 0;
-                    }
-                };
-                persons.forEach(p => ensurePerson(p));
-                ensurePerson(unknownPayer);
-
-                // 2) Hesaplaşma kapsamı için kişi bazlı ödemeler (ortak + mahsuplaşıldı hariç)
-                const paidSettle = {};
-                const balances = {};
-                persons.forEach(p => {
-                    paidSettle[p] = 0;
-                    balances[p] = 0;
-                });
-
-                let totalAll = 0;
-                let totalSharedScope = 0;
-                let totalSharedSettled = 0;
-                let totalIndividual = 0;
-
-                // 3) Kategori özeti
-                const byCategory = {};
-                const addCat = (k, amt) => {
-                    const key = k || 'Diğer';
-                    byCategory[key] = (byCategory[key] || 0) + amt;
-                };
-
-                // 4) Kalemleri normalize et (günlük döküm için birleşik liste)
-                const items = [];
-
-                // Harcamalar
-                expenses.forEach(x => {
-                    const isInd = !!x.isIndividual;
-                    const isSettled = !!x.isSettled; // harcamalarda yoksa false kalır
-                    const payerEff = (x.payer || (isInd ? selfFallback : '')).trim();
-
-                    const amt = conv(x.amt, x.cur);
-                    totalAll += amt;
-                    if (isInd) totalIndividual += amt;
-                    else {
-                        if (isSettled) totalSharedSettled += amt;
-                        else totalSharedScope += amt;
-                    }
-
-                    const payerBucket = payerEff || unknownPayer;
-                    ensurePerson(payerBucket);
-                    paidAll[payerBucket] += amt;
-                    paidAllCount[payerBucket] += 1;
-
-                    if (!isInd && !isSettled && persons.length >= 2) {
-                        const p = payerEff && balances.hasOwnProperty(payerEff) ? payerEff : null;
-                        if (p) {
-                            balances[p] += amt;
-                            paidSettle[p] += amt;
-                        }
-                    }
-
-                    addCat(catLabel(x.cat), amt);
-
-                    items.push({
-                        date: x.date || '',
-                        kind: 'expense',
-                        title: catLabel(x.cat),
-                        subtitle: cleanPart((x.place || x.note || x.desc || ''), 90),
-                        payer: payerEff || '',
-                        amt,
-                        cur: reportCurrency,
-                        isIndividual: isInd,
-                        isSettled
-                    });
-                });
-
-                // Rezervasyonlar
-                reservations.forEach(r => {
-                    const isInd = !!r.isIndividual;
-                    const isSettled = !!r.isSettled;
-                    const payerEff = (r.payer || (isInd ? selfFallback : '')).trim();
-
-                    const amt = conv(r.cost, r.cur);
-                    totalAll += amt;
-                    if (isInd) totalIndividual += amt;
-                    else {
-                        if (isSettled) totalSharedSettled += amt;
-                        else totalSharedScope += amt;
-                    }
-
-                    const payerBucket = payerEff || unknownPayer;
-                    ensurePerson(payerBucket);
-                    paidAll[payerBucket] += amt;
-                    paidAllCount[payerBucket] += 1;
-
-                    if (!isInd && !isSettled && persons.length >= 2) {
-                        const p = payerEff && balances.hasOwnProperty(payerEff) ? payerEff : null;
-                        if (p) {
-                            balances[p] += amt;
-                            paidSettle[p] += amt;
-                        }
-                    }
-
-                    addCat(`Rezervasyon • ${resTypeLabel(r.type)}`, amt);
-
-                    const subtitleParts = [];
-                    const _rName = cleanPart(r.name, 70);
-                    if (_rName) subtitleParts.push(_rName);
-                    const _rLoc = cleanPart(r.location, 60);
-                    if (_rLoc) subtitleParts.push(_rLoc);
-items.push({
-                        date: r.startDate || '',
-                        kind: 'reservation',
-                        title: `Rezervasyon • ${resTypeLabel(r.type)}`,
-                        subtitle: subtitleParts.join(' • '),
-                        payer: payerEff || '',
-                        amt,
-                        cur: reportCurrency,
-                        isIndividual: isInd,
-                        isSettled
-                    });
-                });
-
-                // 5) Hesaplaşma (kim kime ne kadar verecek)
-                let sharePerPerson = 0;
-                const transactions = [];
-                if (persons.length >= 2 && totalSharedScope > 0) {
-                    sharePerPerson = totalSharedScope / persons.length;
-                    persons.forEach(p => {
-                        balances[p] -= sharePerPerson;
-                    });
-
-                    const debtors = persons
-                        .map(p => ({ person: p, amount: Math.max(0, -balances[p]) }))
-                        .filter(x => x.amount > 0.005)
-                        .sort((a, b) => b.amount - a.amount);
-
-                    const creditors = persons
-                        .map(p => ({ person: p, amount: Math.max(0, balances[p]) }))
-                        .filter(x => x.amount > 0.005)
-                        .sort((a, b) => b.amount - a.amount);
-
-                    let i = 0, j = 0;
-                    while (i < debtors.length && j < creditors.length) {
-                        const pay = Math.min(debtors[i].amount, creditors[j].amount);
-                        if (pay > 0.005) {
-                            transactions.push({
-                                from: debtors[i].person,
-                                to: creditors[j].person,
-                                amount: pay
-                            });
-                        }
-                        debtors[i].amount -= pay;
-                        creditors[j].amount -= pay;
-                        if (debtors[i].amount <= 0.005) i++;
-                        if (creditors[j].amount <= 0.005) j++;
-                    }
-                }
-
-                // 6) Günlük döküm (tarih bazlı)
-                items.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.kind || '').localeCompare(b.kind || ''));
-                const groups = {};
-                items.forEach(it => {
-                    const d = it.date || 'Tarihsiz';
-                    if (!groups[d]) groups[d] = [];
-                    groups[d].push(it);
-                });
-                const dates = Object.keys(groups).sort();
-
-                // 7) Modern HTML
-                const pageTitle = `${esc(trip || 'Seyahat')} - Rapor`;
-                const metaLine = `Oluşturulma: ${new Date(generatedAt || Date.now()).toLocaleString('tr-TR')} • Para birimi: ${esc(reportCurrency || '')}`;
-                const dateRange = (dateFrom && dateTo) ? `${esc(dateFrom)} – ${esc(dateTo)}` : '';
-
-                const kpi = {
-                    totalAll,
-                    totalSharedScope,
-                    totalSharedSettled,
-                    totalIndividual,
-                    people: persons.length
-                };
-
-                // Kategori sıralı liste
-                const catRows = Object.entries(byCategory)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([k, v]) => `
-                        <tr>
-                            <td>${esc(k)}</td>
-                            <td class="amt">${fmt(v)} ${esc(reportCurrency || '')}</td>
-                        </tr>
-                    `).join('');
-
-                // Kişi bazlı "cebindən çıkan"
-                const paidRows = Object.keys(paidAll)
-                    .filter(p => paidAll[p] > 0.0001)
-                    .sort((a, b) => paidAll[b] - paidAll[a])
-                    .map(p => `
-                        <tr>
-                            <td class="person">${esc(p)}</td>
-                            <td class="amt">${fmt(paidAll[p])} ${esc(reportCurrency || '')}</td>
-                            <td class="muted">${paidAllCount[p] || 0} kalem</td>
-                        </tr>
-                    `).join('');
-
-                // Kişi bazlı settlement özeti
-                const settleRows = persons.map(p => {
-                    const paid = paidSettle[p] || 0;
-                    const owed = sharePerPerson || 0;
-                    const net = paid - owed;
-                    const cls = net >= 0 ? 'pos' : 'neg';
-                    const sign = net >= 0 ? '+' : '-';
-                    return `
-                        <tr>
-                            <td class="person">${esc(p)}</td>
-                            <td class="amt">${fmt(paid)} ${esc(reportCurrency || '')}</td>
-                            <td class="amt">${fmt(owed)} ${esc(reportCurrency || '')}</td>
-                            <td class="amt ${cls}">${sign}${fmt(Math.abs(net))} ${esc(reportCurrency || '')}</td>
-                        </tr>
-                    `;
-                }).join('');
-
-                const txRows = transactions.length
-                    ? transactions.map(t => `
-                        <div class="tx">
-                            <div class="tx-left">
-                                <span class="chip chip-debtor">${esc(t.from)}</span>
-                                <span class="arrow">→</span>
-                                <span class="chip chip-creditor">${esc(t.to)}</span>
-                            </div>
-                            <div class="tx-amt">${fmt(t.amount)} ${esc(reportCurrency || '')}</div>
-                        </div>
-                    `).join('')
-                    : `<div class="muted" style="padding:10px 0">Hesaplaşma verisi yok (ya ortak kapsam 0, ya da kişi sayısı 2’den az).</div>`;
-
-                const dailyHtml = dates.map(d => {
-                    const dayTotal = groups[d].reduce((s, it) => s + (it.amt || 0), 0);
-                    const rows = groups[d].map(it => {
-                        const badges = [
-                            it.isIndividual ? `<span class="badge badge-ind">Bireysel</span>` : `<span class="badge badge-shared">Ortak</span>`,
-                            it.isSettled ? `<span class="badge badge-settled">Mahsuplaşıldı</span>` : ''
-                        ].filter(Boolean).join(' ');
-
-                        const payerLine = it.payer ? `<div class="sub muted">Ödeyen: <strong>${esc(it.payer)}</strong></div>` : '';
-                        const sub = it.subtitle ? `<div class="sub">${esc(it.subtitle)}</div>` : '';
-
-                        return `
-                            <div class="item">
-                                <div class="item-main">
-                                    <div class="item-title">${esc(it.title)} ${badges}</div>
-                                    ${sub}
-                                    ${payerLine}
-                                </div>
-                                <div class="item-amt">${fmt(it.amt)}<span class="cur"> ${esc(reportCurrency || '')}</span></div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    return `
-                        <div class="day">
-                            <div class="day-head">
-                                <div class="day-date">${esc(d)}</div>
-                                <div class="day-sum">${fmt(dayTotal)} ${esc(reportCurrency || '')}</div>
-                            </div>
-                            <div class="day-body">
-                                ${rows}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                const notes = `
-                    <div class="notes">
-                        <div class="notes-title">Notlar</div>
-                        <ul>
-                            <li><strong>Cebimden çıkan</strong> kişi bazlı toplamlar, <strong>Mahsuplaşıldı</strong> kalemleri de içerir. Bu bölüm “kim ne kadar harcadı?” sorusunu cevaplar.</li>
-                            <li><strong>Hesaplaşma</strong> sadece <strong>Ortak</strong> ve <strong>Mahsuplaşıldı değil</strong> kalemlerden hesaplanır. Bireysel kalemler hesaplaşmaya dahil edilmez.</li>
-                            <li>Ödeyen bilgisi boş olan kalemler “<strong>${unknownPayer}</strong>” altında toplanır. Ortak kalemlerde ödeyen seçimi zorunlu tutulmalıdır.</li>
-                            <li>Bireysel kalemlerde ödeyen seçimi yapılmıyorsa, rapor kişi bazlı toplamları için varsayılan kişi: <strong>${esc(selfFallback || 'İlk kişi')}</strong>.</li>
-                            <li>Bu rapor şablon sürümü: <strong>v2025-12-19.2</strong></li>
-                        </ul>
-                    </div>
-                `;
-
+                // CSS
                 const style = `
                     <style>
-:root{
-  --paper:#ffffff;
-  --bg:#f1f5f9;
-  --surface:#f8fafc;
-  --text:#0f172a;
-  --muted:#64748b;
-  --line:#e2e8f0;
-  --accent:#0ea5e9;
-  --accent2:#6366f1;
-  --success:#16a34a;
-  --danger:#dc2626;
-}
-*{box-sizing:border-box;}
-html,body{height:100%;}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
-  font-size:13px;
-  line-height:1.35;
-  -webkit-print-color-adjust:exact;
-  print-color-adjust:exact;
-}
-.wrap{
-  max-width:720px;
-  margin:0 auto;
-  padding:16px 14px 24px;
-}
-.hero{
-  border-radius:20px;
-  padding:16px 16px 14px;
-  background:linear-gradient(135deg, rgba(14,165,233,.16), rgba(99,102,241,.14), rgba(16,185,129,.10));
-  border:1px solid rgba(148,163,184,.45);
-  box-shadow:0 10px 28px rgba(15,23,42,.10);
-}
-.hero h1{margin:0;font-size:20px;letter-spacing:-.2px;}
-.hero .meta{margin-top:6px;font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;}
-.hero .range{margin-top:6px;font-size:12px;color:var(--muted);}
-
-.section{margin-top:14px;}
-.section-title{
-  display:flex;align-items:center;justify-content:space-between;
-  font-weight:800;font-size:13px;
-  letter-spacing:.2px;
-  margin:0 0 8px 0;
-}
-.section-title .hint{font-weight:600;color:var(--muted);font-size:12px;}
-
-.grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:10px;
-}
-.kpi{
-  background:var(--paper);
-  border:1px solid var(--line);
-  border-radius:16px;
-  padding:12px 12px 10px;
-  box-shadow:0 8px 20px rgba(15,23,42,.05);
-}
-.kpi .label{font-size:11px;color:var(--muted);font-weight:700;}
-.kpi .val{margin-top:6px;font-size:16px;font-weight:900;letter-spacing:-.2px;}
-.kpi .sub{margin-top:4px;font-size:11px;color:var(--muted);}
-
-.card{
-  background:var(--paper);
-  border:1px solid var(--line);
-  border-radius:18px;
-  padding:12px 12px 10px;
-  box-shadow:0 8px 20px rgba(15,23,42,.05);
-}
-.table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  overflow:hidden;
-  border:1px solid var(--line);
-  border-radius:16px;
-  background:var(--paper);
-}
-.table th, .table td{
-  padding:10px 10px;
-  border-bottom:1px solid var(--line);
-  border-right:1px solid var(--line);
-  vertical-align:top;
-}
-.table th:last-child, .table td:last-child{ border-right:none; }
-.table th{
-  background:linear-gradient(180deg, rgba(148,163,184,.16), rgba(148,163,184,.06));
-  font-size:11px;
-  color:#0f172a;
-  text-transform:none;
-  letter-spacing:.2px;
-  font-weight:800;
-}
-.table tr:last-child td{border-bottom:none;}
-.table td.amt{text-align:right;white-space:nowrap;font-weight:800;}
-.table td.muted{color:var(--muted);font-size:11px;}
-
-.badge{
-  display:inline-block;
-  padding:3px 8px;
-  border-radius:999px;
-  font-size:10px;
-  font-weight:800;
-  letter-spacing:.2px;
-  border:1px solid rgba(148,163,184,.55);
-  background:rgba(241,245,249,.9);
-  color:#0f172a;
-  vertical-align:middle;
-}
-.badge-shared{border-color:rgba(14,165,233,.35);background:rgba(14,165,233,.10);}
-.badge-ind{border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.10);}
-.badge-settled{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.10);}
-
-.day{
-  margin-top:14px;
-  background:var(--paper);
-  border:1px solid var(--line);
-  border-radius:20px;
-  overflow:hidden;
-  box-shadow:0 10px 24px rgba(15,23,42,.06);
-}
-.day-head{
-  padding:12px 14px;
-  background:linear-gradient(90deg, rgba(14,165,233,.18), rgba(99,102,241,.12));
-  border-bottom:1px dashed rgba(148,163,184,.70);
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:12px;
-}
-.day-date{font-size:14px;font-weight:900;letter-spacing:-.2px;}
-.day-sum{
-  font-size:12px;
-  font-weight:900;
-  white-space:nowrap;
-  padding:6px 10px;
-  border-radius:999px;
-  background:rgba(255,255,255,.75);
-  border:1px solid rgba(148,163,184,.55);
-}
-.day-body{
-  padding:10px 12px 14px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-.item{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 10px;
-  background:var(--surface);
-  border:1px solid var(--line);
-  border-radius:16px;
-}
-.item-main{min-width:0;}
-.item-title{
-  font-weight:900;
-  font-size:13px;
-  margin:0 0 4px 0;
-}
-.sub{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-word;}
-.muted{color:var(--muted);}
-.item-amt{
-  font-weight:950;
-  white-space:nowrap;
-  text-align:right;
-  font-size:13px;
-}
-.item-amt .cur{font-weight:800;color:var(--muted);font-size:11px;}
-.hr{
-  height:1px;background:var(--line);margin:12px 0;border:0;
-}
-
-.notes{
-  margin-top:14px;
-  padding:12px 12px 10px;
-  border-radius:18px;
-  border:1px solid var(--line);
-  background:linear-gradient(180deg, rgba(148,163,184,.10), rgba(148,163,184,.04));
-}
-.notes-title{font-weight:900;margin:0 0 6px 0;}
-.notes ul{margin:0;padding-left:18px;color:var(--muted);font-size:12px;}
-.footer{
-  margin-top:14px;
-  font-size:11px;
-  color:var(--muted);
-  text-align:center;
-}
-
-@media (max-width:520px){
-  .wrap{padding:14px 12px 22px;}
-  .hero h1{font-size:19px;}
-  .grid{grid-template-columns:1fr;}
-  .kpi .val{font-size:17px;}
-  .table th, .table td{padding:9px 9px;}
-}
-
-@page{margin:10mm;}
-@media print{
-  body{background:var(--paper);}
-  .wrap{max-width:none;padding:0;}
-  .hero{box-shadow:none;}
-  .kpi,.card,.day{box-shadow:none;}
-  .day, .item, .card, .table{page-break-inside:avoid;}
-}
-</style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f8fafc; color: #1e293b; }
+                        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                        .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
+                        .header h1 { margin: 0; color: #0f172a; font-size: 24px; }
+                        .meta { color: #64748b; font-size: 12px; margin-top: 5px; }
+                        .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }
+                        .card { background: #f1f5f9; padding: 15px; border-radius: 8px; }
+                        .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 5px; }
+                        .card-val { font-size: 18px; font-weight: 700; color: #0f172a; }
+                        .section-title { font-size: 16px; font-weight: 700; color: #334155; margin-top: 30px; margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; }
+                        table { w-full; border-collapse: collapse; font-size: 12px; width: 100%; }
+                        th { text-align: left; padding: 8px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 600; }
+                        td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: top; }
+                        tr:last-child td { border-bottom: none; }
+                        .amt { text-align: right; font-weight: 600; white-space: nowrap; }
+                        .note { font-size: 10px; color: #94a3b8; display: block; margin-top: 2px; }
+                        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+                        .badge-ind { background: #fff7ed; color: #c2410c; }
+                        .badge-shared { background: #f0fdf4; color: #15803d; }
+                        .badge-settled { background: #eff6ff; color: #1d4ed8; margin-left: 4px; }
+                        .payer-info { font-size: 10px; color: #64748b; margin-top: 2px; font-style: italic; }
+                        .footer { margin-top: 40px; text-align: center; color: #94a3b8; font-size: 11px; }
+                    </style>
                 `;
 
+                // Expenses Table
+                let expRows = '';
+                if (expenses.length > 0) {
+                    expRows = `
+                        <table>
+                            <thead><tr><th>Tarih</th><th>Kategori / Mekan</th><th class="amt">Tutar</th></tr></thead>
+                            <tbody>
+                                ${expenses.map(x => `
+                                    <tr>
+                                        <td width="15%">${x.date}<br><span class="note">${x.time}</span></td>
+                                        <td>
+                                            <span style="font-weight:600">${escStr(x.cat)}</span> ${x.place ? ' / ' + escStr(x.place) : ''}<br>
+                                            <span class="note">${escStr(x.city)}</span>
+                                            ${x.note ? `<div class="note">Is Not: ${escStr(x.note)}</div>` : ''}
+                                            ${x.payer ? `<div class="payer-info">Ödeyen: ${escStr(x.payer)}</div>` : ''}
+                                        </td>
+                                        <td class="amt">
+                                            ${fmt(x.amt)} ${x.cur}
+                                            <div style="margin-top:2px">
+                                                <span class="badge ${x.isIndividual ? 'badge-ind' : 'badge-shared'}">${x.isIndividual ? 'Bireysel' : 'Ortak'}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    expRows = '<p style="color:#64748b; font-size:12px; font-style:italic">Harcama kaydı bulunmamaktadır.</p>';
+                }
+
+                // Reservations Table
+                let resRows = '';
+                if (reservations.length > 0) {
+                    resRows = `
+                        <table>
+                            <thead><tr><th>Tarih</th><th>Rezervasyon</th><th class="amt">Maliyet</th></tr></thead>
+                            <tbody>
+                                ${reservations.map(r => `
+                                    <tr>
+                                        <td width="15%">${r.startDate}</td>
+                                        <td>
+                                            <span style="font-weight:600">${escStr(r.name)}</span> (${r.type})<br>
+                                            <span class="note">${escStr(r.location)}</span>
+                                            ${r.notes ? `<div class="note">${escStr(r.notes)}</div>` : ''}
+                                            ${r.payer ? `<div class="payer-info">Ödeyen: ${escStr(r.payer)}</div>` : ''}
+                                            ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Ödeme Yapıldı (Ödendi)</div>` : ''}
+                                        </td>
+                                        <td class="amt">
+                                            ${fmt(r.cost)} ${r.cur}
+                                            <div style="margin-top:2px">
+                                                <span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    resRows = '<p style="color:#64748b; font-size:12px; font-style:italic">Rezervasyon bulunmamaktadır.</p>';
+                }
+
                 return `
-<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${pageTitle}</title>
-  ${style}
-</head>
-<body>
-  <div class="wrap">
-    <div class="hero">
-      <h1>${esc(trip || 'Seyahat')} • Harcama Raporu</h1>
-      <div class="meta"><span>${esc(metaLine)}</span></div>
-      ${dateRange ? `<div class="range">Dönem: ${esc(dateRange)}</div>` : ''}
+                    <!DOCTYPE html>
+                    <html>
+                    <head><meta charset="utf-8"><title>${escStr(trip)} - Seyahat Raporu</title>${style}</head>
+                    <body>
+                        <div class="container">
+                            <div class="header">
+                                <h1>${escStr(trip)} - Seyahat Harcama Raporu</h1>
+                                <div class="meta">Oluşturulma: ${new Date(generatedAt).toLocaleString('tr-TR')}</div>
+                            </div>
 
-      <div class="grid">
-        <div class="kpi">
-          <div class="l">Toplam Harcama</div>
-          <div class="v">${fmt(kpi.totalAll)} ${esc(reportCurrency || '')}</div>
-        </div>
-        <div class="kpi">
-          <div class="l">Hesaplaşma Kapsamı</div>
-          <div class="v">${fmt(kpi.totalSharedScope)} ${esc(reportCurrency || '')}</div>
-        </div>
-        <div class="kpi">
-          <div class="l">Mahsuplaşılan Ortak</div>
-          <div class="v">${fmt(kpi.totalSharedSettled)} ${esc(reportCurrency || '')}</div>
-        </div>
-        <div class="kpi">
-          <div class="l">Kişi</div>
-          <div class="v">${kpi.people}</div>
-        </div>
-      </div>
-    </div>
+                            <div class="summary-grid">
+                                <div class="card">
+                                    <div class="card-label">Toplam Maliyet (${reportCurrency})</div>
+                                    <div class="card-val">${fmt(summary.totalReport)} ${reportCurrency}</div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-label">Günlük Ortalama</div>
+                                    <div class="card-val">${fmt(summary.dailyAvg)} ${reportCurrency} / gün</div>
+                                    <div class="meta">(${summary.dayCount} gün)</div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-label">Ortak Harcamalar</div>
+                                    <div class="card-val">${fmt(summary.sharedTotal)} ${reportCurrency}</div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-label">Bireysel Harcamalar</div>
+                                    <div class="card-val">${fmt(summary.indivTotal)} ${reportCurrency}</div>
+                                </div>
+                            </div>
 
-    <div class="section">
-      <h2>Kişi Bazlı Harcama</h2>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Kişi</th>
-            <th class="amt">Cebimden Çıkan</th>
-            <th>Kalem</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${paidRows || `<tr><td colspan="3" class="muted">Kayıt bulunamadı.</td></tr>`}
-        </tbody>
-      </table>
-      <div class="muted" style="margin-top:10px">Bu bölüm, mahsuplaşılan kalemleri de içerir.</div>
-    </div>
+                            <div class="section-title">Günlük Harcama Dökümü (${expenses.length})</div>
+                            ${expRows}
 
-    <div class="section">
-      <h2>Hesaplaşma Özeti</h2>
-      ${persons.length >= 2
-        ? `
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Kişi</th>
-              <th class="amt">Kapsamda Ödediği</th>
-              <th class="amt">Payı</th>
-              <th class="amt">Fark</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${settleRows}
-          </tbody>
-        </table>
-        <div class="muted" style="margin-top:10px">Fark (+) alacak, (-) borç anlamındadır.</div>
-        `
-        : `<div class="muted">Hesaplaşma için en az 2 kişi olmalıdır.</div>`}
-    </div>
+                            <div class="section-title">Rezervasyon Özeti (${reservations.length})</div>
+                            ${resRows}
 
-    <div class="section">
-      <h2>Kim Kime Ne Kadar Verecek</h2>
-      ${txRows}
-    </div>
-
-    <div class="section">
-      <h2>Kategori Özeti</h2>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Kategori</th>
-            <th class="amt">Toplam</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${catRows || `<tr><td colspan="2" class="muted">Kayıt bulunamadı.</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <h2>Günlük Döküm</h2>
-      ${dailyHtml || `<div class="muted">Günlük döküm için kayıt bulunamadı.</div>`}
-    </div>
-
-    ${notes}
-
-    <div class="foot">Şablon: v2025-12-19.2</div>
-  </div>
-</body>
-</html>
+                            <div class="footer">
+                                Gemini Travel Tracker tarafından oluşturulmuştur.
+                            </div>
+                        </div>
+                    </body>
+                    </html>
                 `;
             }
 
@@ -5730,6 +5779,16 @@ body{
                         return;
                     }
 
+                    // YENİ VALIDASYON: Ortak harcamalarda payer zorunlu
+                    if (!f.isIndividual && f.trip) {
+                        const tripObj = state.trips.find(t => t.name === f.trip);
+                        if (tripObj && tripObj.persons && !f.payer) {
+                            state.err = 'Ortak harcamalarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin.';
+                            renderApp();
+                            return;
+                        }
+                    }
+
                     if (isFuelActive && (!f.startKm || !f.endKm || !f.fuelAmount)) {
                         state.err = 'Yakıt harcaması için Başlangıç Km, Bitiş Km ve Yakıt Miktarı alanları zorunludur.';
                         renderApp();
@@ -5835,6 +5894,16 @@ body{
                         return;
                     }
 
+                    // YENİ VALIDASYON: Ortak rezervasyonlarda payer zorunlu
+                    if (!f.isIndividual && f.trip && f.cost && Number(f.cost) > 0) {
+                        const tripObj = state.trips.find(t => t.name === f.trip);
+                        if (tripObj && tripObj.persons && !f.payer && !f.isSettled) {
+                            state.err = 'Ortak rezervasyonlarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin veya "Ödendi/Settled" işaretleyin.';
+                            renderApp();
+                            return;
+                        }
+                    }
+
                     // Misafir kullanıcı için seyahat sayısı limiti (rezervasyon tarafı)
                     if (isGuest()) {
                         const newTripName = titleCase(f.trip || '');
@@ -5889,10 +5958,12 @@ body{
                         reservations: true
                     };
                     renderApp();
+                    // KRİTİK DÜZELTME: Sayfanın rezervasyonlara dönmesini zorla (Hash güncellemesi)
                     setTimeout(() => {
+                        window.location.hash = 'helper-reservations';
                         const el = document.getElementById('helper-reservations');
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 300);
+                    }, 50);
                 }
 
                 // Rezervasyon Listesi İşlemleri
@@ -6132,7 +6203,7 @@ body{
                     });
                     filteredReservations.forEach(r => {
                         // Eğer ödenmiş/settled ise rapora dahil et ama shared toplamına katma (veya not olarak düş)
-                        // Kullanıcı isteği: "Mahsuplaşıldı... genel hesaba eklensin fakat alacak-verecek hesabına dahil olmasın."
+                        // Kullanıcı isteği: "Ödendi... genel hesaba eklensin fakat alacak-verecek hesabına dahil olmasın."
                         // Burada "sharedTotal" ve "indivTotal" raporun alt özeti.
                         // Settled olsa bile harcama yapılmıştır. Shared total'e eklenebilir.
                         const amt = convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur);
@@ -6142,7 +6213,6 @@ body{
                     // Gün Sayısı Hesabı (Seyahat Tarihlerine Göre)
                     let finalDayCount = dayCount; // Harcamalardan gelen count fallback
                     const tripObj = state.trips.find(t => t.name === selectedTrip);
-                    const personsArr = (tripObj && tripObj.persons) ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
                     if (tripObj && tripObj.startDate && tripObj.endDate) {
                         const d1 = new Date(tripObj.startDate);
                         const d2 = new Date(tripObj.endDate);
@@ -6150,6 +6220,9 @@ body{
                         if (diff > 0) finalDayCount = diff;
                     }
                     const finalDailyAvg = finalDayCount > 0 ? totalReport / finalDayCount : 0;
+
+                    // BORÇ HESAPLAMA (YENİ - PDF için)
+                    const debtInfo = calculateDebts(selectedTrip);
 
                     // 6) Payload hazırla
                     const payload = {
@@ -6160,9 +6233,7 @@ body{
                         generatedAt: new Date().toISOString(),
                         dateFrom,
                         dateTo,
-                        persons: personsArr,
-                        tripStartDate: tripObj ? (tripObj.startDate || '') : '',
-                        tripEndDate: tripObj ? (tripObj.endDate || '') : '',
+                        debtInfo, // YENİ: Borç bilgisini ekle
                         summary: {
                             totalReport,
                             totalExpReport,
@@ -6186,7 +6257,6 @@ body{
                             amt: Number(x.amt) || 0,
                             cur: x.cur || BASE_CURRENCY,
                             isIndividual: !!x.isIndividual,
-                            isSettled: !!x.isSettled,
                             payer: x.payer || ''
                         })),
                         reservations: filteredReservations.map(r => ({
@@ -6209,11 +6279,16 @@ body{
                     };
 
                     // 7) HTML raporu oluştur ve yeni sekmede aç
-                    const html = buildReportHtmlModern(payload);
+                    const html = buildReportHtml(payload);
                     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
                     const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank');
-                }
+                    // Cache-busting: Her PDF için benzersiz pencere adı kullan
+                    const windowName = `pdf_report_${Date.now()}`;
+                    const w = window.open(url, windowName);
+                    // Memory leak önleme: Blob URL'yi bir süre sonra serbest bırak
+                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                    if (!w) alert('Tarayıcı açılır pencereyi engelledi. PDF raporunu açmak için pop-up izni verin.');
+}
 
                 if (act === 'copy-json') {
                     const textarea = document.getElementById('io-txt');
@@ -6260,6 +6335,8 @@ body{
                     state.routeTrip = t.value;
                     state.helpersAccordion.route = true;
                     renderApp();
+                    // KRİTİK DÜZELTME: Rota seçiminde sayfanın kapanmasını engelle
+                    setTimeout(() => { window.location.hash = 'helper-route'; }, 10);
                 }
 
                 if (t.dataset.act === 'set-note-trip') {
