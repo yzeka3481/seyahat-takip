@@ -563,7 +563,6 @@
 
             function buildReportHtml(payload) {
                 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                const reportCur = payload.reportCurrency || payload.baseCurrency || 'TRY';
                 const dateRange = (payload.dateFrom && payload.dateTo)
                     ? `${payload.dateFrom} – ${payload.dateTo}`
                     : 'Tarih bilgisi yok';
@@ -584,7 +583,7 @@
           <td>${esc(e.cat || '')}</td>
           <td><strong>${esc(e.place || '')}</strong></td>
           <td>${esc(e.city || '')}</td>
-          <td class="amt-cell">${fmt(convertToBase(Number(e.amt)||0, e.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+          <td class="amt-cell">${fmt(e.amt)} <span style="font-size:10px; color:#64748b;">${esc(e.cur)}</span></td>
           <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span>${(!e.isIndividual && e.isSettled) ? ` <span class="badge badge-settled">Ödendi</span>` : ''}</td>
         </tr>
     `).join('');
@@ -595,7 +594,7 @@
           <td>${esc(r.type || '')}</td>
           <td><strong>${esc(r.name || '')}</strong></td>
           <td>${esc(r.location || '')}</td>
-<td class="amt-cell">${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+<td class="amt-cell">${fmt(r.cost)} <span style="font-size:10px; color:#64748b;">${esc(r.cur)}</span></td>
           <td><span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span></td>
         </tr>
     `).join('');
@@ -621,15 +620,17 @@
                     const debtRows = hasTx
                         ? debtInfo.transactions.map(t => `
         <tr>
-          <td><span style="font-weight:600; color:#dc2626;">${esc(t.from)}</span></td>
-          <td style="text-align:center; color:#94a3b8;">→</td>
-          <td><span style="font-weight:600; color:#059669;">${esc(t.to)}</span></td>
-          <td class="amt-cell" style="background:rgba(14,116,144,.18); color:#e0f2fe;">${fmt(t.amount)} ${esc(debtInfo.currency)}</td>
+          <td class="pay-cell">
+            <span class="from">${esc(t.from)}</span>
+            <span class="arrow">→</span>
+            <span class="to">${esc(t.to)}</span>
+          </td>
+          <td class="amt-cell" style="background:rgba(14,116,144,.18); border:1px solid rgba(14,116,144,.35); border-radius:8px; text-align:right; padding:6px 10px; font-weight:700; color:#e0f2fe; white-space:nowrap;">${fmt(t.amount)} ${esc(debtInfo.currency)}</td>
         </tr>
     `).join('')
                         : `
         <tr>
-          <td colspan="4" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">
+          <td colspan="2" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">
             Mahsuplaşma gerektiren borç bulunmuyor.
           </td>
         </tr>
@@ -692,10 +693,8 @@
     <table>
       <thead>
         <tr>
-          <th>Borçlu (Ödeyecek)</th>
-          <th style="width:40px;"></th>
-          <th>Alacaklı (Alacak)</th>
-          <th style="text-align:right;">Tutar</th>
+          <th>Ödeme (Borçlu → Alacaklı)</th>
+          <th style="text-align:right; width:140px;">Tutar</th>
         </tr>
       </thead>
       <tbody>
@@ -736,8 +735,9 @@
                     if (tfs.length) {
                         const rows = tfs.map(t => `
                             <tr>
-<td><strong>${esc(t.from || '')}</strong> → <strong>${esc(t.to || '')}</strong></td>
-                                <td class="amt-cell">${fmt(convertToBase(Number(t.amt)||0, t.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+                                <td>${esc(t.date || '')}</td>
+                                <td><strong>${esc(t.from || '')}</strong> → <strong>${esc(t.to || '')}</strong>${t.note ? `<div style="color:#64748b; font-size:11px; margin-top:2px">${esc(t.note)}</div>` : ''}</td>
+                                <td class="amt-cell">${fmt(Number(t.amt)||0)} <span style="font-size:10px; color:#64748b;">${esc(t.cur || '')}</span></td>
                             </tr>
                         `).join('');
 
@@ -745,7 +745,7 @@
                             <div class="section">
                               <div class="section-title">Yapılan Mahsuplaşmalar (Transferler) (${tfs.length})</div>
                               <table>
-                                <thead><tr><th>Transfer</th><th class="amt">Tutar</th></tr></thead>
+                                <thead><tr><th>Tarih</th><th>Transfer</th><th class="amt">Tutar</th></tr></thead>
                                 <tbody>${rows}</tbody>
                               </table>
                               <div style="color:#64748b; font-size:11px; margin-top:6px">
@@ -2452,7 +2452,7 @@
                 const persons = trip.persons.split(',').map(p => p.trim()).filter(Boolean);
                 if (persons.length < 2) return null;
 
-                const baseCur = state.reportCurrency || state.baseCurrency || BASE_CURRENCY;
+                const baseCur = state.baseCurrency || BASE_CURRENCY;
 
                 // Herkesin bakiyesi (pozitif: alacaklı, negatif: borçlu)
                 // NOT: "Ödendi/Mahsuplaşıldı" işaretli rezervasyonlar alacak-verecek hesabına DAHİL EDİLMEZ,
@@ -2773,11 +2773,14 @@
                             ? transfersForTrip.map(tr => `
                                 <div class="flex items-center justify-between bg-slate-900/60 border border-slate-700/50 rounded-lg p-3">
                                     <div class="min-w-0">
+                                        <div class="text-xs text-slate-400">${esc(tr.date || '')}</div>
                                         <div class="text-sm text-white font-semibold truncate">
                                             ${esc(tr.from || '')} <span class="text-slate-400 mx-1">→</span> ${esc(tr.to || '')}
                                             <span class="text-slate-400 mx-2">•</span>
-                                            <span class="text-white font-mono text-sm">${fmtNum(convertToBase(Number(tr.amt)||0, tr.cur || reportCur, reportCur))} ${esc(reportCur)}</span>
-                                        </div></div>
+                                            <span class="text-white font-mono">${fmtNum(Number(tr.amt) || 0)} ${esc(tr.cur || reportCur)}</span>
+                                        </div>
+                                        ${tr.note ? `<div class="text-xs text-slate-400 truncate">${esc(tr.note)}</div>` : ''}
+                                    </div>
                                     <button data-act="del-transfer" data-id="${esc(tr.id)}" class="ml-3 shrink-0 px-3 py-2 rounded-lg bg-red-600/30 hover:bg-red-600/50 border border-red-500/30 text-red-100 text-xs font-bold">Sil</button>
                                 </div>
                             `).join('')
@@ -2812,7 +2815,15 @@
                                             <label class="block text-[11px] text-slate-500 mb-1">Para Birimi</label>
                                             <select id="trf-cur" class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white">${curOpts}</select>
                                         </div>
-<div class="md:col-span-6 flex justify-end">
+                                        <div class="md:col-span-2">
+                                            <label class="block text-[11px] text-slate-500 mb-1">Tarih (opsiyonel)</label>
+                                            <input id="trf-date" type="date" class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white"/>
+                                        </div>
+                                        <div class="md:col-span-4">
+                                            <label class="block text-[11px] text-slate-500 mb-1">Not (opsiyonel)</label>
+                                            <input id="trf-note" placeholder="Örn: IBAN ile gönderildi" class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white"/>
+                                        </div>
+                                        <div class="md:col-span-6 flex justify-end">
                                             <button data-act="add-transfer" class="mt-1 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Ekle</button>
                                         </div>
                                     </div>
@@ -2827,15 +2838,17 @@
 
                 if (debtInfo && debtInfo.transactions.length > 0) {
                     const debtRows = debtInfo.transactions.map(t => `
-                <div class="flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-700/60 p-3 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition">
-                    <span class="text-red-300 font-bold w-1/3 truncate text-sm">${esc(t.from)}</span>
-                    <span class="text-slate-400 text-center w-12 flex items-center justify-center">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                        </svg>
-                    </span>
-                    <span class="text-emerald-300 font-bold w-1/3 truncate text-right text-sm">${esc(t.to)}</span>
-                    <span class="font-bold text-white w-1/4 text-right bg-blue-600/30 px-2 py-1 rounded text-sm">${fmtNum(t.amount)} ${debtInfo.currency}</span>
+                <div class="flex items-center gap-3 bg-gradient-to-r from-slate-800/80 to-slate-700/60 p-3 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="text-red-300 font-bold max-w-[180px] truncate text-sm">${esc(t.from)}</span>
+                        <span class="text-slate-400 shrink-0 flex items-center justify-center">
+                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                            </svg>
+                        </span>
+                        <span class="text-emerald-300 font-bold max-w-[180px] truncate text-sm">${esc(t.to)}</span>
+                    </div>
+                    <span class="ml-auto font-bold text-white shrink-0 bg-blue-600/30 px-3 py-1.5 rounded-lg text-sm font-mono">${fmtNum(t.amount)} ${debtInfo.currency}</span>
                 </div>
              `).join('');
 
@@ -3137,6 +3150,11 @@
                         td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: top; }
                         tr:last-child td { border-bottom: none; }
                         .amt { text-align: right; font-weight: 600; white-space: nowrap; }
+                        /* Kim-kime tablosu: isimler arası boşluğu azalt */
+                        td.pay-cell { white-space: nowrap; }
+                        td.pay-cell .from { font-weight: 700; color: #dc2626; }
+                        td.pay-cell .to { font-weight: 700; color: #059669; }
+                        td.pay-cell .arrow { display: inline-block; margin: 0 10px; color: #94a3b8; }
                         .note { font-size: 10px; color: #94a3b8; display: block; margin-top: 2px; }
                         .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
                         .badge-ind { background: #fff7ed; color: #c2410c; }
@@ -3164,7 +3182,7 @@
                                             ${x.payer ? `<div class="payer-info">Ödeyen: ${escStr(x.payer)}</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(x.amt)||0, x.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(x.amt)} ${x.cur}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${x.isIndividual ? 'badge-ind' : 'badge-shared'}">${x.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3196,7 +3214,7 @@
                                             ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Ödeme Yapıldı (Ödendi)</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(r.cost)} ${r.cur}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3471,7 +3489,7 @@
                             </div>
                             <!-- Sağ: Tutar / Base Cur Karşılığı -->
                             <div class="text-right flex-shrink-0">
-                                <div class="text-sm font-bold text-slate-200">${fmtNum(estimatedBaseCur)} <span class="text-xs font-medium">${baseCur}</span></div>
+                                <div class="text-sm font-bold text-slate-200">${fmtNum(x.amt)} <span class="text-xs font-medium">${x.cur}</span></div>
                                 
                             </div>
                         </div>
@@ -3873,8 +3891,8 @@
                    </div>
 
                    <div class="text-right flex-shrink-0 w-16">
-                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt)||0, x.cur || state.baseCurrency, state.baseCurrency))}</div>
-                      <div class="text-[10px] text-slate-600">${state.baseCurrency}</div>
+                      <div class="text-sm font-bold text-slate-900">${fmtNum(x.amt)}</div>
+                      <div class="text-[10px] text-slate-600">${x.cur}</div>
                    </div>
                 </div>`;
                     }).join('') : ''}
