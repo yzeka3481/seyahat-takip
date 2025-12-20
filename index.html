@@ -609,7 +609,7 @@
                     const shareAll = Number(debtInfo.sharePerPerson) || 0;
 
                     const totalSettle = Number(debtInfo.totalSharedForSettlement || 0);
-                    const shareSettle = Number(debtInfo.sharePerPersonForSettlement ?? 0);
+                    const shareSettle = Number((debtInfo.sharePerPersonForSettlement != null ? debtInfo.sharePerPersonForSettlement : 0));
 
                     const persons = debtInfo.persons || [];
                     const paySettleMap = debtInfo.personPayments || {};
@@ -1662,14 +1662,14 @@
             function setUndo(entry) {
                 try {
                     const id = genId();
-                    state.undo = { id, ...entry, expiresAt: Date.now() + 10_000 };
+                    state.undo = { id, ...entry, expiresAt: Date.now() + 10000 };
                     if (undoTimer) clearTimeout(undoTimer);
                     undoTimer = setTimeout(() => {
                         if (state.undo && state.undo.id === id) {
                             state.undo = null;
                             renderApp();
                         }
-                    }, 10_200);
+                    }, 10200);
                 } catch (err) { console.error(err); }
             }
 
@@ -2861,24 +2861,22 @@
 
                 if (debtInfo && debtInfo.transactions.length > 0) {
                     const debtRows = debtInfo.transactions.map(t => `
-                <div class="flex items-center gap-3 bg-gradient-to-r from-slate-800/80 to-slate-700/60 p-3 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="text-red-300 font-bold max-w-[180px] truncate text-sm">${esc(t.from)}</span>
-                        <span class="text-slate-400 shrink-0 flex items-center justify-center">
-                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                            </svg>
-                        </span>
-                        <span class="text-emerald-300 font-bold max-w-[180px] truncate text-sm">${esc(t.to)}</span>
-                    </div>
-                    <span class="ml-auto font-bold text-white shrink-0 bg-blue-600/30 px-3 py-1.5 rounded-lg text-sm font-mono">${fmtNum(t.amount)} ${debtInfo.currency}</span>
+                <div class="flex justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-700/60 p-3 rounded-lg border border-slate-600/40 hover:border-slate-500/60 transition">
+                    <span class="text-red-300 font-bold w-1/3 truncate text-sm">${esc(t.from)}</span>
+                    <span class="text-slate-400 text-center w-12 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </span>
+                    <span class="text-emerald-300 font-bold w-1/3 truncate text-right text-sm">${esc(t.to)}</span>
+                    <span class="font-bold text-white w-1/4 text-right bg-blue-600/30 px-2 py-1 rounded text-sm">${fmtNum(t.amount)} ${debtInfo.currency}</span>
                 </div>
              `).join('');
 
                     // YENİ: Kişi Bazlı Ödeme Özeti
                     const personSummaryRows = debtInfo.persons.map(person => {
                         const paid = debtInfo.personPayments[person] || 0;
-                        const share = (debtInfo.sharePerPersonForSettlement ?? debtInfo.sharePerPerson);
+                        const share = (debtInfo.sharePerPersonForSettlement != null ? debtInfo.sharePerPersonForSettlement : debtInfo.sharePerPerson);
                         const balanceBefore = paid - share;
                         const balance = (debtInfo.balancesAfterTransfers && typeof debtInfo.balancesAfterTransfers[person] === 'number')
                             ? debtInfo.balancesAfterTransfers[person]
@@ -6677,7 +6675,7 @@ if (act === 'export-pdf') {
                     const windowName = `pdf_report_${Date.now()}`;
                     const w = window.open(url, windowName);
                     // Memory leak önleme: Blob URL'yi bir süre sonra serbest bırak
-                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
                     if (!w) alert('Tarayıcı açılır pencereyi engelledi. PDF raporunu açmak için pop-up izni verin.');
 }
 
@@ -6705,7 +6703,7 @@ if (act === 'export-pdf') {
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
-                        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
                     } catch (err) { console.error(err); }
                     return;
                 }
@@ -6869,7 +6867,7 @@ if (act === 'export-pdf') {
                     // Eski input içeriği ve imleç pozisyonu
                     const input = t;
                     const value = input.value;
-                    const caret = input.selectionStart ?? value.length;
+                    const caret = (input.selectionStart != null ? input.selectionStart : value.length);
 
                     // Arama state'ini güncelle
                     state.search = value;
