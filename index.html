@@ -620,17 +620,15 @@
                     const debtRows = hasTx
                         ? debtInfo.transactions.map(t => `
         <tr>
-          <td class="pay-cell">
-            <span class="from">${esc(t.from)}</span>
-            <span class="arrow">→</span>
-            <span class="to">${esc(t.to)}</span>
-          </td>
-          <td class="amt-cell" style="background:rgba(14,116,144,.18); border:1px solid rgba(14,116,144,.35); border-radius:8px; text-align:right; padding:6px 10px; font-weight:700; color:#e0f2fe; white-space:nowrap;">${fmt(t.amount)} ${esc(debtInfo.currency)}</td>
+          <td><span style="font-weight:600; color:#dc2626;">${esc(t.from)}</span></td>
+          <td style="text-align:center; color:#94a3b8;">→</td>
+          <td><span style="font-weight:600; color:#059669;">${esc(t.to)}</span></td>
+          <td class="amt-cell" style="background:rgba(14,116,144,.18); color:#e0f2fe;">${fmt(t.amount)} ${esc(debtInfo.currency)}</td>
         </tr>
     `).join('')
                         : `
         <tr>
-          <td colspan="2" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">
+          <td colspan="4" style="text-align:center; padding:14px; color:#64748b; font-style:italic;">
             Mahsuplaşma gerektiren borç bulunmuyor.
           </td>
         </tr>
@@ -693,8 +691,10 @@
     <table>
       <thead>
         <tr>
-          <th>Ödeme (Borçlu → Alacaklı)</th>
-          <th style="text-align:right; width:140px;">Tutar</th>
+          <th>Borçlu (Ödeyecek)</th>
+          <th style="width:40px;"></th>
+          <th>Alacaklı (Alacak)</th>
+          <th style="text-align:right;">Tutar</th>
         </tr>
       </thead>
       <tbody>
@@ -824,12 +824,13 @@
 
         .meta-item{
           display: flex;
-          gap: 10px;
-          align-items: flex-start;
+          flex-direction: column;
+          gap: 4px;
           padding: 12px 12px;
-          background: var(--panel);
+          background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
           border-radius: 12px;
           border: 1.5px solid var(--border);
+          box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset;
         }
 
         .meta-icon{
@@ -849,7 +850,28 @@
         .meta-label{ font-size: 11px; color: var(--muted2); font-weight: 600; margin-bottom: 2px; }
         .meta-value{ font-size: 13px; color: var(--text); font-weight: 600; }
 
-        .card{
+        
+        .meta-footer{
+          margin-top: 10px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          font-size: 12px;
+          color: var(--muted2);
+        }
+        .meta-footer-label{
+          font-weight: 700;
+          color: var(--muted2);
+        }
+        .meta-footer-value{
+          font-weight: 700;
+          color: var(--text);
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(148,163,184,.10);
+          border: 1.5px solid rgba(148,163,184,.22);
+        }
+.card{
           background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
           border-radius: 16px;
           padding: 18px;
@@ -982,6 +1004,7 @@
         @media print{
           body{ padding: 22px; }
           .no-print{ display:none !important; }
+          .meta-grid{ grid-template-columns: repeat(4, 1fr); }
         }
 </style>
 </head>
@@ -996,25 +1019,25 @@
           <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
           <div class="meta-grid">
               <div class="meta-item">
-                  <strong>Seyahat</strong>
-                  ${esc(payload.trip)}
+                  <div class="meta-label">Seyahat</div>
+                  <div class="meta-value">${esc(payload.trip)}</div>
               </div>
               <div class="meta-item">
-                  <strong>Tarih Aralığı</strong>
-                  ${esc(dateRange)}
+                  <div class="meta-label">Tarih Aralığı</div>
+                  <div class="meta-value">${esc(dateRange)}</div>
               </div>
               <div class="meta-item">
-                  <strong>Rapor Para Birimi</strong>
-                  <span class="badge badge-cur">${esc(payload.reportCurrency)}</span>
+                  <div class="meta-label">Rapor Para Birimi</div>
+                  <div class="meta-value"><span class="badge badge-cur">${esc(payload.reportCurrency)}</span></div>
               </div>
               <div class="meta-item">
-                  <strong>Kapsam</strong>
-                  <span class="badge badge-shared" style="background:#f1f5f9;">${esc(scopeLabel)}</span>
+                  <div class="meta-label">Kapsam</div>
+                  <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
               </div>
-              <div class="meta-item">
-                  <strong>Oluşturulma</strong>
-                  ${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}
-              </div>
+          </div>
+          <div class="meta-footer">
+              <span class="meta-footer-label">Oluşturulma</span>
+              <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
           </div>
       </header>
     
@@ -1110,7 +1133,10 @@
       
       <div class="notes-box">
          <div class="notes-title">📌 Rapor Hakkında Bilinmesi Gerekenler</div>
-        
+         
+         <div class="note-text">
+            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(payload.reportCurrency)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
+         </div>
          <div class="note-text">
              <strong>Borç Hesaplama:</strong> Sadece "Ortak" işaretli harcamalar ve rezervasyonlar borç hesaplamasına dahil edilir. Kişi başı düşen pay hesaplanarak mahsuplaşma tablosu oluşturulur.
          </div>
@@ -2847,7 +2873,7 @@
                     </div>
                     <span class="ml-auto font-bold text-white shrink-0 bg-blue-600/30 px-3 py-1.5 rounded-lg text-sm font-mono">${fmtNum(t.amount)} ${debtInfo.currency}</span>
                 </div>
-             `).join('');
+
 
                     // YENİ: Kişi Bazlı Ödeme Özeti
                     const personSummaryRows = debtInfo.persons.map(person => {
@@ -2884,6 +2910,7 @@
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
 
+                        $1
                     </div>
                 </div>
             `;
@@ -3035,7 +3062,11 @@
                      📋 Rapor Hakkında Bilinmesi Gerekenler
                   </h4>
                   <div class="space-y-3 text-xs text-slate-300">
-                                           
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-amber-300 mb-1.5">💱 Para Birimi Dönüşümleri</div>
+                          <p class="leading-relaxed">Tüm harcamalar seçtiğiniz rapor para birimine (${reportCur}) dönüştürülmüştür. Dönüşüm işlemi uygulamada kayıtlı güncel kur bilgilerine göre yapılmaktadır. Orijinal para birimlerindeki tutarlar "Orijinal Para Birimi Bazında Toplam Harcama" bölümünde gösterilmektedir.</p>
+                      </div>
+                      
                       <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
                           <div class="font-semibold text-emerald-300 mb-1.5">👥 Borç Hesaplama Mantığı</div>
                           <p class="leading-relaxed">Borç hesaplaması sadece "Ortak" olarak işaretlenmiş harcamalar ve rezervasyonlar için yapılır. "Ödendi/Settled" işaretli rezervasyonlar toplam maliyete ve kişi başı paya dahil edilir ancak borç hesaplamasına dahil edilmez (çünkü zaten ödenmiş ve mahsuplaşılmıştır). Sistem, her kişinin ödediği toplam tutarı hesaplar ve kişi başına düşen payı belirler. Fazla ödeyenler alacaklı, az ödeyenler borçlu olarak listelenir. Hesaplama algoritması minimum işlem sayısıyla dengeyi sağlamayı hedefler.</p>
@@ -3143,11 +3174,6 @@
                         td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: top; }
                         tr:last-child td { border-bottom: none; }
                         .amt { text-align: right; font-weight: 600; white-space: nowrap; }
-                        /* Kim-kime tablosu: isimler arası boşluğu azalt */
-                        td.pay-cell { white-space: nowrap; }
-                        td.pay-cell .from { font-weight: 700; color: #dc2626; }
-                        td.pay-cell .to { font-weight: 700; color: #059669; }
-                        td.pay-cell .arrow { display: inline-block; margin: 0 10px; color: #94a3b8; }
                         .note { font-size: 10px; color: #94a3b8; display: block; margin-top: 2px; }
                         .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
                         .badge-ind { background: #fff7ed; color: #c2410c; }
