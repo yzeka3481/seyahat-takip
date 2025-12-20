@@ -848,6 +848,20 @@
 
         .meta-label{ font-size: 11px; color: var(--muted2); font-weight: 600; margin-bottom: 2px; }
         .meta-value{ font-size: 13px; color: var(--text); font-weight: 600; }
+.meta-footer{
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+  border-radius: 12px;
+  border: 1.5px dashed var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.meta-footer-label{ color: var(--muted2); font-weight: 800; }
+.meta-footer-value{ color: var(--text); font-weight: 800; letter-spacing: .2px; }
 
         .card{
           background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
@@ -993,30 +1007,48 @@
 
   <div class="container">
       <header>
-          <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
-          <div class="meta-grid">
-              <div class="meta-item">
-                  <strong>Seyahat</strong>
-                  ${esc(payload.trip)}
-              </div>
-              <div class="meta-item">
-                  <strong>Tarih Aralığı</strong>
-                  ${esc(dateRange)}
-              </div>
-              <div class="meta-item">
-                  <strong>Rapor Para Birimi</strong>
-                  <span class="badge badge-cur">${esc(payload.reportCurrency)}</span>
-              </div>
-              <div class="meta-item">
-                  <strong>Kapsam</strong>
-                  <span class="badge badge-shared" style="background:#f1f5f9;">${esc(scopeLabel)}</span>
-              </div>
-              <div class="meta-item">
-                  <strong>Oluşturulma</strong>
-                  ${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}
-              </div>
-          </div>
-      </header>
+  <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <span class="meta-icon">🧳</span>
+      <div>
+        <div class="meta-label">Seyahat</div>
+        <div class="meta-value">${esc(payload.trip)}</div>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-icon">📅</span>
+      <div>
+        <div class="meta-label">Tarih Aralığı</div>
+        <div class="meta-value">${esc(dateRange)}</div>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-icon">💱</span>
+      <div>
+        <div class="meta-label">Rapor Para Birimi</div>
+        <div class="meta-value"><span class="badge badge-cur">${esc(reportCur)}</span></div>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-icon">🧾</span>
+      <div>
+        <div class="meta-label">Kapsam</div>
+        <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta-footer">
+    <span class="meta-footer-label">Oluşturulma:</span>
+    <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
+  </div>
+</header>
+
     
       <!-- 1) Genel Özet -->
       <div class="section-title">
@@ -1027,12 +1059,12 @@
           <div class="stat-box">
               <div class="stat-label">Toplam Harcama</div>
               <div class="stat-value" style="color:#4f46e5;">${fmt(s.totalReport || 0)}</div>
-              <div class="stat-sub">${esc(payload.reportCurrency)}</div>
+              <div class="stat-sub">${esc(reportCur)}</div>
           </div>
           <div class="stat-box">
               <div class="stat-label">Günlük Ortalama</div>
               <div class="stat-value">${fmt(s.dailyAvg || 0)}</div>
-              <div class="stat-sub">${esc(payload.reportCurrency)} / gün</div>
+              <div class="stat-sub">${esc(reportCur)} / gün</div>
           </div>
           <div class="stat-box">
               <div class="stat-label">İşlem Hacmi</div>
@@ -1044,11 +1076,11 @@
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
            <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
                <div class="stat-label">Bireysel Harcamalar</div>
-               <div class="stat-value" style="font-size:15px; color:#0284c7;">${fmt(s.indivTotal || 0)} ${esc(payload.reportCurrency)}</div>
+               <div class="stat-value" style="font-size:15px; color:#0284c7;">${fmt(s.indivTotal || 0)} ${esc(reportCur)}</div>
            </div>
            <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
                <div class="stat-label">Ortak Harcamalar</div>
-               <div class="stat-value" style="font-size:15px; color:#475569;">${fmt(s.sharedTotal || 0)} ${esc(payload.reportCurrency)}</div>
+               <div class="stat-value" style="font-size:15px; color:#475569;">${fmt(s.sharedTotal || 0)} ${esc(reportCur)}</div>
            </div>
       </div>
 
@@ -1112,7 +1144,7 @@
          <div class="notes-title">📌 Rapor Hakkında Bilinmesi Gerekenler</div>
          
          <div class="note-text">
-            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(payload.reportCurrency)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
+            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(reportCur)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
          </div>
          <div class="note-text">
              <strong>Borç Hesaplama:</strong> Sadece "Ortak" işaretli harcamalar ve rezervasyonlar borç hesaplamasına dahil edilir. Kişi başı düşen pay hesaplanarak mahsuplaşma tablosu oluşturulur.
@@ -2876,8 +2908,6 @@
                             <span class="text-slate-500">Transfer Öncesi:</span>
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
-
-                        $1
                     </div>
                 </div>
             `;
@@ -3031,11 +3061,7 @@
                      📋 Rapor Hakkında Bilinmesi Gerekenler
                   </h4>
                   <div class="space-y-3 text-xs text-slate-300">
-                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
-                          <div class="font-semibold text-amber-300 mb-1.5">💱 Para Birimi Dönüşümleri</div>
-                          <p class="leading-relaxed">Tüm harcamalar seçtiğiniz rapor para birimine (${reportCur}) dönüştürülmüştür. Dönüşüm işlemi uygulamada kayıtlı güncel kur bilgilerine göre yapılmaktadır. Orijinal para birimlerindeki tutarlar "Orijinal Para Birimi Bazında Toplam Harcama" bölümünde gösterilmektedir.</p>
-                      </div>
-                      
+                                                                
                       <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
                           <div class="font-semibold text-emerald-300 mb-1.5">👥 Borç Hesaplama Mantığı</div>
                           <p class="leading-relaxed">Borç hesaplaması sadece "Ortak" olarak işaretlenmiş harcamalar ve rezervasyonlar için yapılır. "Ödendi/Settled" işaretli rezervasyonlar toplam maliyete ve kişi başı paya dahil edilir ancak borç hesaplamasına dahil edilmez (çünkü zaten ödenmiş ve mahsuplaşılmıştır). Sistem, her kişinin ödediği toplam tutarı hesaplar ve kişi başına düşen payı belirler. Fazla ödeyenler alacaklı, az ödeyenler borçlu olarak listelenir. Hesaplama algoritması minimum işlem sayısıyla dengeyi sağlamayı hedefler.</p>
@@ -7107,4 +7133,4 @@ if (act === 'export-pdf') {
     </script>
 </body>
 
-</html>
+</html>f
