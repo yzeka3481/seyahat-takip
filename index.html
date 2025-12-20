@@ -815,34 +815,22 @@
           color: var(--text);
         }
 
+        .meta-grid{
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 12px;
+          margin-top: 12px;
+        }
+
         .meta-item{
-  display: flex;
-  flex-direction: column;     /* <-- DEĞİŞTİ (önce row gibiydi) */
-  gap: 4px;
-  padding: 12px 12px;
-  background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%); /* <-- DEĞİŞTİ */
-  border-radius: 12px;
-  border: 1.5px solid var(--border); /* <-- daha belirgin */
-  box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset; /* <-- hafif iç çerçeve */
-}
-
-.meta-footer{                 /* <-- YENİ */
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 12px;
-  color: var(--muted2);
-}
-.meta-footer-value{           /* <-- YENİ */
-  font-weight: 700;
-  color: var(--text);
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.10);
-  border: 1.5px solid rgba(148,163,184,.22);
-}
-
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+          padding: 12px 12px;
+          background: var(--panel);
+          border-radius: 12px;
+          border: 1.5px solid var(--border);
+        }
 
         .meta-icon{
           flex: 0 0 auto;
@@ -861,7 +849,23 @@
         .meta-label{ font-size: 11px; color: var(--muted2); font-weight: 600; margin-bottom: 2px; }
         .meta-value{ font-size: 13px; color: var(--text); font-weight: 600; }
 
-        .card{
+        
+
+        .meta-footer{
+          margin-top: 12px;
+          padding: 10px 12px;
+          background: rgba(255,255,255,.02);
+          border-radius: 12px;
+          border: 1.5px dashed var(--border);
+          color: var(--muted);
+          font-size: 12px;
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+        }
+        .meta-footer-label{ color: var(--muted2); font-weight: 800; }
+        .meta-footer-value{ color: var(--text); font-weight: 800; letter-spacing: .2px; }
+.card{
           background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
           border-radius: 16px;
           padding: 18px;
@@ -992,10 +996,9 @@
 
 
         @media print{
-  body{ padding: 22px; }
-  .no-print{ display:none !important; }
-  .meta-grid{ grid-template-columns: repeat(4, 1fr); } /* <-- EKLENDİ */
-}
+          body{ padding: 22px; }
+          .no-print{ display:none !important; }
+        }
 </style>
 </head>
 <body>
@@ -1006,36 +1009,46 @@
 
   <div class="container">
       <header>
-  <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
+          <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
 
-  <div class="meta-grid">
-    <div class="meta-item">
-      <div class="meta-label">Seyahat</div>
-      <div class="meta-value">${esc(payload.trip)}</div>
-    </div>
+          <div class="meta-grid">
+              <div class="meta-item">
+                  <span class="meta-icon">🧳</span>
+                  <div>
+                      <div class="meta-label">Seyahat</div>
+                      <div class="meta-value">${esc(payload.trip)}</div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <div class="meta-label">Tarih Aralığı</div>
-      <div class="meta-value">${esc(dateRange)}</div>
-    </div>
+              <div class="meta-item">
+                  <span class="meta-icon">📅</span>
+                  <div>
+                      <div class="meta-label">Tarih Aralığı</div>
+                      <div class="meta-value">${esc(dateRange)}</div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <div class="meta-label">Rapor Para Birimi</div>
-      <div class="meta-value"><span class="badge badge-cur">${esc(payload.reportCurrency)}</span></div>
-    </div>
+              <div class="meta-item">
+                  <span class="meta-icon">💱</span>
+                  <div>
+                      <div class="meta-label">Rapor Para Birimi</div>
+                      <div class="meta-value"><span class="badge badge-cur">${esc(reportCur)}</span></div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <div class="meta-label">Kapsam</div>
-      <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
-    </div>
-  </div>
+              <div class="meta-item">
+                  <span class="meta-icon">🧾</span>
+                  <div>
+                      <div class="meta-label">Kapsam</div>
+                      <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
+                  </div>
+              </div>
+          </div>
 
-  <div class="meta-footer">
-    <span class="meta-footer-label">Oluşturulma</span>
-    <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
-  </div>
-</header>
-
+          <div class="meta-footer">
+              <span class="meta-footer-label">Oluşturulma:</span>
+              <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
+          </div>
       </header>
     
       <!-- 1) Genel Özet -->
@@ -1047,12 +1060,12 @@
           <div class="stat-box">
               <div class="stat-label">Toplam Harcama</div>
               <div class="stat-value" style="color:#4f46e5;">${fmt(s.totalReport || 0)}</div>
-              <div class="stat-sub">${esc(payload.reportCurrency)}</div>
+              <div class="stat-sub">${esc(reportCur)}</div>
           </div>
           <div class="stat-box">
               <div class="stat-label">Günlük Ortalama</div>
               <div class="stat-value">${fmt(s.dailyAvg || 0)}</div>
-              <div class="stat-sub">${esc(payload.reportCurrency)} / gün</div>
+              <div class="stat-sub">${esc(reportCur)} / gün</div>
           </div>
           <div class="stat-box">
               <div class="stat-label">İşlem Hacmi</div>
@@ -1064,11 +1077,11 @@
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
            <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
                <div class="stat-label">Bireysel Harcamalar</div>
-               <div class="stat-value" style="font-size:15px; color:#0284c7;">${fmt(s.indivTotal || 0)} ${esc(payload.reportCurrency)}</div>
+               <div class="stat-value" style="font-size:15px; color:#0284c7;">${fmt(s.indivTotal || 0)} ${esc(reportCur)}</div>
            </div>
            <div class="stat-box" style="padding:10px; background:white; border-color:#e2e8f0;">
                <div class="stat-label">Ortak Harcamalar</div>
-               <div class="stat-value" style="font-size:15px; color:#475569;">${fmt(s.sharedTotal || 0)} ${esc(payload.reportCurrency)}</div>
+               <div class="stat-value" style="font-size:15px; color:#475569;">${fmt(s.sharedTotal || 0)} ${esc(reportCur)}</div>
            </div>
       </div>
 
@@ -1132,7 +1145,7 @@
          <div class="notes-title">📌 Rapor Hakkında Bilinmesi Gerekenler</div>
          
          <div class="note-text">
-            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(payload.reportCurrency)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
+            <strong>Para Birimi Dönüşümleri:</strong> Tüm harcamalar seçtiğiniz rapor para birimine (${esc(reportCur)}) dönüştürülmüştür. Dönüşüm, uygulamadaki o anki kur verileri baz alınarak yapılmıştır.
          </div>
          <div class="note-text">
              <strong>Borç Hesaplama:</strong> Sadece "Ortak" işaretli harcamalar ve rezervasyonlar borç hesaplamasına dahil edilir. Kişi başı düşen pay hesaplanarak mahsuplaşma tablosu oluşturulur.
