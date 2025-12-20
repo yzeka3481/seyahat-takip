@@ -815,22 +815,34 @@
           color: var(--text);
         }
 
-        .meta-grid{
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 12px;
-          margin-top: 12px;
-        }
-
         .meta-item{
-          display: flex;
-          gap: 10px;
-          align-items: flex-start;
-          padding: 12px 12px;
-          background: var(--panel);
-          border-radius: 12px;
-          border: 1.5px solid var(--border);
-        }
+  display: flex;
+  flex-direction: column;     /* <-- DEĞİŞTİ (önce row gibiydi) */
+  gap: 4px;
+  padding: 12px 12px;
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%); /* <-- DEĞİŞTİ */
+  border-radius: 12px;
+  border: 1.5px solid var(--border); /* <-- daha belirgin */
+  box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset; /* <-- hafif iç çerçeve */
+}
+
+.meta-footer{                 /* <-- YENİ */
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted2);
+}
+.meta-footer-value{           /* <-- YENİ */
+  font-weight: 700;
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,.10);
+  border: 1.5px solid rgba(148,163,184,.22);
+}
+
 
         .meta-icon{
           flex: 0 0 auto;
@@ -980,9 +992,10 @@
 
 
         @media print{
-          body{ padding: 22px; }
-          .no-print{ display:none !important; }
-        }
+  body{ padding: 22px; }
+  .no-print{ display:none !important; }
+  .meta-grid{ grid-template-columns: repeat(4, 1fr); } /* <-- EKLENDİ */
+}
 </style>
 </head>
 <body>
@@ -993,29 +1006,36 @@
 
   <div class="container">
       <header>
-          <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
-          <div class="meta-grid">
-              <div class="meta-item">
-                  <strong>Seyahat</strong>
-                  ${esc(payload.trip)}
-              </div>
-              <div class="meta-item">
-                  <strong>Tarih Aralığı</strong>
-                  ${esc(dateRange)}
-              </div>
-              <div class="meta-item">
-                  <strong>Rapor Para Birimi</strong>
-                  <span class="badge badge-cur">${esc(payload.reportCurrency)}</span>
-              </div>
-              <div class="meta-item">
-                  <strong>Kapsam</strong>
-                  <span class="badge badge-shared" style="background:#f1f5f9;">${esc(scopeLabel)}</span>
-              </div>
-              <div class="meta-item">
-                  <strong>Oluşturulma</strong>
-                  ${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}
-              </div>
-          </div>
+  <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <div class="meta-label">Seyahat</div>
+      <div class="meta-value">${esc(payload.trip)}</div>
+    </div>
+
+    <div class="meta-item">
+      <div class="meta-label">Tarih Aralığı</div>
+      <div class="meta-value">${esc(dateRange)}</div>
+    </div>
+
+    <div class="meta-item">
+      <div class="meta-label">Rapor Para Birimi</div>
+      <div class="meta-value"><span class="badge badge-cur">${esc(payload.reportCurrency)}</span></div>
+    </div>
+
+    <div class="meta-item">
+      <div class="meta-label">Kapsam</div>
+      <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
+    </div>
+  </div>
+
+  <div class="meta-footer">
+    <span class="meta-footer-label">Oluşturulma</span>
+    <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
+  </div>
+</header>
+
       </header>
     
       <!-- 1) Genel Özet -->
