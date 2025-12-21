@@ -676,11 +676,11 @@
 
     <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:14px;">
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Ortak Harcama</div>
+        <div class="stat-label" style="color:#7c3aed;">Toplam Mahsuplaşılacak Harcama</div>
         <div class="stat-value" style="color:#581c87;">${fmt(totalSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Kişi Payı</div>
+        <div class="stat-label" style="color:#7c3aed;">Kişi Başı Mahsuplaşılacak Harcama</div>
         <div class="stat-value" style="color:#581c87;">${fmt(shareSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
     </div>
@@ -2908,8 +2908,6 @@
                             <span class="text-slate-500">Transfer Öncesi:</span>
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
-
-                        $1
                     </div>
                 </div>
             `;
@@ -2921,7 +2919,6 @@
                 <h4 class="text-base font-bold text-white uppercase flex items-center gap-2">
                    <span class="text-2xl">👥</span> Kişi Bazlı Ödeme Özeti
                 </h4>
-<div class="text-[11px] text-slate-400 mt-1">Bu alan özet ekranda belirlediğiniz para birimine göre düzenlenir.</div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     ${personSummaryRows}
                 </div>
@@ -3062,12 +3059,7 @@
                   <h4 class="text-base font-bold text-amber-200 uppercase flex items-center gap-2">
                      📋 Rapor Hakkında Bilinmesi Gerekenler
                   </h4>
-                  <div class="space-y-3 text-xs text-slate-300">
-                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
-                          <div class="font-semibold text-amber-300 mb-1.5">💱 Para Birimi Dönüşümleri</div>
-                          <p class="leading-relaxed">Tüm harcamalar seçtiğiniz rapor para birimine (${reportCur}) dönüştürülmüştür. Dönüşüm işlemi uygulamada kayıtlı güncel kur bilgilerine göre yapılmaktadır. Orijinal para birimlerindeki tutarlar "Orijinal Para Birimi Bazında Toplam Harcama" bölümünde gösterilmektedir.</p>
-                      </div>
-                      
+                                       
                       <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
                           <div class="font-semibold text-emerald-300 mb-1.5">👥 Borç Hesaplama Mantığı</div>
                           <p class="leading-relaxed">Borç hesaplaması sadece "Ortak" olarak işaretlenmiş harcamalar ve rezervasyonlar için yapılır. "Ödendi/Settled" işaretli rezervasyonlar toplam maliyete ve kişi başı paya dahil edilir ancak borç hesaplamasına dahil edilmez (çünkü zaten ödenmiş ve mahsuplaşılmıştır). Sistem, her kişinin ödediği toplam tutarı hesaplar ve kişi başına düşen payı belirler. Fazla ödeyenler alacaklı, az ödeyenler borçlu olarak listelenir. Hesaplama algoritması minimum işlem sayısıyla dengeyi sağlamayı hedefler.</p>
