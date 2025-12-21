@@ -676,11 +676,11 @@
 
     <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:14px;">
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Ortak Harcama</div>
+        <div class="stat-label" style="color:#7c3aed;">Toplam Mahsuplaşılacak Harcama</div>
         <div class="stat-value" style="color:#581c87;">${fmt(totalSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Kişi Payı</div>
+        <div class="stat-label" style="color:#7c3aed;">Kişi Başı Mahsuplaşılacak Harcama</div>
         <div class="stat-value" style="color:#581c87;">${fmt(shareSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
     </div>
@@ -2910,8 +2910,7 @@
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
 
-                        $1
-                    </div>
+                                    </div>
                 </div>
             `;
                     }).join('');
