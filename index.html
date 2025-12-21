@@ -676,11 +676,11 @@
 
     <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:14px;">
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Toplam Mahsuplaşılacak Harcama</div>
+        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Ortak Harcama</div>
         <div class="stat-value" style="color:#581c87;">${fmt(totalSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
       <div class="stat-box" style="background:white; border-color:#e9d5ff;">
-        <div class="stat-label" style="color:#7c3aed;">Kişi Başı Mahsuplaşılacak Harcama</div>
+        <div class="stat-label" style="color:#7c3aed;">Mahsuplaşmaya Dahil Kişi Payı</div>
         <div class="stat-value" style="color:#581c87;">${fmt(shareSettle)} <span style="font-size:12px; font-weight:normal;">${esc(debtInfo.currency)}</span></div>
       </div>
     </div>
@@ -2910,7 +2910,8 @@
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
 
-                                    </div>
+                        $1
+                    </div>
                 </div>
             `;
                     }).join('');
@@ -5128,19 +5129,24 @@ const helperCard = (href, emoji, label) => {
                     ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
                     : [];
                 const payer = (q.payer && String(q.payer).trim()) || '';
-                const payerOptions = persons.map(p => {
-                    const sel = (p === payer) ? 'selected' : '';
-                    return `<option value="${esc(p)}" ${sel}>${esc(p)}</option>`;
+                const payerButtons = persons.map(p => {
+                    const active = (p === payer);
+                    const baseCls = "px-2.5 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 border backdrop-blur";
+                    const cls = active
+                        ? baseCls + " bg-emerald-500/90 text-white border-emerald-300 shadow"
+                        : baseCls + " bg-slate-900/60 text-slate-200 border-slate-600 hover:bg-slate-800";
+                    return `<button type="button" data-act="quick-set-payer" data-val="${esc(p)}" class="${cls}">${esc(p)}</button>`;
                 }).join('');
+
                 const payerField = persons.length
                     ? `
               <div>
                 <label class="block text-[10px] text-slate-400 mb-1">Ödeyen</label>
-                <select id="q-payer"
-                        class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-400">
-                  <option value="" disabled ${payer ? '' : 'selected'}>Ödeyen kişi seç</option>
-                  ${payerOptions}
-                </select>
+                <input type="hidden" id="q-payer" value="${esc(payer)}">
+                <div class="flex flex-wrap gap-2">
+                  ${payerButtons}
+                </div>
+                ${payer ? '' : '<div class="mt-1 text-[10px] text-slate-500">Bir kişi seçin</div>'}
               </div>
                     `
                     : `
@@ -5152,6 +5158,7 @@ const helperCard = (href, emoji, label) => {
                        value="${esc(payer)}">
               </div>
                     `;
+
                 const currencyOptions = (AVAILABLE_CURRENCIES || [cur]).map(c => {
                     const cc = String(c || '').trim();
                     if (!cc) return '';
@@ -5199,9 +5206,8 @@ const helperCard = (href, emoji, label) => {
               <div class="flex flex-wrap gap-2">
                 ${catButtons}
               </div>
-              <div               ${payerField}
-
-              class="flex items-end gap-3">
+              ${payerField}
+              <div class="flex items-end gap-3">
                 <div class="flex-1">
                   <label class="block text-[10px] text-slate-400 mb-1">Tutar</label>
                   <input id="q-amt" type="number" min="0" step="0.01"
@@ -5672,6 +5678,12 @@ const helperCard = (href, emoji, label) => {
                 if (act === 'quick-set-cat') {
                     state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: state.baseCurrency || BASE_CURRENCY, payer: '' };
                     state.quickExp.cat = val || 'food';
+                    renderApp();
+                    return;
+                }
+                if (act === 'quick-set-payer') {
+                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: state.baseCurrency || BASE_CURRENCY, payer: '' };
+                    state.quickExp.payer = val || '';
                     renderApp();
                     return;
                 }
