@@ -848,22 +848,24 @@
 
         .meta-label{ font-size: 11px; color: var(--muted2); font-weight: 600; margin-bottom: 2px; }
         .meta-value{ font-size: 13px; color: var(--text); font-weight: 600; }
-.meta-footer{
-  margin-top: 12px;
-  padding: 10px 12px;
-  background: rgba(255,255,255,.02);
-  border-radius: 12px;
-  border: 1.5px dashed var(--border);
-  color: var(--muted);
-  font-size: 12px;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.meta-footer-label{ color: var(--muted2); font-weight: 800; }
-.meta-footer-value{ color: var(--text); font-weight: 800; letter-spacing: .2px; }
 
-        .card{
+        
+
+        .meta-footer{
+          margin-top: 12px;
+          padding: 10px 12px;
+          background: rgba(255,255,255,.02);
+          border-radius: 12px;
+          border: 1.5px dashed var(--border);
+          color: var(--muted);
+          font-size: 12px;
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+        }
+        .meta-footer-label{ color: var(--muted2); font-weight: 800; }
+        .meta-footer-value{ color: var(--text); font-weight: 800; letter-spacing: .2px; }
+.card{
           background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
           border-radius: 16px;
           padding: 18px;
@@ -1007,48 +1009,47 @@
 
   <div class="container">
       <header>
-  <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
+          <h1>Seyahat Cüzdanı – Harcama Raporu</h1>
 
-  <div class="meta-grid">
-    <div class="meta-item">
-      <span class="meta-icon">🧳</span>
-      <div>
-        <div class="meta-label">Seyahat</div>
-        <div class="meta-value">${esc(payload.trip)}</div>
-      </div>
-    </div>
+          <div class="meta-grid">
+              <div class="meta-item">
+                  <span class="meta-icon">🧳</span>
+                  <div>
+                      <div class="meta-label">Seyahat</div>
+                      <div class="meta-value">${esc(payload.trip)}</div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <span class="meta-icon">📅</span>
-      <div>
-        <div class="meta-label">Tarih Aralığı</div>
-        <div class="meta-value">${esc(dateRange)}</div>
-      </div>
-    </div>
+              <div class="meta-item">
+                  <span class="meta-icon">📅</span>
+                  <div>
+                      <div class="meta-label">Tarih Aralığı</div>
+                      <div class="meta-value">${esc(dateRange)}</div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <span class="meta-icon">💱</span>
-      <div>
-        <div class="meta-label">Rapor Para Birimi</div>
-        <div class="meta-value"><span class="badge badge-cur">${esc(reportCur)}</span></div>
-      </div>
-    </div>
+              <div class="meta-item">
+                  <span class="meta-icon">💱</span>
+                  <div>
+                      <div class="meta-label">Rapor Para Birimi</div>
+                      <div class="meta-value"><span class="badge badge-cur">${esc(reportCur)}</span></div>
+                  </div>
+              </div>
 
-    <div class="meta-item">
-      <span class="meta-icon">🧾</span>
-      <div>
-        <div class="meta-label">Kapsam</div>
-        <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
-      </div>
-    </div>
-  </div>
+              <div class="meta-item">
+                  <span class="meta-icon">🧾</span>
+                  <div>
+                      <div class="meta-label">Kapsam</div>
+                      <div class="meta-value"><span class="badge badge-shared">${esc(scopeLabel)}</span></div>
+                  </div>
+              </div>
+          </div>
 
-  <div class="meta-footer">
-    <span class="meta-footer-label">Oluşturulma:</span>
-    <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
-  </div>
-</header>
-
+          <div class="meta-footer">
+              <span class="meta-footer-label">Oluşturulma:</span>
+              <span class="meta-footer-value">${esc(new Date(payload.generatedAt).toLocaleDateString('tr-TR'))}</span>
+          </div>
+      </header>
     
       <!-- 1) Genel Özet -->
       <div class="section-title">
@@ -2908,6 +2909,8 @@
                             <span class="text-slate-500">Transfer Öncesi:</span>
                             <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
                         </div>` : ''}
+
+                        $1
                     </div>
                 </div>
             `;
@@ -3061,7 +3064,11 @@
                      📋 Rapor Hakkında Bilinmesi Gerekenler
                   </h4>
                   <div class="space-y-3 text-xs text-slate-300">
-                                                                
+                      <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
+                          <div class="font-semibold text-amber-300 mb-1.5">💱 Para Birimi Dönüşümleri</div>
+                          <p class="leading-relaxed">Tüm harcamalar seçtiğiniz rapor para birimine (${reportCur}) dönüştürülmüştür. Dönüşüm işlemi uygulamada kayıtlı güncel kur bilgilerine göre yapılmaktadır. Orijinal para birimlerindeki tutarlar "Orijinal Para Birimi Bazında Toplam Harcama" bölümünde gösterilmektedir.</p>
+                      </div>
+                      
                       <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700/40">
                           <div class="font-semibold text-emerald-300 mb-1.5">👥 Borç Hesaplama Mantığı</div>
                           <p class="leading-relaxed">Borç hesaplaması sadece "Ortak" olarak işaretlenmiş harcamalar ve rezervasyonlar için yapılır. "Ödendi/Settled" işaretli rezervasyonlar toplam maliyete ve kişi başı paya dahil edilir ancak borç hesaplamasına dahil edilmez (çünkü zaten ödenmiş ve mahsuplaşılmıştır). Sistem, her kişinin ödediği toplam tutarı hesaplar ve kişi başına düşen payı belirler. Fazla ödeyenler alacaklı, az ödeyenler borçlu olarak listelenir. Hesaplama algoritması minimum işlem sayısıyla dengeyi sağlamayı hedefler.</p>
@@ -5116,18 +5123,43 @@ const helperCard = (href, emoji, label) => {
                 const tripOptions = allTrips.map(t => `<option value="${esc(t)}">`).join('');
                 const autoCur = getCurrencyForTrip(q.trip || '');
                 const cur = (q.cur && q.cur.trim()) || autoCur || baseCur;
-const tripObj = (state.trips || []).find(t => t.name === q.trip);
+
+                const tripObj = (state.trips || []).find(t => t.name === q.trip);
                 const persons = (tripObj && tripObj.persons)
                     ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
                     : [];
                 const payer = (q.payer && String(q.payer).trim()) || '';
-                const payerDatalist = persons.map(p => `<option value="${esc(p)}">`).join('');
+                const payerOptions = persons.map(p => {
+                    const sel = (p === payer) ? 'selected' : '';
+                    return `<option value="${esc(p)}" ${sel}>${esc(p)}</option>`;
+                }).join('');
+                const payerField = persons.length
+                    ? `
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Ödeyen</label>
+                <select id="q-payer"
+                        class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-400">
+                  <option value="" disabled ${payer ? '' : 'selected'}>Ödeyen kişi seç</option>
+                  ${payerOptions}
+                </select>
+              </div>
+                    `
+                    : `
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-1">Ödeyen</label>
+                <input id="q-payer"
+                       class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400"
+                       placeholder="Ödeyen kişi"
+                       value="${esc(payer)}">
+              </div>
+                    `;
                 const currencyOptions = (AVAILABLE_CURRENCIES || [cur]).map(c => {
                     const cc = String(c || '').trim();
                     if (!cc) return '';
                     const sel = (cc === cur) ? 'selected' : '';
                     return `<option value="${esc(cc)}" ${sel}>${esc(cc)}</option>`;
                 }).join('');
+
 
                 const catDefs = [
                     { id: 'food', label: 'Cafe', icon: CATS.food.i },
@@ -5168,25 +5200,16 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
               <div class="flex flex-wrap gap-2">
                 ${catButtons}
               </div>
+              <div               ${payerField}
 
-              <div>
-                <label class="block text-[10px] text-slate-400 mb-1">Ödeyen</label>
-                <div class="relative">
-                  <input id="q-payer" list="dl-quick-payers"
-                         class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400"
-                         placeholder="Ödeyen kişi seç / yaz"
-                         value="${esc(payer)}">
-                  <datalist id="dl-quick-payers">${payerDatalist}</datalist>
-                </div>
-              </div>
-              <div class="flex items-end gap-3">
+              class="flex items-end gap-3">
                 <div class="flex-1">
                   <label class="block text-[10px] text-slate-400 mb-1">Tutar</label>
                   <input id="q-amt" type="number" min="0" step="0.01"
                          class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400"
-                         placeholder="0,00" value="${esc(q.amt || '')}">
+                         placeholder="0,00">
                 </div>
-                <div class="w-[92px]">
+                <div class="w-[90px]">
                   <label class="block text-[10px] text-slate-400 mb-1">Para Birimi</label>
                   <select id="q-cur-sel"
                           class="w-full bg-slate-950/60 border border-slate-700 rounded-xl px-2 py-2 text-xs text-slate-100 outline-none focus:border-amber-400">
@@ -5317,49 +5340,6 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
             // YENİ: CHANGE/INPUT EVENT LISTENER (Trip Select Box İçin)
             // 'input' event'i datalist seçimlerinde daha tutarlıdır
             document.addEventListener('input', e => {
-                // Hızlı Harcama: Ödeyen alanı (rerender yapma, imleç bozulmasın)
-                if (e.target.id === 'q-payer') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: (state.baseCurrency || BASE_CURRENCY), payer: '' };
-                    state.quickExp.payer = e.target.value;
-                    return;
-                }
-                // Hızlı Harcama: Tutar alanı (opsiyonel state tut)
-                if (e.target.id === 'q-amt') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: (state.baseCurrency || BASE_CURRENCY), payer: '' };
-                    state.quickExp.amt = e.target.value;
-                    return;
-                }
-                // Hızlı Harcama: Seyahat seçimi (sadece mevcut seyahat seçildiyse rerender)
-                if (e.target.id === 'q-trip') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: (state.baseCurrency || BASE_CURRENCY), payer: '' };
-                    const raw = String(e.target.value || '').trim();
-                    const trip = titleCase(raw);
-                    state.quickExp.trip = trip;
-                    const allTrips = getDistinctTripsAll();
-                    if (allTrips.includes(trip)) {
-                        const baseCur = state.baseCurrency || BASE_CURRENCY;
-                        const tcur = getCurrencyForTrip(trip);
-                        state.quickExp.cur = tcur || baseCur;
-
-                        // Ödeyen defaultu: son ödeyen / ilk kişi
-                        const tripObj = (state.trips || []).find(t => t.name === trip);
-                        const persons = (tripObj && tripObj.persons) ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
-                        if (persons.length) {
-                            const norm = s => String(s || '').toLocaleLowerCase('tr-TR').trim();
-                            const current = String(state.quickExp.payer || '').trim();
-                            const last = (state.exp || []).slice().reverse().find(x => x.trip === trip && x.payer && String(x.payer).trim());
-                            const lastPayer = last ? String(last.payer).trim() : '';
-                            const inList = p => persons.some(pp => norm(pp) === norm(p));
-                            if (!current || !inList(current)) {
-                                if (lastPayer && inList(lastPayer)) state.quickExp.payer = lastPayer;
-                                else state.quickExp.payer = persons[0];
-                            }
-                        }
-                        renderApp();
-                    }
-                    return;
-                }
-
                 // Harcama Formu Trip Seçimi
                 if (e.target.id === 'i-trip') {
                     if (e.target.value === '__new__') {
@@ -5673,34 +5653,18 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
                             state.quickExp.trip = state.tripFilter;
                             const tcur = getCurrencyForTrip(state.tripFilter);
                             state.quickExp.cur = tcur || baseCur;
+
+                            const tripObj = (state.trips || []).find(t => t.name === state.quickExp.trip);
+                            const persons = (tripObj && tripObj.persons) ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
+                            if (!state.quickExp.payer && persons.length) state.quickExp.payer = persons[0];
                         } else {
                             const tcur = getCurrencyForTrip(state.quickExp.trip || '');
                             state.quickExp.cur = tcur || baseCur;
-                        }
-                    // Hızlı harcama: ödeyen kişi defaultu (seyahat kişilerinden)
-                    try {
-                        const qt = titleCase(String(state.quickExp.trip || '').trim());
-                        state.quickExp.trip = qt;
-                        const tripObj = (state.trips || []).find(t => t.name === qt);
-                        const persons = (tripObj && tripObj.persons)
-                            ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
-                            : [];
-                        if (persons.length) {
-                            const current = String(state.quickExp.payer || '').trim();
-                            // son harcamadan ödeyeni yakala
-                            const last = (state.exp || []).slice().reverse().find(x => x.trip === qt && x.payer && String(x.payer).trim());
-                            const lastPayer = last ? String(last.payer).trim() : '';
-                            const norm = s => String(s || '').toLocaleLowerCase('tr-TR').trim();
-                            const inList = p => persons.some(pp => norm(pp) === norm(p));
-                            if (!current || !inList(current)) {
-                                if (lastPayer && inList(lastPayer)) state.quickExp.payer = lastPayer;
-                                else state.quickExp.payer = persons[0];
-                            }
-                        } else {
-                            if (state.quickExp.payer == null) state.quickExp.payer = '';
-                        }
-                    } catch (e) { /* noop */ }
 
+                            const tripObj = (state.trips || []).find(t => t.name === state.quickExp.trip);
+                            const persons = (tripObj && tripObj.persons) ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
+                            if (!state.quickExp.payer && persons.length) state.quickExp.payer = persons[0];
+                        }
                     }
                     state.err = '';
                     renderApp();
@@ -5715,20 +5679,13 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
                 if (act === 'save-quick-exp') {
                     const tripInput = document.getElementById('q-trip');
                     const amtInput = document.getElementById('q-amt');
-
+                    const curSel = document.getElementById('q-cur-sel');
+                    const payerInput = document.getElementById('q-payer');
                     const tripRaw = tripInput ? tripInput.value.trim() : '';
                     const trip = titleCase(tripRaw);
                     const amt = parseFloat(amtInput ? amtInput.value : '');
                     const cat = (state.quickExp && state.quickExp.cat) || 'other';
-
-                    const curSel = document.getElementById('q-cur-sel');
-                    const payerInput = document.getElementById('q-payer');
-                    const baseCur = state.baseCurrency || BASE_CURRENCY;
-
-                    const payerRaw = payerInput ? String(payerInput.value || '').trim() : '';
-                    const payer = titleCase(payerRaw);
-
-                    const cur = (curSel && curSel.value) ? curSel.value : ((state.quickExp && state.quickExp.cur) || getCurrencyForTrip(trip) || baseCur);
+                    const payer = payerInput ? payerInput.value.trim() : '';
 
                     if (!trip || !amt || isNaN(amt) || amt <= 0) {
                         state.err = 'Lütfen seyahat ve tutar bilgilerini girin.';
@@ -5736,24 +5693,28 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
                         return;
                     }
 
-                    // Ortak harcamada: ödeyen kişi zorunlu ve seyahat kişi listesinde olmalı
                     const tripObj = (state.trips || []).find(t => t.name === trip);
-                    if (tripObj && tripObj.persons) {
-                        const persons = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                    const persons = (tripObj && tripObj.persons)
+                        ? tripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
+                        : [];
+                    if (persons.length) {
                         if (!payer) {
-                            state.err = 'Lütfen ödemeyi yapan kişiyi seçin.';
+                            state.err = 'Lütfen ödeyen kişiyi seçin.';
                             renderApp();
                             return;
                         }
-                        const norm = s => String(s || '').toLocaleLowerCase('tr-TR').trim();
-                        const inList = persons.some(pp => norm(pp) === norm(payer));
-                        if (!inList) {
-                            state.err = 'Ödeyen kişi, seyahatin kişi listesinde bulunmuyor. Lütfen kişi listesinden birini seçin.';
+                        if (!persons.includes(payer)) {
+                            state.err = 'Ödeyen kişi seyahatteki kişi listesinden seçilmelidir.';
                             renderApp();
                             return;
                         }
                     }
 
+                    const cur = (curSel && curSel.value && curSel.value.trim())
+                        || (state.quickExp && state.quickExp.cur)
+                        || getCurrencyForTrip(trip)
+                        || state.baseCurrency
+                        || BASE_CURRENCY;
 
                     const now = new Date();
                     const dateStr = now.toISOString().split('T')[0];
@@ -5788,7 +5749,7 @@ const tripObj = (state.trips || []).find(t => t.name === q.trip);
 
                     state.exp.push(newExp);
                     state.quickExpOpen = false;
-                    state.quickExp = { trip: (state.tripFilter || trip), cat, amt: '', cur, payer };
+                    state.quickExp = { trip: '', cat, amt: '', cur, payer };
                     save();
                     renderApp();
                     return;
@@ -6843,13 +6804,6 @@ if (act === 'export-pdf') {
             document.addEventListener('change', e => {
                 const t = e.target;
 
-                // Hızlı Harcama: Para birimi seçimi
-                if (t.id === 'q-cur-sel') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: (state.baseCurrency || BASE_CURRENCY), payer: '' };
-                    state.quickExp.cur = t.value;
-                    return;
-                }
-
 
                 if (t.dataset.act === 'io-file') {
                     try {
@@ -7133,4 +7087,4 @@ if (act === 'export-pdf') {
     </script>
 </body>
 
-</html>f
+</html>
