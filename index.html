@@ -584,7 +584,7 @@
           <td>${esc(e.cat || '')}</td>
           <td><strong>${esc(e.place || '')}</strong></td>
           <td>${esc(e.city || '')}</td>
-          <td class="amt-cell">${fmt(convertToBase(Number(e.amt)||0, e.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+          <td class="amt-cell">${fmt(convertToBase(Number(e.amt) || 0, e.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
           <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span>${(!e.isIndividual && e.isSettled) ? ` <span class="badge badge-settled">Ödendi</span>` : ''}</td>
         </tr>
     `).join('');
@@ -595,7 +595,7 @@
           <td>${esc(r.type || '')}</td>
           <td><strong>${esc(r.name || '')}</strong></td>
           <td>${esc(r.location || '')}</td>
-<td class="amt-cell">${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+<td class="amt-cell">${fmt(convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
           <td><span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span></td>
         </tr>
     `).join('');
@@ -737,7 +737,7 @@
                         const rows = tfs.map(t => `
                             <tr>
 <td><strong>${esc(t.from || '')}</strong> → <strong>${esc(t.to || '')}</strong></td>
-                                <td class="amt-cell">${fmt(convertToBase(Number(t.amt)||0, t.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
+                                <td class="amt-cell">${fmt(convertToBase(Number(t.amt) || 0, t.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
                             </tr>
                         `).join('');
 
@@ -1447,7 +1447,7 @@
                 fuelAmount: '',
                 type: EXPENSE_TYPES[0].id,
                 isIndividual: false,
-                            isSettled: false,
+                isSettled: false,
             });
 
             // YENİ FONKSİYON: Boş Rezervasyon Formu
@@ -1523,8 +1523,6 @@
                 let criticalNotes = [];
                 let selectedNoteTrip = '';
                 let preferredBaseCurrency = 'TRY';
-                let preferredReportPdfCat = '';
-
 
                 try { e = JSON.parse(localStorage.getItem(K.EXP) || '[]'); } catch (err) { }
                 try {
@@ -1546,8 +1544,6 @@
                 try { prefTZ = (localStorage.getItem(K.PREF + '_tz') || initialTZ); } catch (err) { }
                 try { criticalNotes = JSON.parse(localStorage.getItem(K.NOTES) || '[]'); } catch (err) { criticalNotes = []; }
                 try { preferredBaseCurrency = localStorage.getItem(K.PREF + '_base_cur') || 'TRY'; } catch (err) { preferredBaseCurrency = 'TRY'; }
-
-                try { preferredReportPdfCat = localStorage.getItem(K.PREF + '_report_pdf_cat') || ''; } catch (err) { preferredReportPdfCat = ''; }
 
                 let t = [];
                 try { t = JSON.parse(localStorage.getItem(K.TRIPS) || '[]'); } catch (err) { t = []; }
@@ -1643,8 +1639,6 @@
                     chartCurrency: preferredBaseCurrency,
                     baseCurrency: preferredBaseCurrency,
                     reportCurrency: preferredBaseCurrency,
-                    reportPdfCat: preferredReportPdfCat,
-
                     quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
                     quickExpOpen: false,
                     undo: null,
@@ -1663,7 +1657,6 @@
                 localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
                 localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
                 localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
-                localStorage.setItem(K.PREF + '_report_pdf_cat', state.reportPdfCat || '');
                 localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
                 localStorage.setItem(K.TRANS, JSON.stringify(state.transfers || []));
                 if (!isGuest()) {
@@ -2680,22 +2673,6 @@
                     `<option value="${c}" ${c === reportCur ? 'selected' : ''}>${c}</option>`
                 ).join('');
 
-                const pdfCat = (state.reportPdfCat || '').trim();
-                const normCat = (v) => String(v || '').trim();
-                const hasUncat = tripExpenses.some(x => !normCat(x.cat));
-                const allCats = [...new Set(tripExpenses.map(x => normCat(x.cat)).filter(Boolean))]
-                    .sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
-
-                const pdfCatLabel = pdfCat
-                    ? (pdfCat === '__uncat__' ? 'Kategorisiz' : pdfCat)
-                    : 'Tümü';
-
-                const pdfCatOptions = [
-                    `<option value="" ${pdfCat === '' ? 'selected' : ''}>Tümü</option>`,
-                    ...(hasUncat ? [`<option value="__uncat__" ${pdfCat === '__uncat__' ? 'selected' : ''}>Kategorisiz</option>`] : []),
-                    ...allCats.map(c => `<option value="${esc(c)}" ${pdfCat === c ? 'selected' : ''}>${esc(c)}</option>`)
-                ].join('');
-
 
                 if (!tripExpenses.length) {
                     return `
@@ -2825,7 +2802,7 @@
                                         <div class="text-sm text-white font-semibold truncate">
                                             ${esc(tr.from || '')} <span class="text-slate-400 mx-1">→</span> ${esc(tr.to || '')}
                                             <span class="text-slate-400 mx-2">•</span>
-                                            <span class="text-white font-mono text-sm">${fmtNum(convertToBase(Number(tr.amt)||0, tr.cur || reportCur, reportCur))} ${esc(reportCur)}</span>
+                                            <span class="text-white font-mono text-sm">${fmtNum(convertToBase(Number(tr.amt) || 0, tr.cur || reportCur, reportCur))} ${esc(reportCur)}</span>
                                         </div></div>
                                     <button data-act="del-transfer" data-id="${esc(tr.id)}" class="ml-3 shrink-0 px-3 py-2 rounded-lg bg-red-600/30 hover:bg-red-600/50 border border-red-500/30 text-red-100 text-xs font-bold">Sil</button>
                                 </div>
@@ -2975,6 +2952,46 @@
                     // Boş geçelim.
                 }
 
+
+                // Kategori Filtresi UI (PDF)
+                const isCatFilterActive = !!state.reportCatFilter;
+                const filterCount = isCatFilterActive ? state.reportCatFilter.length : Object.keys(CATS).length;
+
+                const catFilterHtml = `
+            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden mb-4">
+               <div class="p-3 bg-slate-800/70 border-b border-slate-700/50 flex justify-between items-center cursor-pointer hover:bg-slate-800 transition" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                   <div class="flex items-center gap-2">
+                       <span class="text-lg">🏷️</span>
+                       <span class="font-bold text-sm text-slate-200">Kategori Filtresi (PDF)</span>
+                       <span class="text-[10px] bg-slate-700 px-2 py-0.5 rounded text-slate-300 border border-slate-600">${isCatFilterActive ? `${filterCount} Seçili` : 'Tümü'}</span>
+                   </div>
+                   <div class="text-slate-500 transform transition">▼</div>
+               </div>
+               <div class="hidden p-3 bg-slate-900/40">
+                   <div class="flex justify-end gap-2 mb-2">
+                       <button data-act="set-rep-cat-all" data-val="1" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold border border-emerald-500/30 px-2 py-1 rounded bg-emerald-500/10 transition">Hepsini Seç</button>
+                       <button data-act="set-rep-cat-all" data-val="0" class="text-[10px] text-red-400 hover:text-red-300 font-bold border border-red-500/30 px-2 py-1 rounded bg-red-500/10 transition">Hiçbirini Seçme</button>
+                   </div>
+                   <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+                       ${Object.values(CATS).map(c => {
+                    const isChecked = !state.reportCatFilter || state.reportCatFilter.includes(c.id);
+                    return `
+                           <button data-act="toggle-rep-cat" data-val="${c.id}" class="flex items-center gap-2 p-2 rounded border transition w-full ${isChecked ? 'bg-slate-700/80 border-emerald-500/50 text-white shadow-sm' : 'bg-slate-900/50 border-slate-700/50 text-slate-500 hover:border-slate-500'}">
+                               <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${isChecked ? 'bg-emerald-600 border-emerald-500' : 'border-slate-600 bg-slate-800'}">
+                                   ${isChecked ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                               </div>
+                               <div class="text-xs text-left truncate flex-1 min-w-0">${c.i} ${esc(c.l)}</div>
+                           </button>
+                           `;
+                }).join('')}
+                   </div>
+                   <div class="text-[10px] text-slate-500 mt-2 italic border-t border-slate-700/30 pt-2">
+                       Bu filtre sadece "PDF İndir" butonuyla oluşturulan raporun içeriğini etkiler; ekrandaki özeti değiştirmez.
+                   </div>
+               </div>
+            </div>
+            `;
+
                 return `
           <div class="space-y-4 pt-3">
               
@@ -2999,18 +3016,6 @@
                        <div class="absolute right-3 top-2.5 text-white pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
                      </div>
                   </div>
-
-                  <!-- YENİ: PDF KATEGORİ FİLTRESİ -->
-                  <div>
-                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">PDF Kategori Filtresi</label>
-                     <div class="relative">
-                       <select data-act="set-report-pdf-cat" class="w-full bg-slate-950/50 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-white appearance-none cursor-pointer backdrop-blur-sm">
-                         ${pdfCatOptions}
-                       </select>
-                       <div class="absolute right-3 top-2.5 text-white pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
-                     </div>
-                     <div class="text-[10px] text-slate-400 mt-1">PDF çıktısında yalnızca seçili kategori yer alır.</div>
-                  </div>
               </div>
 
 
@@ -3019,7 +3024,7 @@
                   <div class="text-[10px] text-slate-400">Toplam Harcama: <span class="font-bold text-white">${fmtNum(totalInReportCur)} ${reportCur}</span>'a dönüştürülmüştür. (${tripExpenses.length} kayıt)</div>
               </div>
               <div class="flex items-center gap-2 text-[11px] text-slate-200">
-                <span>Bu seyahatin detaylı harcama dökümünü (Kategori: <strong>${esc(pdfCatLabel)}</strong>) PDF olarak</span>
+                <span>Bu seyahatin detaylı harcama dökümünü PDF olarak</span>
                 <button
                   type="button"
                   data-act="export-pdf" data-auth="required"
@@ -3034,7 +3039,11 @@
               ${debtHtml}
 
           ${transferSectionHtml}
+
+
+
               <!-- 1. Toplam Harcama (Orijinal Kurlar) -->
+              ${catFilterHtml}
               <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
                   <h4 class="text-sm font-bold text-slate-300 uppercase flex items-center gap-2">
                      ${ICONS.wallet.replace('w-4 h-4', 'w-4 h-4')} Orijinal Para Birimi Bazında Toplam Harcama
@@ -3222,7 +3231,7 @@
                                             ${x.payer ? `<div class="payer-info">Ödeyen: ${escStr(x.payer)}</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(x.amt)||0, x.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(convertToBase(Number(x.amt) || 0, x.cur || reportCurrency, reportCurrency))} ${reportCurrency}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${x.isIndividual ? 'badge-ind' : 'badge-shared'}">${x.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3254,7 +3263,7 @@
                                             ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Ödeme Yapıldı (Ödendi)</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(convertToBase(Number(r.cost) || 0, r.cur || reportCurrency, reportCurrency))} ${reportCurrency}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3548,7 +3557,7 @@
                 const timeInfo = formatTime(state.targetTimezone);
                 const loc = state.location;
                 // lat sayısal mı, ikinci koordinat lng (yoksa lon) sayısal mı?
-		const isReady = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng ?? loc.lon);
+                const isReady = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng ?? loc.lon);
                 const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
                 const locIcon = isReady ? ICONS.location.replace('w-4 h-4', 'w-4 h-4') : ICONS.compass.replace('w-4 h-4', 'w-4 h-4');
 
@@ -3932,7 +3941,7 @@
                    </div>
 
                    <div class="text-right flex-shrink-0 w-16">
-                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt)||0, x.cur || state.baseCurrency, state.baseCurrency))}</div>
+                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt) || 0, x.cur || state.baseCurrency, state.baseCurrency))}</div>
                       <div class="text-[10px] text-slate-600">${state.baseCurrency}</div>
                    </div>
                 </div>`;
@@ -4051,8 +4060,8 @@
             function renderOtherTab() {
                 const loc = state.location || {};
                 // Eski sürümde lon tutulmuş olabilir
-const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
-const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
+                const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+                const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
 
 
                 const googleMapsBase = hasLoc
@@ -4089,7 +4098,7 @@ const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
                     baseCur: state.baseCurrency || BASE_CURRENCY || 'TRY',
                     targetTimezone: state.targetTimezone || ''
                 }, null, 2);
-const helperCard = (href, emoji, label) => {
+                const helperCard = (href, emoji, label) => {
                     return `
     <a
       href="${href}"
@@ -4234,8 +4243,12 @@ const helperCard = (href, emoji, label) => {
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat Seçimi</label>
               <div class="relative">
-                <select data-act="set-note-trip" class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
-${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNotes ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+                <select data-act="set-note-trip"
+                  <select
+  data-act="set-report-trip"
+  class="w-full bg-slate-950/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none focus:border-white cursor-pointer backdrop-blur-sm">
+
+                  ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNotes ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                 </select>
                 </div>
               </div>
@@ -5253,7 +5266,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 `;
             }
 
-function renderApp() {
+            function renderApp() {
                 try {
                     const root = document.getElementById('app-root');
 
@@ -5980,7 +5993,7 @@ function renderApp() {
                             const removedTransfers = (state.transfers || []).filter(t => t.trip === tripName);
                             if (deletedTrip) setUndo({ kind: 'trip', trip: deletedTrip, exp: removedExp, res: removedRes, notes: removedNotes, message: `Seyahat silindi: ${tripName}. (Geri alınabilir)` });
 
-state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
+                            state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                             state.exp = state.exp.filter(x => x.trip !== tripName);
                             state.res = state.res.filter(r => r.trip !== tripName);
                             state.criticalNotes = state.criticalNotes.filter(n => n.trip !== tripName);
@@ -6090,7 +6103,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (noteEl) noteEl.value = '';
                     save();
                     renderApp();
-                return;
+                    return;
                 }
 
                 if (act === 'del-transfer') {
@@ -6101,7 +6114,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     state.transfers = (state.transfers || []).filter(t => String(t.id) !== String(id));
                     save();
                     renderApp();
-                return;
+                    return;
                 }
 
                 if (act === 'clean-all-exp') {
@@ -6673,7 +6686,46 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         renderApp();
                     }
                 }
-if (act === 'export-pdf') {
+                if (act === 'toggle-rep-cat') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const catId = val;
+                    if (!state.reportCatFilter) {
+                        // İlk kez tıklanıyorsa, önce hepsi seçili varsayılır, sonra tıklanan hariç diğerleri kalır mantığı YERİNE
+                        // Kullanıcı "filtrelemek" istiyorsa, muhtemelen *sadece* bunu veya *bunu çıkar* istiyordur.
+                        // Mantık: Default = Hepsi (null).
+                        // Birine tıkladı -> Sadece o mu? Yoksa o hariç mi?
+                        // Genelde: Checkbox mantığı. Hepsi seçili başlar.
+                        const allCats = Object.keys(CATS);
+                        state.reportCatFilter = allCats.filter(c => c !== catId);
+                    } else {
+                        if (state.reportCatFilter.includes(catId)) {
+                            state.reportCatFilter = state.reportCatFilter.filter(c => c !== catId);
+                        } else {
+                            state.reportCatFilter.push(catId);
+                        }
+                    }
+                    // Eğer hepsi seçildiyse null'a geri dön (optimizasyon)
+                    if (state.reportCatFilter && state.reportCatFilter.length === Object.keys(CATS).length) {
+                        state.reportCatFilter = null;
+                    }
+                    renderApp();
+                    return;
+                }
+
+                if (act === 'set-rep-cat-all') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (val === '1') {
+                        state.reportCatFilter = null; // Hepsi
+                    } else {
+                        state.reportCatFilter = []; // Hiçbiri
+                    }
+                    renderApp();
+                    return;
+                }
+
+                if (act === 'export-pdf') {
                     e.preventDefault();
                     e.stopPropagation();
 
@@ -6690,26 +6742,21 @@ if (act === 'export-pdf') {
                     // 2) Bu seyahate ait harcamaları al (mevcut helper)
                     const allExpenses = getTripExpenses(selectedTrip) || [];
 
-                    // Bireysel / Ortak filtresini uygula + (YENİ) PDF kategori filtresi
-                    const pdfCat = (state.reportPdfCat || '').trim();
-                    const normCat = (v) => String(v || '').trim();
-
+                    // Bireysel / Ortak filtresini uygula
                     const filteredExpenses = allExpenses.filter(x => {
                         if (scope === 'individual' && x.isIndividual !== true) return false;
                         if (scope === 'shared' && x.isIndividual !== false) return false;
 
-                        if (pdfCat) {
-                            const c = normCat(x.cat);
-                            if (pdfCat === '__uncat__') {
-                                if (c) return false;
-                            } else {
-                                if (c !== pdfCat) return false;
-                            }
+                        // Kategori Filtresi Uygula
+                        if (state.reportCatFilter && Array.isArray(state.reportCatFilter)) {
+                            if (!state.reportCatFilter.includes(x.cat)) return false;
                         }
+
                         return true;
                     });
 
                     // 3) Bu seyahate ait rezervasyonları al
+                    // NOT: Rezervasyonlar şu an kategori filtresine dahil değil (ayrı tipleri var), sadece scope'a bakıyoruz.
                     const allReservations = (state.res || []).filter(r => {
                         if (!r.trip || r.trip !== selectedTrip) return false;
                         if (isNaN(Number(r.cost)) || Number(r.cost) <= 0) return false;
@@ -6855,7 +6902,7 @@ if (act === 'export-pdf') {
                     // Memory leak önleme: Blob URL'yi bir süre sonra serbest bırak
                     setTimeout(() => URL.revokeObjectURL(url), 60_000);
                     if (!w) alert('Tarayıcı açılır pencereyi engelledi. PDF raporunu açmak için pop-up izni verin.');
-}
+                }
 
                 if (act === 'copy-json') {
                     const textarea = document.getElementById('io-txt');
@@ -6865,7 +6912,7 @@ if (act === 'export-pdf') {
                     textarea.value = "JSON kopyalandı!";
                     setTimeout(() => textarea.value = originalText, 1000);
                 }
-            
+
                 if (act === 'download-json') {
                     e.preventDefault();
                     e.stopPropagation();
@@ -6901,7 +6948,7 @@ if (act === 'export-pdf') {
                     return;
                 }
 
-});
+            });
 
             document.addEventListener('change', e => {
                 const t = e.target;
@@ -6969,23 +7016,13 @@ if (act === 'export-pdf') {
                     state.selectedReportTrip = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
                 }
 
                 if (t.dataset.act === 'set-report-currency') {
                     state.reportCurrency = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
                 }
-
-                if (t.dataset.act === 'set-report-pdf-cat') {
-                    state.reportPdfCat = t.value;
-                    state.helpersAccordion.report = true;
-                    renderApp();
-                    setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
-                }
-
 
 
                 // FOTOĞRAF YÜKLEME İŞLEYİCİSİ
