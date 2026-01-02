@@ -1915,10 +1915,7 @@
                                     'Bilinmeyen Konum';
 
                                 setState({
-                                    location: {
-                                        lat,
-                                        lon
-                                    },
+                                    location: { lat, lng: lon },
                                     locationLoading: false,
                                     locationName: city,
                                     err: ''
@@ -1926,10 +1923,7 @@
                             })
                             .catch(() => {
                                 setState({
-                                    location: {
-                                        lat,
-                                        lon
-                                    },
+                                    location: { lat, lng: lon },
                                     locationLoading: false,
                                     locationName: 'Konum Bulunamadı',
                                     err: ''
@@ -3518,7 +3512,8 @@
             function renderHeader() {
                 const timeInfo = formatTime(state.targetTimezone);
                 const loc = state.location;
-                const isReady = loc && loc.lat && loc.lon;
+                // lat sayısal mı, ikinci koordinat lng (yoksa lon) sayısal mı?
+		const isReady = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng ?? loc.lon);
                 const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
                 const locIcon = isReady ? ICONS.location.replace('w-4 h-4', 'w-4 h-4') : ICONS.compass.replace('w-4 h-4', 'w-4 h-4');
 
@@ -4020,7 +4015,10 @@
 
             function renderOtherTab() {
                 const loc = state.location || {};
-                const hasLoc = !!(loc.lat && loc.lng);
+                // Eski sürümde lon tutulmuş olabilir
+const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
+
 
                 const googleMapsBase = hasLoc
                     ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
@@ -4085,7 +4083,7 @@ const helperCard = (href, emoji, label) => {
   ${helperCard('#helper-route', '🗺️', 'Rota')}
   ${helperCard('#helper-critical', '📝', 'Notlar')}
   ${helperCard('#helper-places', '📍', 'Yakın Yerler')}
-  ${helperCard('#helper-health', '⚕️', 'Sağlık')}
+  ${helperCard('#helper-health', '⚕️', 'Sağlık & Güvenlik')}
   ${helperCard('#helper-transport', '🚌', 'Ulaşım')}
   ${helperCard('#helper-data', '💾', 'Veri / Yedek')}
   ${helperCard('#helper-help', '❓', 'Yardım')}
