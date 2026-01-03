@@ -597,6 +597,7 @@
           <td>${esc(catLabel(e.cat || ''))}</td>
           <td><strong>${esc(e.place || '')}</strong></td>
           <td>${esc(e.city || '')}</td>
+          <td>${esc((e.payer && String(e.payer).trim()) ? e.payer : '—')}</td>
           <td class="amt-cell">${fmt(convertToBase(Number(e.amt)||0, e.cur || reportCur, reportCur))} <span style="font-size:10px; color:#64748b;">${esc(reportCur)}</span></td>
           <td><span class="badge ${e.isIndividual ? 'badge-ind' : 'badge-shared'}">${e.isIndividual ? 'Bireysel' : 'Ortak'}</span>${(!e.isIndividual && e.isSettled) ? ` <span class="badge badge-settled">Ödendi</span>` : ''}</td>
         </tr>
@@ -1138,12 +1139,13 @@
               <th>Kategori</th>
               <th>Yer / Açıklama</th>
               <th>Şehir</th>
+              <th>Harcayan</th>
               <th style="text-align:right;">Tutar (Orijinal)</th>
               <th>Kapsam</th>
             </tr>
           </thead>
           <tbody>
-            ${expRows || '<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Kayıtlı harcama bulunmamaktadır.</td></tr>'}
+            ${expRows || '<tr><td colspan="7" style="text-align:center; padding:20px; color:#94a3b8; font-style:italic;">Kayıtlı harcama bulunmamaktadır.</td></tr>'}
           </tbody>
         </table>
       </div>
