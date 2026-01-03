@@ -1065,7 +1065,7 @@
     
       <!-- 1) Genel Özet -->
       <div class="section-title">
-          <span>📊</span> Genel Özet (Kategori Bazlı)
+          <span>📊</span> Genel Özet
       </div>
       
       <div class="stats-grid">
@@ -6817,7 +6817,24 @@ if (act === 'export-pdf') {
                     // BORÇ HESAPLAMA (YENİ - PDF için)
                     const debtInfo = calculateDebts(selectedTrip);
 
-                    // 6) Payload hazırla
+                                        // YENİ: Harcamaları giriş (ekleme) sırasına göre değil, harcama ekranında belirtilen TARİH alanına göre sırala
+                    const expenseDateMs = (x) => {
+                        const d = (x && x.date ? String(x.date).trim() : '');
+                        if (!d) return Number.POSITIVE_INFINITY;
+                        const ms = Date.parse(d);
+                        return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
+                    };
+                    const sortedExpenses = [...filteredExpenses].sort((a, b) => {
+                        const da = expenseDateMs(a);
+                        const db = expenseDateMs(b);
+                        if (da !== db) return da - db;
+                        // Aynı tarih ise stabil sıralama için id fallback
+                        const ia = (a && a.id != null) ? String(a.id) : '';
+                        const ib = (b && b.id != null) ? String(b.id) : '';
+                        return ia.localeCompare(ib);
+                    });
+
+// 6) Payload hazırla
                     const payload = {
                         trip: selectedTrip,
                         reportCurrency: reportCur,
@@ -6838,7 +6855,7 @@ if (act === 'export-pdf') {
                             expenseCount: filteredExpenses.length,
                             reservationCount: filteredReservations.length
                         },
-                        expenses: filteredExpenses.map(x => ({
+                        expenses: sortedExpenses.map(x => ({
                             id: x.id,
                             date: x.date,
                             time: x.time || '',
@@ -7226,4 +7243,3 @@ if (act === 'export-pdf') {
 </body>
 
 </html>
-
