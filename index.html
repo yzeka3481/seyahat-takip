@@ -5631,29 +5631,18 @@ function renderApp() {
                         // Her girişte hesap seçme ekranını göster
                         provider.setCustomParameters({ prompt: 'select_account' });
 
-                        auth.signInWithPopup(provider)
-                            .then((result) => {
-                                console.log('Google ile giriş başarılı:', result && result.user);
-
-                                if (result && result.user) {
-                                    currentUser = result.user;
-                                } else if (auth.currentUser) {
-                                    currentUser = auth.currentUser;
-                                }
-
-                                updateAuthUi();
-                                if (currentUser) {
-                                    loadUserDataFromCloud();
-                                }
-
-                                // Login modali kapanır, kullanıcı menüsü varsa gizlenir
-                                closeLoginModal();
-                                toggleUserMenu(true);
-                            })
-                            .catch(err => {
-                                console.error('Google ile giriş hatası', err);
-                                alert('Google ile giriş yapılamadı: ' + (err && err.message ? err.message : err));
-                            });
+						auth.signInWithRedirect(provider)
+                            auth.getRedirectResult().then((result) => {
+    if (result && result.user) {
+        currentUser = result.user;
+        updateAuthUi();
+        loadUserDataFromCloud();
+        closeLoginModal();
+    }
+}).catch(err => {
+    console.error('Google ile giriş hatası', err);
+    alert('Google ile giriş yapılamadı: ' + err.message);
+});
                     }
                     return;
                 }
