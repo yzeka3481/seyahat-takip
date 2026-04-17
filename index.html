@@ -5631,7 +5631,7 @@ function renderApp() {
                         // Her girişte hesap seçme ekranını göster
                         provider.setCustomParameters({ prompt: 'select_account' });
 
-						auth.signInWithRedirect(provider)
+						auth.signInWithPopup(provider)
                             auth.getRedirectResult().then((result) => {
     if (result && result.user) {
         currentUser = result.user;
