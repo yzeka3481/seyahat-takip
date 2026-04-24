@@ -3,11 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Seyahat Cüzdanı</title>
+    <title>TripLedger</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./app-icon.png">
     <style>
         /* --- PROFESYONEL VE TEMİZ STİLLER --- */
         body {
@@ -21,7 +24,14 @@
             width: 100%;
             max-width: 100vw;
             height: 100%;
+            overscroll-behavior: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
         }
+        input, textarea, select { user-select: text; -webkit-user-select: text; }
 
         #app-root {
             width: 100%;
@@ -3591,7 +3601,7 @@
            </div>
            <div>
               <h1 class="text-lg font-bold text-white tracking-tight">
-                 Seyahat Cüzdanı
+                 TripLedger
                  <span class="ml-2 text-xs font-semibold text-emerald-300">
                    ${locationName && locationName !== 'Bilinmiyor' ? '· ' + locationName : ''}
                  </span>
@@ -5631,18 +5641,29 @@ function renderApp() {
                         // Her girişte hesap seçme ekranını göster
                         provider.setCustomParameters({ prompt: 'select_account' });
 
-						auth.signInWithPopup(provider)
-                            auth.getRedirectResult().then((result) => {
-    if (result && result.user) {
-        currentUser = result.user;
-        updateAuthUi();
-        loadUserDataFromCloud();
-        closeLoginModal();
-    }
-}).catch(err => {
-    console.error('Google ile giriş hatası', err);
-    alert('Google ile giriş yapılamadı: ' + err.message);
-});
+                        auth.signInWithPopup(provider)
+                            .then((result) => {
+                                console.log('Google ile giriş başarılı:', result && result.user);
+
+                                if (result && result.user) {
+                                    currentUser = result.user;
+                                } else if (auth.currentUser) {
+                                    currentUser = auth.currentUser;
+                                }
+
+                                updateAuthUi();
+                                if (currentUser) {
+                                    loadUserDataFromCloud();
+                                }
+
+                                // Login modali kapanır, kullanıcı menüsü varsa gizlenir
+                                closeLoginModal();
+                                toggleUserMenu(true);
+                            })
+                            .catch(err => {
+                                console.error('Google ile giriş hatası', err);
+                                alert('Google ile giriş yapılamadı: ' + (err && err.message ? err.message : err));
+                            });
                     }
                     return;
                 }
@@ -7215,6 +7236,13 @@ if (act === 'export-pdf') {
                     fetchAndApplyRates().then(() => {
                         startClock();
                     });
+                    
+                    // Service Worker Registration
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('./service-worker.js')
+                            .then(reg => console.log('TripLedger: SW Kaydedildi'))
+                            .catch(err => console.log('TripLedger: SW Hatası', err));
+                    }
                 } catch (e) {
                     console.error(e);
                     const root = document.getElementById('app-root');
