@@ -1953,6 +1953,7 @@
                     criticalNotes: state.criticalNotes || [],
                     transfers: state.transfers || [],
                     targetTimezone: state.targetTimezone || '',
+                    browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                     baseCurrency: state.baseCurrency || 'TRY',
                     trips: state.trips || [],
                     transfers: state.transfers || [],

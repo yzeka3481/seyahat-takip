@@ -1,6 +1,5 @@
 const admin = require('firebase-admin');
 
-// Service Account JSON içeriğini GitHub Secrets üzerinden alacağız
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
@@ -11,12 +10,9 @@ const db = admin.firestore();
 const messaging = admin.messaging();
 
 async function runNotificationCheck() {
-  console.log('--- Rezervasyon Kontrolü Başladı ---');
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  console.log('Bugün:', today);
-
+  console.log('--- Akıllı Rezervasyon Kontrolü Başladı ---');
+  
   try {
-    // 1. Tüm kullanıcıları getir
     const usersSnap = await db.collection('users').get();
     
     for (const userDoc of usersSnap.docs) {
@@ -24,17 +20,31 @@ async function runNotificationCheck() {
       const fcmToken = userData.fcmToken;
       const userId = userDoc.id;
       const reservations = userData.res || [];
+      const userTz = userData.browserTimezone || 'Europe/Istanbul';
 
-      if (!fcmToken) {
-        console.log(`Kullanıcı ${userId} için FCM Token bulunamadı, geçiliyor.`);
+      // Kullanıcının yerel saatini ve tarihini hesapla
+      const userNow = new Date();
+      const userLocalTimeStr = userNow.toLocaleString('en-US', { timeZone: userTz, hour12: false });
+      const userLocalHour = parseInt(userLocalTimeStr.split(', ')[1].split(':')[0]);
+      const userLocalDate = new Date(userLocalTimeStr).toISOString().slice(0, 10);
+
+      console.log(`Kullanıcı: ${userId} | Bölge: ${userTz} | Yerel Saat: ${userLocalHour} | Tarih: ${userLocalDate}`);
+
+      // SADECE sabah saat 09:00 ise (veya o saat dilimine yeni girmişse) bildirim gönder
+      if (userLocalHour !== 9) {
+        console.log(`-> Şu an saat 09:00 değil, geçiliyor.`);
         continue;
       }
 
-      // Kullanıcının rezervasyonlarını kontrol et
-      const todayReservations = reservations.filter(r => r.startDate === today && !r.completed);
+      if (!fcmToken) {
+        console.log(`-> FCM Token bulunamadı.`);
+        continue;
+      }
+
+      const todayReservations = reservations.filter(r => r.startDate === userLocalDate && !r.completed);
 
       if (todayReservations.length > 0) {
-        console.log(`${userId} için ${todayReservations.length} rezervasyon bulundu. Bildirim gönderiliyor...`);
+        console.log(`-> ${todayReservations.length} rezervasyon bulundu! Bildirim gönderiliyor...`);
         
         for (const res of todayReservations) {
           const message = {
@@ -47,9 +57,9 @@ async function runNotificationCheck() {
 
           try {
             const response = await messaging.send(message);
-            console.log('Bildirim gönderildi:', response);
+            console.log('Bildirim başarıyla gönderildi:', response);
           } catch (error) {
-            console.error('Bildirim gönderilirken hata:', error);
+            console.error('Bildirim hatası:', error);
           }
         }
       }
