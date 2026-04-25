@@ -183,39 +183,52 @@
 
     <!-- Login modal -->
     <div id="auth-login-modal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
-        <div class="bg-slate-900 w-full max-w-sm mx-4 rounded-2xl border border-slate-700 shadow-2xl p-4 relative">
-            <button data-act="auth-close" class="absolute top-3 right-3 text-slate-400 hover:text-white">
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-md">
+        <div class="bg-slate-900 w-full max-w-sm mx-4 rounded-3xl border border-slate-700 shadow-2xl p-6 relative overflow-hidden">
+            <!-- Arka Plan Süsü -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-600/10 rounded-full blur-3xl"></div>
+            
+            <button data-act="auth-close" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
                 ✕
             </button>
-            <h2 class="text-sm font-bold text-white mb-1">Giriş yap</h2>
-            <p id="auth-login-message" class="text-[11px] text-slate-400 mb-3">
-                Gelişmiş özellikler ve PDF dökümü için giriş yapmanız gerekir.
+
+            <!-- Sekme Seçimi -->
+            <div class="flex gap-1 p-1 bg-slate-800 rounded-xl mb-6">
+                <button id="tab-login" data-act="auth-tab-login" class="flex-1 py-2 text-xs font-bold rounded-lg transition bg-blue-600 text-white shadow-lg">Giriş Yap</button>
+                <button id="tab-register" data-act="auth-tab-register" class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200">Kayıt Ol</button>
+            </div>
+
+            <h2 id="auth-title" class="text-xl font-bold text-white mb-2 text-center text-blue-400">Tekrar Hoş Geldiniz!</h2>
+            <p id="auth-login-message" class="text-xs text-slate-400 mb-6 text-center">
+                Gelişmiş özellikler ve yedekleme için oturum açın.
             </p>
+
             <button type="button" data-act="auth-google"
-                class="w-full mb-3 inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600">
-                <span>G</span>
-                <span>Google ile giriş yap</span>
+                class="w-full mb-6 inline-flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl bg-white text-slate-900 text-xs font-bold hover:bg-slate-100 transition shadow-lg">
+                <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Google ile Devam Et
             </button>
-            <div class="text-[10px] text-slate-500 mb-2">veya e-posta ile devam edin</div>
-            <input id="auth-email-input" type="email" placeholder="E-posta"
-                class="w-full mb-1.5 px-2.5 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-xs text-slate-200 outline-none focus:border-blue-500" />
-            <input id="auth-password-input" type="password" placeholder="Şifre"
-                class="w-full mb-2.5 px-2.5 py-1.5 border border-slate-700 rounded-lg bg-slate-800 text-xs text-slate-200 outline-none focus:border-blue-500" />
-            <div class="flex gap-2">
-                <button type="button" data-act="auth-email-login"
-                    class="flex-1 px-2.5 py-1.5 text-[11px] rounded-lg bg-slate-100 text-slate-900 font-semibold">
-                    Giriş yap
-                </button>
-                <button type="button" data-act="auth-email-register"
-                    class="flex-1 px-2.5 py-1.5 text-[11px] rounded-lg bg-slate-700 text-slate-100 border border-slate-600">
-                    Kayıt ol
+
+            <div class="relative mb-6">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700/50"></div></div>
+                <div class="relative flex justify-center text-[10px] uppercase"><span class="bg-slate-900 px-3 text-slate-500 font-bold">veya e-posta</span></div>
+            </div>
+
+            <div class="space-y-3">
+                <input id="auth-email-input" type="email" placeholder="E-posta Adresiniz"
+                    class="w-full px-4 py-3 border border-slate-700 rounded-xl bg-slate-950/50 text-sm text-slate-200 outline-none focus:border-blue-500 transition" />
+                <input id="auth-password-input" type="password" placeholder="Şifreniz"
+                    class="w-full px-4 py-3 border border-slate-700 rounded-xl bg-slate-950/50 text-sm text-slate-200 outline-none focus:border-blue-500 transition" />
+                
+                <button id="auth-submit-btn" type="button" data-act="auth-email-login"
+                    class="w-full px-4 py-3 text-sm rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition shadow-xl shadow-blue-900/20">
+                    Oturum Aç
                 </button>
             </div>
 
             <button type="button" id="auth-logout-btn" data-act="auth-logout"
-                class="mt-3 w-full text-[11px] rounded-lg border border-red-500/60 text-red-200 py-1.5 hidden">
-                Çıkış yap
+                class="mt-6 w-full text-xs font-bold rounded-xl border border-rose-500/30 text-rose-400 py-3 hover:bg-rose-500/10 transition hidden">
+                Çıkış Yap
             </button>
         </div>
     </div>
@@ -3492,14 +3505,15 @@
                     allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur);
                 });
 
-                // YAKLAŞAN REZERVASYONLAR
+                // YAKLAŞAN REZERVASYONLAR (Bugünü de kapsayacak şekilde)
                 const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const nextReservation = state.res
-                    .filter(r => !r.completed && new Date(r.startDate) >= now)
+                    .filter(r => new Date(r.startDate) >= startOfToday)
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
-                const nextChecklistItem = state.chk.items
-                    .filter(i => !i.done && i.date && new Date(i.date) >= now)
+                const nextChecklistItem = (state.chk.items || [])
+                    .filter(i => !i.done && i.date && new Date(i.date) >= startOfToday)
                     .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
 
                 let nextPlan = null;
@@ -3532,15 +3546,18 @@
                     const item = nextPlan.item;
                     const isRes = nextPlan.type === 'res';
                     const date = isRes ? item.startDate : item.date;
-                    const diff = new Date(date).getTime() - new Date().getTime();
-                    const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                    const dateObj = new Date(date);
+                    const diffTime = dateObj.getTime() - startOfToday.getTime();
+                    const daysLeft = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    
                     const name = isRes
                         ? `${esc(formatResType(item.type))}: ${esc(item.name)}`
                         : `${esc(item.val)} (${esc(item.cat)})`;
 
-
-                    if (daysLeft < 7) {
-                        resText = `Çok Yakın! ${fmtDate(date)}: ${name}`;
+                    if (daysLeft === 0) {
+                        resText = `Bugün!: ${name}`;
+                    } else if (daysLeft < 7) {
+                        resText = `${daysLeft} Gün Kaldı: ${name}`;
                     } else {
                         resText = `${fmtDate(date)}: ${name}`;
                     }
@@ -3645,10 +3662,10 @@
                     </div>
                     <div>
                         <div class="text-lg font-bold text-white line-clamp-2 leading-tight">
-                            ${resText.split(':').slice(1).join(':').trim() || resText}
+                            ${resText.includes(':') ? resText.split(':').slice(1).join(':').trim() : resText}
                         </div>
-                        <div class="text-xs font-medium ${nextPlan && Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 7 ? 'text-yellow-300' : 'text-white/70'} mt-1">
-                            ${nextPlan ? `${Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} Gün Kaldı` : 'Mevcut Değil'}
+                        <div class="text-xs font-medium text-white/70 mt-1">
+                            ${resText.includes(':') ? resText.split(':')[0].trim() : ''}
                         </div>
                     </div>
                 </div>
@@ -5810,6 +5827,9 @@ function renderApp() {
 
                     actionPromise
                         .then(() => {
+                            if (act === 'auth-email-register') {
+                                alert('Hoş geldiniz! Hesabınız başarıyla oluşturuldu.');
+                            }
                             closeLoginModal();
                         })
                         .catch(err => {
@@ -5819,6 +5839,32 @@ function renderApp() {
                     return;
                 }
 
+
+                if (act === 'auth-tab-login' || act === 'auth-tab-register') {
+                    const isLogin = (act === 'auth-tab-login');
+                    const title = document.getElementById('auth-title');
+                    const msg = document.getElementById('auth-login-message');
+                    const btn = document.getElementById('auth-submit-btn');
+                    const tabLogin = document.getElementById('tab-login');
+                    const tabRegister = document.getElementById('tab-register');
+
+                    if (isLogin) {
+                        title.textContent = 'Tekrar Hoş Geldiniz!';
+                        msg.textContent = 'Gelişmiş özellikler ve yedekleme için oturum açın.';
+                        btn.textContent = 'Oturum Aç';
+                        btn.dataset.act = 'auth-email-login';
+                        tabLogin.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition bg-blue-600 text-white shadow-lg';
+                        tabRegister.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200';
+                    } else {
+                        title.textContent = 'Aramıza Katılın!';
+                        msg.textContent = 'Verilerinizi bulutta saklamak için kayıt olun.';
+                        btn.textContent = 'Hesap Oluştur';
+                        btn.dataset.act = 'auth-email-register';
+                        tabRegister.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition bg-blue-600 text-white shadow-lg';
+                        tabLogin.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-slate-200';
+                    }
+                    return;
+                }
 
                 if (act === 'get-location') {
                     handleGeolocation();
