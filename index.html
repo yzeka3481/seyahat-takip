@@ -6554,29 +6554,23 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     try {
                         const f = state.resForm;
 
-                    // KRİTİK DÜZELTME: Kaydetmeden önce tüm form değerlerini DOM'dan çek.
-                    // Bu, input eventlerinin tetiklenmeme (örn: select) veya gecikme sorunlarını çözer.
-                    // Değerleri doğrudan formdan alıyoruz.
-                    f.name = document.getElementById('i-res-name').value;
-                    f.trip = document.getElementById('i-res-trip').value;
-                    f.location = document.getElementById('i-res-location').value;
-                    f.startDate = document.getElementById('i-res-start-date').value;
-                    f.endDate = document.getElementById('i-res-end-date').value;
-                    if (!f.endDate) { f.endDate = f.startDate; }
-                    f.code = document.getElementById('i-res-code').value;
-                    f.cost = document.getElementById('i-res-cost').value;
-                    f.cur = document.getElementById('i-res-cur').value;
-                    f.notes = document.getElementById('i-res-notes').value;
+                    // Değerleri doğrudan formdan alıyoruz (Varlık kontrolü eklenerek)
+                    const getV = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+                    const getC = (id) => { const el = document.getElementById(id); return el ? el.checked : false; };
 
-                    // Payer ve Settled bilgisini al
-                    const payerInput = document.getElementById('i-res-payer');
-                    f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
-                    const settledInput = document.getElementById('i-res-settled');
-                    f.isSettled = settledInput ? settledInput.checked : false;
+                    f.name = getV('i-res-name');
+                    f.trip = getV('i-res-trip');
+                    f.location = getV('i-res-location');
+                    f.startDate = getV('i-res-start-date');
+                    f.endDate = getV('i-res-end-date') || f.startDate;
+                    f.code = getV('i-res-code');
+                    f.cost = getV('i-res-cost');
+                    f.cur = getV('i-res-cur');
+                    f.notes = getV('i-res-notes');
 
-                    // Takvime ekle seçeneğini al
-                    const calendarInput = document.getElementById('i-res-calendar');
-                    f.addToCalendar = calendarInput ? calendarInput.checked : false;
+                    f.payer = (!f.isIndividual) ? getV('i-res-payer') : '';
+                    f.isSettled = getC('i-res-settled');
+                    f.addToCalendar = getC('i-res-calendar');
 
 
 
@@ -7172,7 +7166,12 @@ if (act === 'export-pdf') {
                     state.reportCurrency = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
+                    // Hash değişimini ve scroll'u biraz daha bekletelim
+                    setTimeout(() => { 
+                        window.location.hash = 'helper-report'; 
+                        const el = document.getElementById('helper-report');
+                        if (el) el.scrollIntoView({ behavior: 'auto', block: 'center' });
+                    }, 100);
                 }
 
                 if (t.dataset.act === 'set-report-pdf-cat') {
