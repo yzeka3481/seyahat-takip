@@ -148,7 +148,7 @@
             z-index: 50;
         }
 
-        .helper-modal:target {
+        .helper-modal:target, .helper-modal.is-active {
             display: flex;
         }
 
@@ -4286,9 +4286,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- REZERVASYONLAR POPUP -->
-      <div id="helper-reservations" class="helper-modal">
+      <div id="helper-reservations" class="helper-modal ${state.helpersAccordion.reservations ? 'is-active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Rezervasyonlar</h3>
@@ -4312,7 +4312,7 @@ const helperCard = (href, emoji, label) => {
       <!-- UÇUŞLAR POPUP -->
       <div id="helper-flights" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Uçuşlar</h3>
@@ -4345,9 +4345,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- RAPOR POPUP -->
-      <div id="helper-report" class="helper-modal">
+      <div id="helper-report" class="helper-modal ${state.helpersAccordion.report ? 'is-active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Özet Raporu</h3>
@@ -4356,9 +4356,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- ROTA POPUP -->
-      <div id="helper-route" class="helper-modal">
+      <div id="helper-route" class="helper-modal ${state.helpersAccordion.route ? 'is-active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yol Güzergahı Haritası</h3>
@@ -4387,7 +4387,7 @@ const helperCard = (href, emoji, label) => {
       <!-- NOTLAR POPUP -->
       <div id="helper-critical" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Kritik Bilgiler (Notlar)</h3>
@@ -4436,7 +4436,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- YAKIN YERLER POPUP -->
       <div id="helper-places" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yakındaki Yerler</h3>
@@ -4463,7 +4463,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- SAĞLIK POPUP -->
       <div id="helper-health" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Sağlık ve Güvenlik</h3>
@@ -4490,7 +4490,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- ULAŞIM POPUP -->
       <div id="helper-transport" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Ulaşım ve Haritalar</h3>
@@ -4517,7 +4517,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- VERİ / YEDEK POPUP -->
       <div id="helper-data" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Veri Yönetimi (Yedekleme / Yükleme)</h3>
@@ -4555,7 +4555,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- SEYAHAT YÖNETİMİ POPUP -->
       <div id="helper-trips" class="helper-modal">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Yönetimi</h3>
@@ -4593,7 +4593,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- YARDIM / KULLANIM KILAVUZU POPUP -->
       <div id="helper-help" class="helper-modal">
         <div class="helper-modal-inner relative" style="max-width: 32rem; max-height: 85vh;">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">
@@ -6006,6 +6006,13 @@ function renderApp() {
                     alert('Harcama başarıyla kaydedildi!');
                     return;
                 }
+                if (act === 'close-helpers') {
+                    state.helpersAccordion = {
+                        critical: false, places: false, health: false, transport: false,
+                        flightCheck: false, route: false, report: false, data: false, reservations: false
+                    };
+                    renderApp();
+                }
                 if (act === 'cancel') {
                     state.view = 'list';
                     state.err = '';
@@ -7159,7 +7166,11 @@ if (act === 'export-pdf') {
                     state.selectedReportTrip = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
+                    setTimeout(() => { 
+                        window.location.hash = 'helper-report'; 
+                        const el = document.getElementById('helper-report');
+                        if (el) el.scrollIntoView({ behavior: 'auto', block: 'center' });
+                    }, 100);
                 }
 
                 if (t.dataset.act === 'set-report-currency') {
