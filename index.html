@@ -1477,7 +1477,7 @@
                 amt: '',
                 cur: BASE_CURRENCY,
                 date: new Date().toISOString().slice(0, 10),
-                cat: '',
+                cat: 'food',
                 desc: '',
                 ppl: '1',
                 imgs: [],
@@ -5925,85 +5925,84 @@ function renderApp() {
                     return;
                 }
                 if (act === 'save-quick-exp') {
-                    const tripInput = document.getElementById('q-trip');
-                    const amtInput = document.getElementById('q-amt');
+                    try {
+                        const tripInput = document.getElementById('q-trip');
+                        const amtInput = document.getElementById('q-amt');
+                        const curEl = document.getElementById('q-cur');
+                        const pfEl = document.getElementById('q-payer-free');
 
-                    const tripRaw = tripInput ? tripInput.value.trim() : '';
-                    const trip = titleCase(tripRaw);
-                    const amt = parseFloat(amtInput ? amtInput.value : '');
-                    const cat = (state.quickExp && state.quickExp.cat) || 'other';
+                        const tripRaw = tripInput ? tripInput.value.trim() : '';
+                        const trip = titleCase(tripRaw);
+                        const amt = parseFloat(amtInput ? amtInput.value : '');
+                        // Arayüzle uyumlu varsayılan kategori: food
+                        const cat = (state.quickExp && state.quickExp.cat) || 'food';
 
-                    if (!trip || !amt || isNaN(amt) || amt <= 0) {
-                        state.err = 'Lütfen seyahat ve tutar bilgilerini girin.';
-                        renderApp();
-                        return;
-                    }
-
-                    const curEl = document.getElementById('q-cur');
-                    const curSel = curEl ? String(curEl.value || '').trim() : '';
-                    const baseCur = state.baseCurrency || BASE_CURRENCY;
-                    const cur = curSel || (state.quickExp && String(state.quickExp.cur || '').trim()) || getCurrencyForTrip(trip) || baseCur;
-
-                    // Ödeyen (varsa seyahatteki kişilerden seçilmiş olmalı)
-                    const tripObj = (state.trips || []).find(t => String(t.name || '').trim().toLowerCase() === trip.toLowerCase());
-                    const persons = (tripObj && tripObj.persons)
-                        ? String(tripObj.persons).split(',').map(p => p.trim()).filter(Boolean)
-                        : [];
-
-                    let payer = (state.quickExp && String(state.quickExp.payer || '').trim()) || '';
-
-                    if (!persons.length) {
-                        const pf = document.getElementById('q-payer-free');
-                        const pr = pf ? String(pf.value || '').trim() : '';
-                        if (pr) payer = titleCase(pr);
-                    } else {
-                        if (!payer) payer = persons[0] || '';
-                        if (payer && !persons.includes(payer)) payer = persons[0] || '';
-                        if (!payer) {
-                            state.err = 'Lütfen ödeyen kişiyi seçin.';
+                        if (!trip || !amt || isNaN(amt) || amt <= 0) {
+                            state.err = 'Lütfen seyahat ve tutar bilgilerini girin.';
                             renderApp();
                             return;
                         }
+
+                        const curSel = curEl ? String(curEl.value || '').trim() : '';
+                        const baseCur = state.baseCurrency || BASE_CURRENCY;
+                        const cur = curSel || (state.quickExp && String(state.quickExp.cur || '').trim()) || getCurrencyForTrip(trip) || baseCur;
+
+                        const tripObj = (state.trips || []).find(t => String(t.name || '').trim().toLowerCase() === trip.toLowerCase());
+                        const persons = (tripObj && tripObj.persons)
+                            ? String(tripObj.persons).split(',').map(p => p.trim()).filter(Boolean)
+                            : [];
+
+                        let payer = (state.quickExp && String(state.quickExp.payer || '').trim()) || '';
+
+                        if (!persons.length) {
+                            const pr = pfEl ? String(pfEl.value || '').trim() : '';
+                            if (pr) payer = titleCase(pr);
+                        } else {
+                            if (!payer) payer = persons[0] || '';
+                            if (payer && !persons.includes(payer)) payer = persons[0] || '';
+                        }
+
+                        const now = new Date();
+                        const dateStr = now.toISOString().split('T')[0];
+                        const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+                        const defaultPlaceMap = {
+                            food: 'Cafe/Restoran',
+                            shopping: 'Market/Alışveriş',
+                            transport: 'Ulaşım',
+                            other: 'Diğer'
+                        };
+
+                        const newExp = {
+                            id: genId(),
+                            trip,
+                            city: 'Genel',
+                            place: defaultPlaceMap[cat] || 'Hızlı Harcama',
+                            cat,
+                            type: EXPENSE_TYPES[0].id,
+                            isIndividual: false,
+                            payer,
+                            amt,
+                            cur,
+                            date: dateStr,
+                            time: timeStr,
+                            imgs: [],
+                            isFuel: false,
+                            startKm: '',
+                            endKm: '',
+                            fuelAmount: ''
+                        };
+
+                        state.exp.push(newExp);
+                        state.quickExpOpen = false;
+                        state.quickExp = { trip: '', cat: 'food', amt: '', cur, payer: '' };
+                        save();
+                        renderApp();
+                        alert('Harcama başarıyla kaydedildi!');
+                    } catch (err) {
+                        console.error('Hızlı harcama kaydetme hatası:', err);
+                        alert('Harcama kaydedilirken bir hata oluştu!');
                     }
-
-
-                    const now = new Date();
-                    const dateStr = now.toISOString().split('T')[0];
-                    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-
-                    const defaultPlaceMap = {
-                        food: 'Cafe',
-                        shopping: 'Market',
-                        transport: 'Ulaşım',
-                        other: 'Diğer'
-                    };
-
-                    const newExp = {
-                        id: genId(),
-                        trip,
-                        city: 'Genel',
-                        place: defaultPlaceMap[cat] || 'Hızlı Harcama',
-                        cat,
-                        type: EXPENSE_TYPES[0].id,
-                        isIndividual: false,
-                        payer,
-                        amt,
-                        cur,
-                        date: dateStr,
-                        time: timeStr,
-                        imgs: [],
-                        isFuel: false,
-                        startKm: '',
-                        endKm: '',
-                        fuelAmount: ''
-                    };
-
-                    state.exp.push(newExp);
-                    state.quickExpOpen = false;
-                    state.quickExp = { trip: '', cat, amt: '', cur, payer: '' };
-                    save();
-                    renderApp();
-                    alert('Harcama başarıyla kaydedildi!');
                     return;
                 }
                 if (act === 'close-helpers') {
@@ -6459,7 +6458,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 }
 
                 if (act === 'save') {
-                    const f = state.form;
+                    try {
+                        const f = state.form;
 
                     const isIndividualInput = document.getElementById('i-isIndividual');
                     f.isIndividual = isIndividualInput ? isIndividualInput.checked : false;
@@ -6546,7 +6546,12 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     state.err = '';
                     state.view = 'list';
                     renderApp();
+                    alert('Harcama başarıyla kaydedildi!');
+                } catch (err) {
+                    console.error('Harcama kaydetme hatası:', err);
+                    alert('Harcama kaydedilirken bir hata oluştu!');
                 }
+            }
 
                 // Rezervasyon Formu İşlemleri
                 if (act === 'set-res-type') {
