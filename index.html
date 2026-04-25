@@ -6003,6 +6003,7 @@ function renderApp() {
                     state.quickExp = { trip: '', cat, amt: '', cur, payer: '' };
                     save();
                     renderApp();
+                    alert('Harcama başarıyla kaydedildi!');
                     return;
                 }
                 if (act === 'cancel') {
@@ -6098,6 +6099,7 @@ function renderApp() {
                     state.modals.tripForm = false;
                     save();
                     renderApp();
+                    alert('Seyahat başarıyla kaydedildi!');
                 }
 
                 if (act === 'del-trip') {
@@ -6549,7 +6551,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     renderApp();
                 }
                 if (act === 'save-res') {
-                    const f = state.resForm;
+                    try {
+                        const f = state.resForm;
 
                     // KRİTİK DÜZELTME: Kaydetmeden önce tüm form değerlerini DOM'dan çek.
                     // Bu, input eventlerinin tetiklenmeme (örn: select) veya gecikme sorunlarını çözer.
@@ -6650,13 +6653,18 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         reservations: true
                     };
                     renderApp();
+                    alert('Rezervasyon başarıyla kaydedildi!');
                     // KRİTİK DÜZELTME: Sayfanın rezervasyonlara dönmesini zorla (Hash güncellemesi)
                     setTimeout(() => {
                         window.location.hash = 'helper-reservations';
                         const el = document.getElementById('helper-reservations');
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 50);
+                } catch (err) {
+                    console.error('Rezervasyon kaydetme hatası:', err);
+                    alert('Rezervasyon kaydedilirken bir hata oluştu!');
                 }
+            }
 
                 // Rezervasyon Listesi İşlemleri
                 if (act === 'res-detail') { state.selRes = id; state.modals.resDetail = true; renderApp(); }
