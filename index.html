@@ -3832,7 +3832,10 @@
 
                 const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
-                const trips = [...new Set(state.exp.map(x => x.trip).filter(t => t))].sort();
+                // KRİTİK: Harcama filtresinde hem normal harcamaları hem de rezervasyonlu seyahatleri göster
+                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t);
+                const tripsFromRes = state.res.filter(r => (parseFloat(r.cost)||0) > 0).map(r => r.trip).filter(t => t);
+                const trips = [...new Set([...tripsFromExp, ...tripsFromRes])].sort();
 
                 return `
       <!-- TOPLAM HARCAMA ALANI -->
@@ -5444,6 +5447,9 @@ function renderApp() {
                 try {
                     const root = document.getElementById('app-root');
 
+                    // Rezervasyon tipi için etiketler
+                    const resTypeLabels = { hotel: 'Konaklama / Otel', flight: 'Uçuş / Uçak', activity: 'Etkinlik / Aktivite', other: 'Diğer Rezervasyon' };
+
                     // Rezervasyonları harcama formatına dönüştür
                     const resAsExp = state.res
                         .filter(r => (parseFloat(r.cost) || 0) > 0)
@@ -5451,12 +5457,14 @@ function renderApp() {
                             ...r,
                             amt: r.cost,
                             cur: r.cur || state.baseCurrency || BASE_CURRENCY,
-                            place: r.location || r.name,
+                            place: resTypeLabels[r.type] || 'Rezervasyon', // Tip bazlı başlık
+                            city: r.location || '',
                             desc: r.notes || '',
                             isReservation: true,
                             cat: r.type === 'flight' ? 'transport' : 'other',
-                            date: r.startDate || '',
-                            isIndividual: r.isIndividual || false
+                            date: r.startDate || r.date || '',
+                            isIndividual: r.isIndividual || false,
+                            trip: r.trip || ''
                         }));
 
                     const combined = state.exp.concat(resAsExp);
