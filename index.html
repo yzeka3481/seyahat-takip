@@ -1682,15 +1682,25 @@
             function setState(p) { state = { ...state, ...p }; renderApp(); }
 
             function save() {
-                localStorage.setItem(K.EXP, JSON.stringify(state.exp));
-                localStorage.setItem(K.LIST, JSON.stringify(state.chk));
-                localStorage.setItem(K.RES, JSON.stringify(state.res)); // Rezervasyonları kaydet
-                localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
-                localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
-                localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
-                localStorage.setItem(K.PREF + '_report_pdf_cat', state.reportPdfCat || '');
-                localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
-                localStorage.setItem(K.TRANS, JSON.stringify(state.transfers || []));
+                try {
+                    localStorage.setItem(K.EXP, JSON.stringify(state.exp));
+                    localStorage.setItem(K.LIST, JSON.stringify(state.chk));
+                    localStorage.setItem(K.RES, JSON.stringify(state.res));
+                    localStorage.setItem(K.PREF + '_tz', state.targetTimezone);
+                    localStorage.setItem(K.NOTES, JSON.stringify(state.criticalNotes));
+                    localStorage.setItem(K.PREF + '_base_cur', state.baseCurrency);
+                    localStorage.setItem(K.PREF + '_report_pdf_cat', state.reportPdfCat || '');
+                    localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
+                    localStorage.setItem(K.TRANS, JSON.stringify(state.transfers || []));
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                        console.error('Yerel depolama alanı doldu! Bazı veriler cihaza kaydedilemedi.', e);
+                        // Yerel hafıza dolsa bile buluta yazmaya devam etmeye çalışalım
+                    } else {
+                        console.error('Kaydetme hatası:', e);
+                    }
+                }
+
                 if (!isGuest()) {
                     saveStateToCloud();
                 }
