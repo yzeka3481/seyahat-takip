@@ -6213,6 +6213,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                                     const data = snap.data() || {};
                                     console.log('Kurtarılacak veri ham hali:', data);
                                     try {
+                                        console.log('Eski yerel hafıza temizleniyor...');
+                                        localStorage.clear(); // Hafızayı boşalt (Kota hatasını önlemek için)
+
                                         // Verileri tek tek kontrol ederek yükle
                                         if (data.exp) state.exp = data.exp;
                                         if (data.res) state.res = data.res;
