@@ -1732,12 +1732,13 @@
                         places: false,
                         health: false,
                         transport: false,
-                        flightCheck: false,
+                        flights: false, // Değişti: flightCheck -> flights
                         route: false,
                         report: false,
                         data: false,
                         reservations: false,
-                        trips: false, // YENİ
+                        trips: false,
+                        help: false,   // Yeni eklendi
                     },
                     criticalNotes: criticalNotes,
                     selectedNoteTrip: selectedNoteTrip,
@@ -4410,7 +4411,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- YAKIN YERLER POPUP -->
-      <div id="helper-places" class="helper-modal">
+      <div id="helper-places" class="helper-modal ${state.helpersAccordion.places ? 'active' : ''}">
         <div class="helper-modal-inner relative">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
@@ -4437,7 +4438,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- SAĞLIK POPUP -->
-      <div id="helper-health" class="helper-modal">
+      <div id="helper-health" class="helper-modal ${state.helpersAccordion.health ? 'active' : ''}">
         <div class="helper-modal-inner relative">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
@@ -4464,7 +4465,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- ULAŞIM POPUP -->
-      <div id="helper-transport" class="helper-modal">
+      <div id="helper-transport" class="helper-modal ${state.helpersAccordion.transport ? 'active' : ''}">
         <div class="helper-modal-inner relative">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
@@ -4491,7 +4492,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- VERİ / YEDEK POPUP -->
-      <div id="helper-data" class="helper-modal">
+      <div id="helper-data" class="helper-modal ${state.helpersAccordion.data ? 'active' : ''}">
         <div class="helper-modal-inner relative">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
@@ -4591,7 +4592,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
 
     </div>
       <!-- YARDIM / KULLANIM KILAVUZU POPUP -->
-      <div id="helper-help" class="helper-modal">
+      <div id="helper-help" class="helper-modal ${state.helpersAccordion.help ? 'active' : ''}">
         <div class="helper-modal-inner relative" style="max-width: 32rem; max-height: 85vh;">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
@@ -4824,6 +4825,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 const isImageLimitReached = imagesCount >= MAX_IMAGES;
 
                 const isFuelActive = f.cat === 'fuel';
+                const isTransportActive = f.cat === 'transport';
 
                 // Yeni: Seyahat bazlı varsayılan para birimi
                 if (!f.id) {
@@ -4922,13 +4924,13 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
 
             <div class="grid grid-cols-2 gap-3">
                <div>
-                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Şehir</label>
-                 <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
+                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">${isTransportActive ? 'Nereden / Şehir' : 'Şehir'}</label>
+                 <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="${isTransportActive ? 'Başlangıç Şehri' : 'Şehir'}" value="${esc(f.city)}">
                  <datalist id="dl-city">${[...new Set(state.exp.map(x => x.city))].sort().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
                </div>
                <div>
-                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Mekan</label>
-                 <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Mekan Adı (Restoran, Müze, İstasyon)" value="${esc(f.place)}">
+                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">${isTransportActive ? 'Nereye / Detay' : 'Mekan'}</label>
+                 <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="${isTransportActive ? 'Nereye? (Tren, Otobüs, Taksi)' : 'Mekan Adı (Restoran, Müze, İstasyon)'}" value="${esc(f.place)}">
                </div>
             </div>
 
@@ -5829,6 +5831,19 @@ function renderApp() {
                     Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
                     renderApp();
                     return;
+                }
+
+                // HELPER MODAL AÇILIŞLARINI YAKALA VE STATE'E İŞLE
+                const href = t.getAttribute('href');
+                if (href && href.startsWith('#helper-')) {
+                    const helperId = href.substring(8); // 'reservations', 'report' vb.
+                    if (state.helpersAccordion[helperId] !== undefined) {
+                        // Diğerlerini kapat, seçileni aç
+                        Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
+                        state.helpersAccordion[helperId] = true;
+                        renderApp();
+                        return;
+                    }
                 }
 
                 if (act === 'tog-accordion') {
