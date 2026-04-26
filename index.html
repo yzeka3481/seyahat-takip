@@ -4234,9 +4234,9 @@ const helperCard = (href, emoji, label) => {
 </div>
 
       <!-- REZERVASYONLAR POPUP -->
-      <div id="helper-reservations" class="helper-modal">
+      <div id="helper-reservations" class="helper-modal ${state.helpersAccordion.reservations ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Rezervasyonlar</h3>
@@ -4258,9 +4258,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- UÇUŞLAR POPUP -->
-      <div id="helper-flights" class="helper-modal">
+      <div id="helper-flights" class="helper-modal ${state.helpersAccordion.flights ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Uçuşlar</h3>
@@ -4304,9 +4304,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- ROTA POPUP -->
-      <div id="helper-route" class="helper-modal">
+      <div id="helper-route" class="helper-modal ${state.helpersAccordion.route ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yol Güzergahı Haritası</h3>
@@ -4333,9 +4333,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- NOTLAR POPUP -->
-      <div id="helper-critical" class="helper-modal">
+      <div id="helper-critical" class="helper-modal ${state.helpersAccordion.critical ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Kritik Bilgiler (Notlar)</h3>
@@ -5779,6 +5779,12 @@ function renderApp() {
 
                 if (act === 'get-location') {
                     handleGeolocation();
+                    return;
+                }
+
+                if (act === 'close-all-helpers') {
+                    Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
+                    renderApp();
                     return;
                 }
 
@@ -7231,10 +7237,6 @@ if (act === 'export-pdf') {
                     renderApp();
                 }
 
-                if (t.dataset.act === 'close-all-helpers') {
-                    Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
-                    renderApp();
-                }
 
 
 
