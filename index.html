@@ -1657,6 +1657,20 @@
                 }));
 
                 const allTrips = [...new Set((e || []).map(x => x.trip).filter(Boolean).concat((r || []).map(x => x.trip).filter(Boolean)))].sort(); // Rezervasyonlardan da seyahat adı al
+                
+                // OTOMATİK GEÇİŞ: Eğer harcaması olan ama trips listesinde olmayan seyahat varsa ekle (Eski verilerin kaybolmaması için)
+                allTrips.forEach(tripName => {
+                    if (!t.some(trip => trip.name === tripName)) {
+                        t.push({
+                            id: genId(),
+                            name: tripName,
+                            startDate: '',
+                            endDate: '',
+                            persons: ''
+                        });
+                    }
+                });
+
                 if (allTrips.length > 0) {
                     selectedNoteTrip = allTrips[0];
                 } else {
