@@ -4041,10 +4041,13 @@
                         return `
                 <div data-act="detail" data-id="${x.id}" class="p-3 pl-6 flex justify-between items-center hover:bg-slate-200 cursor-pointer transition border-l-[3px] border-transparent hover:border-slate-400 ${separatorClass}">
                   
-                   <div class="flex-1 min-w-0 pr-2">
-                       <div class="text-sm font-bold text-slate-900 line-clamp-1">${esc(x.place)}</div>
-                       <div class="text-[10px] text-slate-600 line-clamp-1">${esc(x.trip || 'Genel')} · ${fmtDate(x.date)}</div>
-                   </div>
+                    <div class="flex-1 min-w-0 pr-2">
+                        <div class="flex items-center gap-1.5">
+                            <div class="text-sm font-bold text-slate-900 line-clamp-1">${esc(x.place)}</div>
+                            ${x.isReservation ? `<span class="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded border border-indigo-200 font-bold uppercase tracking-tighter">Rezervasyon</span>` : ''}
+                        </div>
+                        <div class="text-[10px] text-slate-600 line-clamp-1">${esc(x.trip || 'Genel')} · ${fmtDate(x.date)}</div>
+                    </div>
 
                    <div class="flex-shrink-0 w-32 text-[10px] pr-2 text-right">
                        <div class="flex items-center gap-1.5 justify-end">
@@ -5044,7 +5047,28 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 }
 
                 if (type === 'detail') {
-                    const x = state.exp.find(e => e.id === state.selExp); if (!x) return '';
+                    // Harcama veya Rezervasyon bul
+                    let x = state.exp.find(e => e.id === state.selExp);
+                    if (!x) {
+                        const r = state.res.find(e => e.id === state.selExp);
+                        if (r) {
+                            x = {
+                                ...r,
+                                amt: r.cost,
+                                cur: r.cur || state.baseCurrency || BASE_CURRENCY,
+                                place: r.location || r.name,
+                                city: r.city || '',
+                                desc: r.notes || '',
+                                isReservation: true,
+                                cat: r.type === 'flight' ? 'transport' : 'other',
+                                date: r.startDate || r.date || '',
+                                isIndividual: r.isIndividual || false,
+                                ppl: 1, // Rezervasyonlar varsayılan 1 kişi
+                                type: 'cash' // Varsayılan tip
+                            };
+                        }
+                    }
+                    if (!x) return '';
                     const cat = CATS[x.cat] || CATS.other;
                     const typeInfo = EXPENSE_TYPES.find(t => t.id === x.type) || EXPENSE_TYPES[0];
                     const ppl = parseInt(x.ppl) || 1;
@@ -5220,14 +5244,14 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   </div>
                </div>` : ''}
 
-               <div class="flex gap-3 pt-2">
-                 <button data-act="del-exp-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
-                   ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
-                 </button>
-                 <button data-act="edit" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
-                   ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
-                 </button>
-               </div>
+                <div class="flex gap-3 pt-2">
+                  <button data-act="${x.isReservation ? 'del-res' : 'del-exp-detail'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                    ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
+                  </button>
+                  <button data-act="${x.isReservation ? 'edit-res' : 'edit'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
+                    ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
+                  </button>
+                </div>
              </div>
           </div>
         </div>`;
@@ -5420,7 +5444,24 @@ function renderApp() {
                 try {
                     const root = document.getElementById('app-root');
 
-                    const exp = state.exp.filter(x => {
+                    // Rezervasyonları harcama formatına dönüştür
+                    const resAsExp = state.res
+                        .filter(r => (parseFloat(r.cost) || 0) > 0)
+                        .map(r => ({
+                            ...r,
+                            amt: r.cost,
+                            cur: r.cur || state.baseCurrency || BASE_CURRENCY,
+                            place: r.location || r.name,
+                            desc: r.notes || '',
+                            isReservation: true,
+                            cat: r.type === 'flight' ? 'transport' : 'other',
+                            date: r.startDate || '',
+                            isIndividual: r.isIndividual || false
+                        }));
+
+                    const combined = state.exp.concat(resAsExp);
+
+                    const exp = combined.filter(x => {
                         if (state.tab === 'exp') {
                             if (state.tripFilter && x.trip !== state.tripFilter) return false;
                             if (state.catFilter && x.cat !== state.catFilter) return false;
@@ -5428,7 +5469,12 @@ function renderApp() {
                             if (state.indFilter === 'individual' && x.isIndividual !== true) return false;
                             if (state.indFilter === 'shared' && x.isIndividual !== false) return false;
 
-                            if (state.search) { const q = state.search.toLowerCase(); return (x.city || '').toLowerCase().includes(q) || (x.place || '').toLowerCase().includes(q); }
+                            if (state.search) { 
+                                const q = state.search.toLowerCase(); 
+                                return (x.city || '').toLowerCase().includes(q) || 
+                                       (x.place || '').toLowerCase().includes(q) ||
+                                       (x.name || '').toLowerCase().includes(q); 
+                            }
                         }
                         return true;
                     });
@@ -6831,7 +6877,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     return;
                 }
                 if (act === 'edit-res') {
-                    const r = state.res.find(res => res.id === state.selRes);
+                    const resId = id || state.selRes;
+                    const r = state.res.find(res => res.id === resId);
                     if (r) {
                         state.resForm = { ...r };
                         state.modals.resDetail = false;
