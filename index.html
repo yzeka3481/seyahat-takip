@@ -4430,6 +4430,10 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 ☁️ Buluttan Veri Çek (Senkronize Et)
               </button>
               
+              <button data-act="load-from-uid" class="w-full bg-slate-700/40 hover:bg-slate-700/60 border border-slate-600/50 text-slate-300 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition">
+                🔑 Farklı UID'den Veri Getir (Manuel)
+              </button>
+
               <button data-act="scan-trips" class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition">
                 🔄 Seyahatleri Tara ve Kurtar
               </button>
@@ -6185,6 +6189,38 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
                     loadUserDataFromCloud();
                     alert('Bulut senkronizasyonu başlatıldı. Veriler yüklenince ekran güncellenecektir.');
+                    return;
+                }
+
+                if (act === 'load-from-uid') {
+                    const targetUid = prompt('Lütfen verilerinizin olduğu ESKİ UID bilgisini yapıştırın:');
+                    if (targetUid && targetUid.trim()) {
+                        isCloudLoading = true;
+                        db.collection('users').doc(targetUid.trim()).get()
+                            .then(snap => {
+                                if (snap.exists) {
+                                    const data = snap.data() || {};
+                                    try {
+                                        if (Array.isArray(data.exp)) state.exp = data.exp;
+                                        if (Array.isArray(data.res)) state.res = data.res;
+                                        if (data.chk) state.chk = data.chk;
+                                        if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
+                                        if (Array.isArray(data.trips)) state.trips = data.trips;
+                                        if (Array.isArray(data.transfers)) state.transfers = data.transfers;
+                                        if (data.baseCurrency) state.baseCurrency = data.baseCurrency;
+
+                                        save();
+                                        saveStateToCloud(); // Yeni UID'ye yaz
+                                        renderApp();
+                                        alert('Veriler başarıyla kurtarıldı ve yeni hesabınıza aktarıldı!');
+                                    } catch (e) { console.error(e); alert('Veri işlenirken hata oluştu.'); }
+                                } else {
+                                    alert('Bu UID ile eşleşen bir döküman bulunamadı.');
+                                }
+                            })
+                            .catch(err => alert('Hata: ' + err.message))
+                            .finally(() => { isCloudLoading = false; });
+                    }
                     return;
                 }
 
