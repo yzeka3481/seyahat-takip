@@ -147,7 +147,7 @@
             z-index: 50;
         }
 
-        .helper-modal:target {
+        .helper-modal:target, .helper-modal.active {
             display: flex;
         }
 
@@ -4293,9 +4293,9 @@ const helperCard = (href, emoji, label) => {
       </div>
 
       <!-- RAPOR POPUP -->
-      <div id="helper-report" class="helper-modal">
+      <div id="helper-report" class="helper-modal ${state.helpersAccordion.report ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Özet Raporu</h3>
@@ -5870,13 +5870,15 @@ function renderApp() {
                     return;
                 }
                 if (act === 'quick-set-cat') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: state.baseCurrency || BASE_CURRENCY, payer: '' };
+                    const baseCur = state.baseCurrency || BASE_CURRENCY;
+                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: baseCur, payer: '' };
                     state.quickExp.cat = val || 'food';
                     renderApp();
                     return;
                 }
                 if (act === 'quick-set-payer') {
-                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: state.baseCurrency || BASE_CURRENCY, payer: '' };
+                    const baseCur = state.baseCurrency || BASE_CURRENCY;
+                    state.quickExp = state.quickExp || { trip: '', cat: 'food', amt: '', cur: baseCur, payer: '' };
                     state.quickExp.payer = val || '';
                     renderApp();
                     return;
@@ -6472,6 +6474,27 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                 // Harcama Formu İşlemleri
                 if (act === 'set-cat') {
+                    // KRİTİK: Kategori değişmeden önce mevcut input değerlerini state'e aktar
+                    const iTrip = document.getElementById('i-trip');
+                    const iCity = document.getElementById('i-city');
+                    const iPlace = document.getElementById('i-place');
+                    const iAmt = document.getElementById('i-amt');
+                    const iDesc = document.getElementById('i-desc');
+                    const iDate = document.getElementById('i-date');
+                    const iType = document.getElementById('i-type');
+                    const iCur = document.getElementById('i-cur');
+                    const iPpl = document.getElementById('i-ppl');
+
+                    if (iTrip) state.form.trip = iTrip.value;
+                    if (iCity) state.form.city = iCity.value;
+                    if (iPlace) state.form.place = iPlace.value;
+                    if (iAmt) state.form.amt = iAmt.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                    if (iDesc) state.form.desc = iDesc.value;
+                    if (iDate) state.form.date = iDate.value;
+                    if (iType) state.form.type = iType.value;
+                    if (iCur) state.form.cur = iCur.value;
+                    if (iPpl) state.form.ppl = iPpl.value;
+
                     state.form.cat = val;
                     const isFuelSelected = (val === 'fuel');
                     state.form.isFuel = isFuelSelected;
@@ -7194,21 +7217,23 @@ if (act === 'export-pdf') {
                     state.selectedReportTrip = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
                 }
 
                 if (t.dataset.act === 'set-report-currency') {
                     state.reportCurrency = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
                 }
 
                 if (t.dataset.act === 'set-report-pdf-cat') {
                     state.reportPdfCat = t.value;
                     state.helpersAccordion.report = true;
                     renderApp();
-                    setTimeout(() => { window.location.hash = 'helper-report'; }, 10);
+                }
+
+                if (t.dataset.act === 'close-all-helpers') {
+                    Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
+                    renderApp();
                 }
 
 
