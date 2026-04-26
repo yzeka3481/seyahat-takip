@@ -164,6 +164,19 @@
             overflow-y: auto;
         }
 
+        /* Hata Durumları */
+        .is-invalid {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
         .helper-modal-close {
             position: absolute;
             top: 0.75rem;
@@ -1221,9 +1234,10 @@
             // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
             function getChartDataset(expenses = state.exp) {
                 // Önce grafik için temel veri setini belirle
-                const base = (state._visibleExp && state._visibleExp.length && expenses === state.exp)
-                    ? state._visibleExp
-                    : expenses;
+                const validTripNames = (state.trips || []).map(t => t.name);
+                const base = (expenses === state.exp)
+                    ? (state._visibleExp || state.exp.filter(x => validTripNames.includes(x.trip)))
+                    : expenses.filter(x => validTripNames.includes(x.trip));
 
                 const allExp = base.filter(x => !isNaN(Number(x.amt)) && Number(x.amt) > 0);
 
@@ -1355,6 +1369,7 @@
             const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
             const fmtNum = n => Number(n || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+            const hasErr = id => state.errors.includes(id) ? 'is-invalid' : '';
             const fmtDate = d => { if (!d) return '-'; const p = d.split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : d };
             const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -1672,6 +1687,7 @@
                     expandedCities: {},
                     lightbox: null,
                     err: '',
+                    errors: [], // Yeni: Form hatalarını takip etmek için
                     draggedItemId: null,
                     targetTimezone: prefTZ,
                     currentTime: formatTime(prefTZ).time,
@@ -2215,7 +2231,6 @@
                 const resTypes = RESERVATION_TYPES;
 
                 const isFlight = f.type === 'flight';
-                const isMultiDay = f.type === 'hotel' || f.type === 'flight'; // Uçak ve Otel için bitiş tarihi zorunlu
 
                 return `
         <div class="form-modal-overlay">
@@ -2241,7 +2256,7 @@
               <!-- REZERVASYON ADI -->
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Rezervasyon Adı / Başlığı</label>
-                <input id="i-res-name" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="${isFlight ? 'Uçuş Şirketi ve No (THY TK123)' : 'Otel Adı / Etkinlik Adı'}" value="${esc(f.name)}">
+                <input id="i-res-name" class="w-full bg-slate-800 border ${hasErr('i-res-name') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 ${hasErr('i-res-name')}" placeholder="${isFlight ? 'Uçuş Şirketi ve No (THY TK123)' : 'Otel Adı / Etkinlik Adı'}" value="${esc(f.name)}">
               </div>
 
               <!-- SEYAHAT ve LOKASYON -->
@@ -2249,7 +2264,7 @@
                  <div>
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat</label>
                    <div class="relative">
-                      <select id="i-res-trip" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                      <select id="i-res-trip" class="w-full bg-slate-800 border ${hasErr('i-res-trip') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer ${hasErr('i-res-trip')}">
                           <option value="">Seyahat Seç...</option>
                           ${allTrips.map(t => `<option value="${esc(t)}" ${f.trip === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                           <option value="__new__" class="font-bold text-emerald-400">+ Yeni Seyahat Oluştur</option>
@@ -2262,32 +2277,18 @@
                  </div>
                  <div>
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Konum (Şehir/Ülke)</label>
-                   <input id="i-res-location" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Örn: Roma, İtalya" value="${esc(f.location)}">
+                   <input id="i-res-location" class="w-full bg-slate-800 border ${hasErr('i-res-location') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 ${hasErr('i-res-location')}" placeholder="Örn: Roma, İtalya" value="${esc(f.location)}">
                  </div>
               </div>
               
               <!-- TARİH (REZERVASYON) -->
-<div class="mt-3">
-  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">
-    Başlangıç Tarihi
-  </label>
-  <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 py-2">
-    <input
-      id="i-res-start-date"
-      type="date"
-      class="w-full bg-transparent border-none outline-none text-sm text-slate-200"
-      value="${f.startDate}"
-    >
-  </div>
-
-  <!-- JS tarafı bozulmasın diye gizli bitiş tarihi -->
-  <input
-    id="i-res-end-date"
-    type="hidden"
-    value="${f.endDate || f.startDate}"
-  >
-</div>
-
+              <div class="mt-3">
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Başlangıç Tarihi</label>
+                <div class="flex items-center bg-slate-800 border ${hasErr('i-res-start-date') || 'border-slate-700'} rounded-lg px-3 py-2 ${hasErr('i-res-start-date')}">
+                  <input id="i-res-start-date" type="date" class="w-full bg-transparent border-none outline-none text-sm text-slate-200" value="${f.startDate}">
+                </div>
+                <input id="i-res-end-date" type="hidden" value="${f.endDate || f.startDate}">
+              </div>
 
               <!-- KOD ve Tutar -->
               <div class="grid grid-cols-2 gap-3">
@@ -2309,22 +2310,8 @@
                 <div class="flex-1">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bu Rezervasyon</label>
                   <div class="inline-flex gap-2 rounded-lg bg-slate-800/80 p-1 border border-slate-700 w-full">
-                    <button
-                      type="button"
-                      data-act="set-res-ind"
-                      data-val="shared"
-                      class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${!f.isIndividual ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/60' : 'text-slate-300 border border-transparent'
-                    }">
-                      Ortak
-                    </button>
-                    <button
-                      type="button"
-                      data-act="set-res-ind"
-                      data-val="individual"
-                      class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${f.isIndividual ? 'bg-amber-500/25 text-amber-100 border border-amber-400/70' : 'text-slate-300 border border-transparent'
-                    }">
-                      Bireysel
-                    </button>
+                    <button type="button" data-act="set-res-ind" data-val="shared" class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${!f.isIndividual ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/60' : 'text-slate-300 border border-transparent'}">Ortak</button>
+                    <button type="button" data-act="set-res-ind" data-val="individual" class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${f.isIndividual ? 'bg-amber-500/25 text-amber-100 border border-amber-400/70' : 'text-slate-300 border border-transparent'}">Bireysel</button>
                   </div>
                 </div>
                 
@@ -2350,7 +2337,7 @@
                           <div class="mt-3">
                              <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Ödemeyi Yapan</label>
                              <div class="relative">
-                                <select id="i-res-payer" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                                <select id="i-res-payer" class="w-full bg-slate-800 border ${hasErr('i-res-payer') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer ${hasErr('i-res-payer')}">
                                    <option value="">-- Seçiniz --</option>
                                    ${payerOptions}
                                 </select>
@@ -2365,8 +2352,6 @@
 
               <!-- NOTLAR -->
               <textarea id="i-res-notes" rows="3" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Ekstra Notlar (Check-in saati, koltuk no, vb.)">${esc(f.notes)}</textarea>
-
-
 
               <!-- GOOGLE TAKVİM SEÇENEĞİ -->
               <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mb-3">
@@ -3135,6 +3120,26 @@
 
                 return `
           <div class="space-y-4 pt-3">
+             <!-- GRAFİKLER BÖLÜMÜ (YENİ) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-4 shadow-lg">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
+                        📊 Kategori Dağılımı
+                    </h4>
+                    <div class="aspect-square relative flex items-center justify-center">
+                        <canvas id="chart-categories"></canvas>
+                    </div>
+                </div>
+                <div class="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-4 shadow-lg">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
+                        📈 En Çok Harcanan Yerler
+                    </h4>
+                    <div class="aspect-square relative flex items-center justify-center">
+                        <canvas id="chart-locations"></canvas>
+                    </div>
+                </div>
+            </div>
+
               
               <!-- SEYAHAT SEÇİMİ VE RAPOR PARA BİRİMİ (YANYANA) -->
               <div class="grid grid-cols-2 gap-3">
@@ -3272,6 +3277,93 @@
               </div>
           </div>
       `;
+            }
+
+            // YENİ: RAPOR GRAFİKLERİNİ BAŞLATAN FONKSİYON
+            function initReportCharts() {
+                const canvasCat = document.getElementById('chart-categories');
+                const canvasLoc = document.getElementById('chart-locations');
+                if (!canvasCat || !canvasLoc) return;
+
+                // Mevcut grafik varsa temizle (renderApp her çağrıldığında çakışmasın)
+                if (window.myChartCat) window.myChartCat.destroy();
+                if (window.myChartLoc) window.myChartLoc.destroy();
+
+                const selectedTrip = state.selectedReportTrip;
+                const tripExpenses = getTripExpenses(selectedTrip);
+                const reportCur = state.reportCurrency || BASE_CURRENCY;
+
+                // 1. KATEGORİ VERİLERİ
+                const catData = {};
+                tripExpenses.forEach(x => {
+                    const catId = x.cat || 'other';
+                    const amt = convertToBase(x.amt, x.cur, reportCur);
+                    catData[catId] = (catData[catId] || 0) + amt;
+                });
+
+                const catLabels = Object.keys(catData).map(id => (CATS[id] ? CATS[id].l : id));
+                const catValues = Object.values(catData);
+                const catColors = Object.keys(catData).map((id, i) => {
+                    const palette = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#f43f5e'];
+                    return palette[i % palette.length];
+                });
+
+                window.myChartCat = new Chart(canvasCat, {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catValues,
+                            backgroundColor: catColors,
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, usePointStyle: true } }
+                        }
+                    }
+                });
+
+                // 2. MEKAN VERİLERİ (EN ÇOK HARCANAN 5 YER)
+                const locData = {};
+                tripExpenses.forEach(x => {
+                    const loc = x.place || 'Bilinmiyor';
+                    const amt = convertToBase(x.amt, x.cur, reportCur);
+                    locData[loc] = (locData[loc] || 0) + amt;
+                });
+
+                const sortedLocs = Object.entries(locData).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const locLabels = sortedLocs.map(x => x[0]);
+                const locValues = sortedLocs.map(x => x[1]);
+
+                window.myChartLoc = new Chart(canvasLoc, {
+                    type: 'bar',
+                    data: {
+                        labels: locLabels,
+                        datasets: [{
+                            label: 'Tutar',
+                            data: locValues,
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { grid: { display: false }, ticks: { color: '#f1f5f9', font: { size: 10 } } }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
             }
 
             // YENİ FONKSİYON: Rota Planlayıcı İçeriğini Oluştur (MEKAN BAZLI)
@@ -3480,8 +3572,13 @@
                 let allTimeTotal = 0;
                 const indFilter = state.indFilter || '';
 
+                // Sadece mevcut seyahatlere ait kayıtları filtrele
+                const validTripNames = (state.trips || []).map(t => t.name);
+                const activeExp = state.exp.filter(x => validTripNames.includes(x.trip));
+                const activeRes = state.res.filter(r => validTripNames.includes(r.trip));
+
                 // Harcama kayıtları (bireysel/ortak filtresine göre)
-                const filteredExpForSum = state.exp.filter(x => {
+                const filteredExpForSum = activeExp.filter(x => {
                     if (indFilter === 'individual' && x.isIndividual !== true) return false;
                     if (indFilter === 'shared' && x.isIndividual !== false) return false;
                     return true;
@@ -3498,7 +3595,7 @@
                 });
 
                 // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak filtresine göre)
-                state.res.forEach(r => {
+                activeRes.forEach(r => {
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
@@ -3508,7 +3605,7 @@
                 // YAKLAŞAN REZERVASYONLAR (Bugünü de kapsayacak şekilde)
                 const now = new Date();
                 const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const nextReservation = state.res
+                const nextReservation = activeRes
                     .filter(r => new Date(r.startDate) >= startOfToday)
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
@@ -3564,7 +3661,7 @@
                 }
 
                 // Son 3 Harcama
-                const latestExpenses = [...state.exp]
+                const latestExpenses = [...activeExp]
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
                     .slice(0, 3);
 
@@ -3836,7 +3933,9 @@
                 });
 
                 // Seçili seyahat ve bireysel/ortak filtresine göre rezervasyon maliyetlerini ekle
+                const validTripNames = (state.trips || []).map(t => t.name);
                 const resForHeader = state.res.filter(r => {
+                    if (!validTripNames.includes(r.trip)) return false;
                     if (isFiltered && (r.trip || '') !== state.tripFilter) return false;
                     if (!r.cost) return false;
                     if (indFilter === 'individual' && r.isIndividual !== true) return false;
@@ -4828,33 +4927,23 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
   `;
             }
 
-
             function renderForm() {
                 const f = state.form;
                 const trips = getDistinctTripsAll().sort();
-
-                // Kayıtlı seyahatler (state.trips) üzerinden kişi listesini alabilmek kurgusu
                 const currentTripObj = (state.trips || []).find(t => t.name === f.trip);
                 const tripPersons = currentTripObj ? currentTripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
-
                 const imagesCount = f.imgs ? f.imgs.length : 0;
                 const isImageLimitReached = imagesCount >= MAX_IMAGES;
 
-                const isFuelActive = f.cat === 'fuel';
-
-                // Yeni: Seyahat bazlı varsayılan para birimi
                 if (!f.id) {
                     const tripName = (f.trip || state.tripFilter || '').trim();
                     if (tripName) {
                         const tripExps = state.exp.filter(x => (x.trip || '') === tripName && x.cur);
                         const tripCurrencies = [...new Set(tripExps.map(x => x.cur || BASE_CURRENCY))];
-                        if (tripCurrencies.length === 1) {
-                            f.cur = tripCurrencies[0];
-                        }
+                        if (tripCurrencies.length === 1) f.cur = tripCurrencies[0];
                     }
                 }
 
-                // Dinamik Payer (Harcayan) Listesi HTML
                 let payerHtml = '';
                 if (!f.isIndividual && tripPersons.length > 0) {
                     const payerOptions = tripPersons.map(p => `<option value="${esc(p)}" ${f.payer === p ? 'selected' : ''}>${esc(p)}</option>`).join('');
@@ -4862,14 +4951,13 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                  <div class="animate-[fadeIn_0.3s]">
                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Harcamayı Yapan</label>
                     <div class="relative">
-                       <select id="i-payer" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer">
+                       <select id="i-payer" class="w-full bg-slate-800 border ${hasErr('i-payer') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 appearance-none cursor-pointer ${hasErr('i-payer')}">
                           <option value="">-- Seçiniz --</option>
                           ${payerOptions}
                        </select>
                        <div class="absolute right-3 top-3.5 text-slate-400 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
                     </div>
-                 </div>
-                 `;
+                 </div>`;
                 }
 
                 return `
@@ -4881,47 +4969,34 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
           </div>
           
           <div class="space-y-3">
-            
-            <!-- SEYAHAT SEÇİMİ (YENİ) -->
             <div>
                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat</label>
                  <div class="flex gap-2">
                      <div class="relative flex-1">
-                       <input id="i-trip" list="dl-trip" 
-                              class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" 
-                              placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}" autocomplete="off">
+                       <input id="i-trip" list="dl-trip" class="w-full bg-slate-800 border ${hasErr('i-trip') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition ${hasErr('i-trip')}" placeholder="Seyahat Seç veya Yaz" value="${esc(f.trip)}" autocomplete="off">
                        <datalist id="dl-trip">${trips.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
                        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 text-xs">▼</span>
                      </div>
-                     <button type="button" data-act="new-trip" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 hover:text-emerald-300 rounded-lg px-3 flex items-center justify-center transition" title="Yeni Seyahat Oluştur">
-                        ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
-                     </button>
+                     <button type="button" data-act="new-trip" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 hover:text-emerald-300 rounded-lg px-3 flex items-center justify-center transition">${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}</button>
                  </div>
             </div>
 
-            <!-- BİREYSEL / ORTAK HARCAMA SEÇİMİ -->
             <div class="flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg">
                 <div class="flex flex-col">
-                    <label for="i-isIndividual" class="text-sm font-bold text-slate-200 cursor-pointer">
-                        Bireysel Harcama
-                    </label>
+                    <label for="i-isIndividual" class="text-sm font-bold text-slate-200 cursor-pointer">Bireysel Harcama</label>
                     <span class="text-[10px] text-slate-500">İşaretliyse ortak hesaba dahil edilmez</span>
                 </div>
                 <input type="checkbox" id="i-isIndividual" ${f.isIndividual ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 focus:ring-blue-500" onchange="document.getElementById('payer-wrapper').style.display = this.checked ? 'none' : 'block'; const sw=document.getElementById('settled-wrapper'); if(sw) sw.style.display = this.checked ? 'none' : 'flex'">
             </div>
 
-            
             <div id="settled-wrapper" class="${f.isIndividual ? 'hidden' : ''} flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg mb-3">
                 <div class="flex flex-col">
-                    <label for="i-isSettled" class="text-sm font-bold text-slate-200 cursor-pointer">
-                        Ödendi (Mahsuplaşılmış)
-                    </label>
-                    <span class="text-[10px] text-slate-500">Kim-kime hesabına dahil edilmez; kişi başı harcamaya dahil edilir</span>
+                    <label for="i-isSettled" class="text-sm font-bold text-slate-200 cursor-pointer">Ödendi (Mahsuplaşılmış)</label>
+                    <span class="text-[10px] text-slate-500">Kişi başı harcamaya dahil edilir, borç hesabına edilmez</span>
                 </div>
                 <input type="checkbox" id="i-isSettled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border border-slate-600 bg-slate-900/40">
             </div>
 
-            <!-- KATEGORİ SEÇİMİ (YUKARI TAŞINDI) -->
             <div class="mb-3">
                <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Kategori</label>
                <div class="flex gap-2 overflow-x-auto pb-2 scrl">
@@ -4932,85 +5007,57 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                </div>
             </div>
 
-            <!-- HARCAMAYI YAPAN (PAYER) - DİNAMİK -->
-            <div id="payer-wrapper" style="display: ${f.isIndividual ? 'none' : 'block'}">
-                ${payerHtml}
-            </div>
+            <div id="payer-wrapper" style="display: ${f.isIndividual ? 'none' : 'block'}">${payerHtml}</div>
 
             <div class="grid grid-cols-2 gap-3">
                <div>
                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Şehir</label>
-                 <input id="i-city" list="dl-city" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Şehir" value="${esc(f.city)}">
+                 <input id="i-city" list="dl-city" class="w-full bg-slate-800 border ${hasErr('i-city') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 ${hasErr('i-city')}" placeholder="Şehir" value="${esc(f.city)}">
                  <datalist id="dl-city">${[...new Set(state.exp.map(x => x.city))].sort().map(c => `<option value="${esc(c)}">`).join('')}</datalist>
                </div>
                <div>
                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Mekan</label>
-                 <input id="i-place" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500" placeholder="Mekan Adı (Restoran, Müze, İstasyon)" value="${esc(f.place)}">
+                 <input id="i-place" class="w-full bg-slate-800 border ${hasErr('i-place') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 ${hasErr('i-place')}" placeholder="Mekan" value="${esc(f.place)}">
                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                <div class="col-span-1 relative">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Toplam Tutar</label>
-                  <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
-                  <select id="i-cur" class="absolute right-1 top-[28px] bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
+                  <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border ${hasErr('i-amt') || 'border-slate-700'} rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono ${hasErr('i-amt')}" placeholder="0.00" value="${esc(f.amt)}">
+                  <select id="i-cur" class="absolute right-1 top-[28px] bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600">
                      ${AVAILABLE_CURRENCIES.map(c => `<option value="${c}" ${f.cur === c ? 'selected' : ''}>${c}</option>`).join('')}
                   </select>
                </div>
                <div class="col-span-1 flex flex-col">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Kişi Sayısı</label>
                   <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 flex-1">
-                      <span class="text-slate-500 text-xs mr-2">Kişi:</span>
                       <input id="i-ppl" type="number" inputmode="numeric" min="1" class="w-full bg-transparent text-sm text-slate-200 outline-none text-center" value="${f.ppl}">
                   </div>
                </div>
             </div>
             
-           <!-- TARİH VE ÖDEME TİPİ ALANLARI -->
-<div class="grid grid-cols-2 gap-3 items-start">
-  <!-- TARİH -->
-  <div class="flex flex-col">
-    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">
-      Tarih
-    </label>
-    <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 h-10">
-      <input
-        id="i-date"
-        type="date"
-        class="w-full bg-transparent border-none outline-none text-sm text-slate-200"
-      >
-    </div>
-  </div>
-
-  <!-- ÖDEME TİPİ -->
-  <div class="flex flex-col">
-    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">
-      Ödeme Tipi
-    </label>
-    <div class="relative">
-      <select
-        id="i-type"
-        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 pr-8 h-10 text-sm text-slate-200 outline-none appearance-none cursor-pointer"
-      >
-        ${EXPENSE_TYPES.map(t => `<option value="${t.id}" ${f.type === t.id ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}
-      </select>
-      <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
-        ${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Tarih</label>
+                <div class="flex items-center bg-slate-800 border ${hasErr('i-date') || 'border-slate-700'} rounded-lg px-3 h-10 ${hasErr('i-date')}">
+                  <input id="i-date" type="date" class="w-full bg-transparent border-none outline-none text-sm text-slate-200">
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Ödeme Tipi</label>
+                <div class="relative">
+                  <select id="i-type" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 pr-8 h-10 text-sm text-slate-200 outline-none appearance-none">
+                    ${EXPENSE_TYPES.map(t => `<option value="${t.id}" ${f.type === t.id ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}
+                  </select>
+                  <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
+                </div>
+              </div>
+            </div>
 
             <textarea id="i-desc" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
 
-            <!-- FOTOĞRAF EKLEME ALANI -->
             <div class="flex flex-col gap-2">
-              <div class="flex items-center gap-3">
-                  <label class="cursor-pointer bg-slate-800 ${isImageLimitReached ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-700'} border border-slate-700 text-slate-300 text-xs px-4 py-3 rounded-lg transition flex-1 text-center">
-                      ${isImageLimitReached ? `Maksimum ${MAX_IMAGES} Fotoğrafa Ulaşıldı` : `+ Fotoğraf Ekle (${imagesCount}/${MAX_IMAGES})`}
                       <input type="file" data-act="img-upload" id="i-img" hidden accept="image/*" multiple ${isImageLimitReached ? 'disabled' : ''}>
                   </label>
               </div>
@@ -5392,7 +5439,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 <label class="block text-[10px] text-slate-400 mb-1">Seyahat</label>
                 <div class="relative">
                   <input id="q-trip" list="dl-all-trips-quick"
-                         class="w-full bg-slate-950/60 border border-slate-700/70 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400"
+                         class="w-full bg-slate-950/60 border ${hasErr('q-trip') || 'border-slate-700/70'} rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400 ${hasErr('q-trip')}"
                          placeholder="Seyahat adı yaz veya seç"
                          value="${esc(q.trip || '')}">
                   <datalist id="dl-all-trips-quick">${tripOptions}</datalist>
@@ -5409,7 +5456,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 <div class="flex-1">
                   <label class="block text-[10px] text-slate-400 mb-1">Tutar</label>
                   <input id="q-amt" type="number" min="0" step="0.01"
-                         class="w-full bg-slate-950/60 border border-slate-700/70 rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400"
+                         class="w-full bg-slate-950/60 border ${hasErr('q-amt') || 'border-slate-700/70'} rounded-xl px-3 py-2 text-slate-100 placeholder-slate-500 outline-none focus:border-amber-400 ${hasErr('q-amt')}"
                          placeholder="0,00" value="${esc(q.amt || '')}">
                 </div>
                 <div style="width:120px">
@@ -5435,7 +5482,11 @@ function renderApp() {
                 try {
                     const root = document.getElementById('app-root');
 
+                    const validTripNames = (state.trips || []).map(t => t.name);
                     const exp = state.exp.filter(x => {
+                        // Sadece mevcut seyahatlere ait kayıtları göster
+                        if (!validTripNames.includes(x.trip)) return false;
+
                         if (state.tab === 'exp') {
                             if (state.tripFilter && x.trip !== state.tripFilter) return false;
                             if (state.catFilter && x.cat !== state.catFilter) return false;
@@ -5530,6 +5581,11 @@ function renderApp() {
                     if (state.modals.resForm && state.resForm.endDate) {
                         const endDateInput = document.getElementById('i-res-end-date');
                         if (endDateInput) endDateInput.value = state.resForm.endDate;
+                    }
+
+                    // YENİ: Rapor Grafikleri
+                    if (state.tab === 'other' && state.helpersAccordion.report) {
+                        setTimeout(initReportCharts, 200);
                     }
 
                 } catch (e) {
@@ -5909,6 +5965,7 @@ function renderApp() {
                 }
                 if (act === 'new') {
                     state.form = getEmptyForm();
+                    state.errors = [];
                     if (state.tripFilter) {
                         state.form.trip = state.tripFilter;
                         const suggestedCur = getCurrencyForTrip(state.tripFilter);
@@ -5927,6 +5984,7 @@ function renderApp() {
 
                 if (act === 'open-quick-exp') {
                     state.quickExpOpen = !state.quickExpOpen;
+                    state.errors = [];
                     if (state.quickExpOpen) {
                         const baseCur = state.baseCurrency || BASE_CURRENCY;
                         if (!state.quickExp) {
@@ -5983,8 +6041,12 @@ function renderApp() {
                         // Arayüzle uyumlu varsayılan kategori: food
                         const cat = (state.quickExp && state.quickExp.cat) || 'food';
 
-                        if (!trip || !amt || isNaN(amt) || amt <= 0) {
-                            state.err = 'Lütfen seyahat ve tutar bilgilerini girin.';
+                        state.errors = [];
+                        if (!trip) { state.errors.push('q-trip'); }
+                        if (!amt || isNaN(amt) || amt <= 0) { state.errors.push('q-amt'); }
+
+                        if (state.errors.length > 0) {
+                            state.err = 'Lütfen kırmızı ile işaretli alanları doldurunuz.';
                             renderApp();
                             return;
                         }
@@ -6061,20 +6123,17 @@ function renderApp() {
                 if (act === 'cancel') {
                     state.view = 'list';
                     state.err = '';
+                    state.errors = [];
                     renderApp();
                 }
 
-                if (act === 'cancel') {
-                    state.view = 'list';
-                    state.err = '';
-                    renderApp();
-                }
+
 
                 if (act === 'new-res') {
                     state.resForm = getEmptyResForm();
+                    state.errors = [];
                     if (state.tripFilter) state.resForm.trip = state.tripFilter;
                     state.modals.resForm = true;
-                    // window.location.hash = '#'; // Helper menüyü KAPATMA (Scroll pozisyonunu koru)
                     renderApp();
                 }
 
@@ -6520,20 +6579,28 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const isFuelActive = f.cat === 'fuel';
                     f.isFuel = isFuelActive;
 
-                    if (!f.city || !f.place || !f.amt || !f.cat) {
-                        state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).';
-                        renderApp();
-                        return;
-                    }
+                    // Görsel doğrulama (Validation)
+                    const required = ['i-trip', 'i-city', 'i-place', 'i-amt'];
+                    state.errors = [];
+                    required.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && !el.value.trim()) {
+                            state.errors.push(id);
+                        }
+                    });
 
-                    // YENİ VALIDASYON: Ortak harcamalarda payer zorunlu
+                    // Ortak harcamalarda payer zorunlu
                     if (!f.isIndividual && f.trip) {
                         const tripObj = state.trips.find(t => t.name === f.trip);
                         if (tripObj && tripObj.persons && !f.payer) {
-                            state.err = 'Ortak harcamalarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin.';
-                            renderApp();
-                            return;
+                            state.errors.push('i-payer');
                         }
+                    }
+
+                    if (state.errors.length > 0 || !f.cat) {
+                        state.err = 'Lütfen kırmızı ile işaretli alanları doldurunuz.';
+                        renderApp();
+                        return;
                     }
 
                     if (isFuelActive && (!f.startKm || !f.endKm || !f.fuelAmount)) {
@@ -6590,6 +6657,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     state.expandedCities[rec.city] = true;
                     save();
                     state.err = '';
+                    state.errors = [];
                     state.view = 'list';
                     renderApp();
                     alert('Harcama başarıyla kaydedildi!');
@@ -6635,20 +6703,28 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     // Maliyet alanını temizle ve state'e kaydet (input eventinde bu işlem yapılmadığı için)
                     f.cost = f.cost.replace(',', '.').replace(/[^0-9.]/g, '');
 
-                    if (!f.name || !f.location || !f.startDate || !f.trip) {
-                        state.err = 'Rezervasyon Adı, Konum, Tarih ve Seyahat alanları zorunludur.';
-                        renderApp();
-                        return;
-                    }
+                    // Görsel doğrulama (Validation)
+                    const requiredRes = ['i-res-name', 'i-res-location', 'i-res-start-date', 'i-res-trip'];
+                    state.errors = [];
+                    requiredRes.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && !el.value.trim()) {
+                            state.errors.push(id);
+                        }
+                    });
 
-                    // YENİ VALIDASYON: Ortak rezervasyonlarda payer zorunlu
+                    // Ortak rezervasyonlarda payer zorunlu
                     if (!f.isIndividual && f.trip && f.cost && Number(f.cost) > 0) {
                         const tripObj = state.trips.find(t => t.name === f.trip);
                         if (tripObj && tripObj.persons && !f.payer && !f.isSettled) {
-                            state.err = 'Ortak rezervasyonlarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin veya "Ödendi/Settled" işaretleyin.';
-                            renderApp();
-                            return;
+                            state.errors.push('i-res-payer');
                         }
+                    }
+
+                    if (state.errors.length > 0) {
+                        state.err = 'Lütfen kırmızı ile işaretli alanları doldurunuz.';
+                        renderApp();
+                        return;
                     }
 
                     // Misafir kullanıcı için seyahat sayısı limiti (rezervasyon tarafı)
@@ -6690,6 +6766,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
 
                     state.err = '';
+                    state.errors = [];
                     state.modals.resForm = false;
                     state.tab = 'other';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
