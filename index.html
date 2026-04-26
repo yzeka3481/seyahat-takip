@@ -6196,29 +6196,45 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const targetUid = prompt('Lütfen verilerinizin olduğu ESKİ UID bilgisini yapıştırın:');
                     if (targetUid && targetUid.trim()) {
                         isCloudLoading = true;
+                        console.log('Manuel kurtarma başlatıldı, hedef UID:', targetUid.trim());
                         db.collection('users').doc(targetUid.trim()).get()
                             .then(snap => {
                                 if (snap.exists) {
                                     const data = snap.data() || {};
+                                    console.log('Kurtarılacak veri ham hali:', data);
                                     try {
-                                        if (Array.isArray(data.exp)) state.exp = data.exp;
-                                        if (Array.isArray(data.res)) state.res = data.res;
+                                        // Verileri tek tek kontrol ederek yükle
+                                        if (data.exp) state.exp = data.exp;
+                                        if (data.res) state.res = data.res;
                                         if (data.chk) state.chk = data.chk;
-                                        if (Array.isArray(data.criticalNotes)) state.criticalNotes = data.criticalNotes;
-                                        if (Array.isArray(data.trips)) state.trips = data.trips;
-                                        if (Array.isArray(data.transfers)) state.transfers = data.transfers;
-                                        if (data.baseCurrency) state.baseCurrency = data.baseCurrency;
+                                        if (data.criticalNotes) state.criticalNotes = data.criticalNotes;
+                                        if (data.trips) state.trips = data.trips;
+                                        if (data.transfers) state.transfers = data.transfers;
+                                        if (data.baseCurrency) {
+                                            state.baseCurrency = data.baseCurrency;
+                                            state.reportCurrency = data.baseCurrency;
+                                        }
 
-                                        save();
-                                        saveStateToCloud(); // Yeni UID'ye yaz
+                                        console.log('State güncellendi, kaydediliyor...');
+                                        save(); // Localstorage
+                                        
+                                        console.log('Ekrana çiziliyor...');
                                         renderApp();
-                                        alert('Veriler başarıyla kurtarıldı ve yeni hesabınıza aktarıldı!');
-                                    } catch (e) { console.error(e); alert('Veri işlenirken hata oluştu.'); }
+                                        
+                                        alert('Veriler başarıyla kurtarıldı! Şimdi buluta yedekleniyor...');
+                                        saveStateToCloud(); // Yeni UID'ye yedekle
+                                    } catch (e) { 
+                                        console.error('Kurtarma işlemi sırasında hata:', e); 
+                                        alert('Veri işleme hatası: ' + e.message); 
+                                    }
                                 } else {
-                                    alert('Bu UID ile eşleşen bir döküman bulunamadı.');
+                                    alert('Bu UID ile eşleşen bir döküman bulunamadı. Lütfen UID\'yi doğru kopyaladığınızdan emin olun.');
                                 }
                             })
-                            .catch(err => alert('Hata: ' + err.message))
+                            .catch(err => {
+                                console.error('Firebase erişim hatası:', err);
+                                alert('Firebase Hatası: ' + err.message);
+                            })
                             .finally(() => { isCloudLoading = false; });
                     }
                     return;
