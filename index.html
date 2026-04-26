@@ -1785,14 +1785,17 @@
                 const ref = getUserDocRef();
                 if (!ref) return;
                 isCloudLoading = true;
+                console.log('Buluttan veri yükleniyor, UID:', currentUser.uid);
                 ref.get()
                     .then(snap => {
                         if (!snap.exists) {
+                            console.log('Bulutta kullanıcı dökümanı bulunamadı. UID:', currentUser.uid);
                             // İlk kez giriş yapıyorsa, mevcut local veriyi buluta yaz
                             saveStateToCloud();
                             return;
                         }
                         const data = snap.data() || {};
+                        console.log('Buluttan gelen veri:', data);
                         try {
                             if (Array.isArray(data.exp)) {
                                 state.exp = data.exp;
@@ -4422,6 +4425,19 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
               </button>
             </div>
 
+            <div class="pt-3 space-y-2">
+              <button data-act="load-cloud" class="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-200 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition">
+                ☁️ Buluttan Veri Çek (Senkronize Et)
+              </button>
+              
+              <button data-act="scan-trips" class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition">
+                🔄 Seyahatleri Tara ve Kurtar
+              </button>
+              <p class="text-[10px] text-slate-500 mt-1 text-center italic">
+                Verileriniz gelmiyorsa yukarıdaki iki butonu sırayla deneyebilirsiniz.
+              </p>
+            </div>
+
             <div class="pt-2 border-t border-slate-700/50 mt-2">
               <button data-act="scan-trips" class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition">
                 🔄 Seyahatleri Tara ve Kurtar
@@ -6159,6 +6175,17 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         renderApp();
                     }
                     return; // İşlem tamamlandı
+                }
+
+                if (act === 'load-cloud') {
+                    if (!currentUser) {
+                        alert('Lütfen önce giriş yapın.');
+                        openLoginModal();
+                        return;
+                    }
+                    loadUserDataFromCloud();
+                    alert('Bulut senkronizasyonu başlatıldı. Veriler yüklenince ekran güncellenecektir.');
+                    return;
                 }
 
                 if (act === 'scan-trips') {
