@@ -2369,7 +2369,7 @@
                 const badgeCls = 'flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/20 backdrop-blur-md text-white text-xs font-bold shadow-sm';
 
                 return `
-        <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="resDetailOverlay">
+        <div class="fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="resDetailOverlay">
           <div class="bg-slate-900 w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border border-slate-800" data-act="noop">
              
              <!-- SABİT GRADIENT BAŞLIK -->
@@ -3799,22 +3799,8 @@
                     totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
                 });
 
-                // Seçili seyahat ve bireysel/ortak filtresine göre rezervasyon maliyetlerini ekle
-                const resForHeader = state.res.filter(r => {
-                    if (isFiltered && (r.trip || '') !== state.tripFilter) return false;
-                    if (!r.cost) return false;
-                    if (indFilter === 'individual' && r.isIndividual !== true) return false;
-                    if (indFilter === 'shared' && r.isIndividual !== false) return false;
-                    return true;
-                });
-
-                resForHeader.forEach(r => {
-                    const cur = r.cur || headerCur;
-                    const amt = Number(r.cost) || 0;
-
-                    totalInHeaderCur += convertToBase(amt, cur, headerCur, r.trip);
-                    totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
-                });
+                // NOT: Rezervasyonlar artık visibleExp içerisinde 'isReservation: true' olarak bulunduğu için 
+                // burada ayrıca toplanmalarına gerek kalmadı. Bu sayede mükerrer hesaplama önlendi.
 
                 const headerText = isFiltered
                     ? `${esc(state.tripFilter)} Seyahati Toplamı`
@@ -5031,7 +5017,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                     const sortedTzs = [...TIMEZONES].sort((a, b) => a.id.localeCompare(b.id));
 
                     return `
-        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="tzSelectOverlay">
+        <div class="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm" data-act="close-mod" data-val="tzSelectOverlay">
           <div class="bg-slate-900 w-full max-w-sm rounded-xl border border-slate-800 p-5 shadow-2xl relative">
             <button data-act="close-mod" data-val="tzSelect" class="absolute top-3 right-3 text-slate-500 hover:text-white">${ICONS.x}</button>
             <h3 class="font-bold text-white mb-4 text-center">Seyahat Saat Dilimini Seç</h3>
@@ -5174,7 +5160,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
 
 
                     return `
-        <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="overlay">
+        <div class="fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 animate-[fadeIn_0.2s] mt-4" data-act="close-mod" data-val="overlay">
           <div class="bg-slate-900 w-full max-w-md md:rounded-xl rounded-t-xl overflow-hidden shadow-2xl relative border border-slate-800" data-act="noop">
              
              <!-- SABİT GRADIENT BAŞLIK -->
@@ -5279,7 +5265,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                     const totalText = ds.total ? fmtNum(ds.total) + ' ' + (ds.currency || '') : '0';
 
                     return `
-        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-act="close-mod" data-val="chartOverlay">
+        <div class="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4" data-act="close-mod" data-val="chartOverlay">
           <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden" data-act="noop">
             <button data-act="close-mod" data-val="chart" class="absolute top-3 right-3 text-slate-500 hover:text-white">
               ${ICONS.x}
