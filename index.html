@@ -1656,23 +1656,9 @@
                     isIndividual: item.isIndividual !== undefined ? item.isIndividual : false,
                 }));
 
-                const allTrips = [...new Set((e || []).map(x => x.trip).filter(Boolean).concat((r || []).map(x => x.trip).filter(Boolean)))].sort(); // Rezervasyonlardan da seyahat adı al
-                
-                // OTOMATİK GEÇİŞ: Eğer harcaması olan ama trips listesinde olmayan seyahat varsa ekle (Eski verilerin kaybolmaması için)
-                allTrips.forEach(tripName => {
-                    if (!t.some(trip => trip.name === tripName)) {
-                        t.push({
-                            id: genId(),
-                            name: tripName,
-                            startDate: '',
-                            endDate: '',
-                            persons: ''
-                        });
-                    }
-                });
-
-                if (allTrips.length > 0) {
-                    selectedNoteTrip = allTrips[0];
+                const allNamesFromData = [...new Set((e || []).map(x => x.trip).filter(Boolean).concat((r || []).map(x => x.trip).filter(Boolean)))].sort();
+                if (allNamesFromData.length > 0) {
+                    selectedNoteTrip = allNamesFromData[0];
                 } else {
                     selectedNoteTrip = 'Genel';
                 }
@@ -1680,8 +1666,8 @@
                 state = {
                     exp: e,
                     chk: c,
-                    res: r, // Yeni: Rezervasyonlar
-                    transfers: tf, // Yeni: Transfer/Mahsuplaşmalar
+                    res: r, 
+                    transfers: tf, 
                     view: 'list',
                     tab: 'sum',
                     tripFilter: '',
@@ -1691,17 +1677,16 @@
                     typeFilter: '',
                     indFilter: '',
                     selExp: null,
-                    selRes: null, // Yeni: Seçili Rezervasyon
-                    selRes: null, // Yeni: Seçili Rezervasyon
-                    modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, // resForm ve tripForm eklendi
+                    selRes: null, 
+                    modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, 
                     form: getEmptyForm(),
-                    resForm: getEmptyResForm(), // Yeni: Rezervasyon formu state'i
-                    tripForm: getEmptyTripForm(), // Yeni: Seyahat formu state'i
-                    trips: t, // Yeni: Kayıtlı Seyahatler
+                    resForm: getEmptyResForm(), 
+                    tripForm: getEmptyTripForm(), 
+                    trips: t, 
                     expandedCities: {},
                     lightbox: null,
                     err: '',
-                    errors: [], // Yeni: Form hatalarını takip etmek için
+                    errors: [], 
                     draggedItemId: null,
                     targetTimezone: prefTZ,
                     currentTime: formatTime(prefTZ).time,
@@ -1717,7 +1702,7 @@
                         route: false,
                         report: false,
                         data: false,
-                        reservations: false, // YENİ: Rezervasyon akordiyonu
+                        reservations: false,
                     },
                     criticalNotes: criticalNotes,
                     selectedNoteTrip: selectedNoteTrip,
@@ -1727,16 +1712,44 @@
                     baseCurrency: preferredBaseCurrency,
                     reportCurrency: preferredBaseCurrency,
                     reportPdfCat: preferredReportPdfCat,
-
-                    notificationsEnabled: localStorage.getItem('notifications_enabled') === 'true',
-                    lastNotificationDate: localStorage.getItem('last_notification_date') || '',
-                    quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
-                    quickExpOpen: false,
+                    notificationsEnabled: (localStorage.getItem('travel_notifications_enabled') === 'true'),
                     undo: null,
+                    quickExpOpen: false,
+                    quickExp: {
+                        trip: '',
+                        cat: 'food',
+                        amt: '',
+                        cur: preferredBaseCurrency,
+                        payer: ''
+                    }
                 };
 
                 state.openChkCats = {};
                 (state.chk.cats || []).forEach(x => state.openChkCats[x.id] = false);
+
+                // İlk açılışta seyahatleri kurtar
+                migrateTrips();
+            }
+
+            function migrateTrips() {
+                if (!state || !state.exp) return;
+                const e = state.exp || [];
+                const r = state.res || [];
+                const t = state.trips || [];
+                const allNames = [...new Set(e.map(x => x.trip).filter(Boolean).concat(r.map(x => x.trip).filter(Boolean)))];
+                let changed = false;
+                allNames.forEach(name => {
+                    const trimmed = String(name).trim();
+                    if (!trimmed) return;
+                    if (!t.some(trip => String(trip.name || '').trim().toLowerCase() === trimmed.toLowerCase())) {
+                        t.push({ id: genId(), name: trimmed, startDate: '', endDate: '', persons: '' });
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    state.trips = t;
+                    save();
+                }
             }
 
             function setState(p) { state = { ...state, ...p }; renderApp(); }
@@ -1970,6 +1983,10 @@
                             if (Array.isArray(data.transfers)) {
                                 state.transfers = data.transfers;
                             }
+                            
+                            // YENİ: Bulut verisi sonrası seyahat kurtarma (İspanya vb. kayıplarını engeller)
+                            migrateTrips();
+
                             // LocalStorage'i de güncelle
                             save();
                             renderApp();
