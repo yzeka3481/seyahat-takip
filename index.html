@@ -4494,7 +4494,10 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
               </button>
             </div>
 
-            <div class="pt-4 border-t border-slate-700/50 mt-4">
+            <div class="pt-4 border-t border-slate-700/50 mt-4 space-y-2">
+              <button data-act="load-from-uid" class="w-full bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition">
+                🔑 Eski Hesaptan (UID) Verileri Aktar
+              </button>
               <button data-act="scan-trips" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition">
                 🔄 Seyahat Listesini Tara ve Senkronize Et
               </button>
