@@ -1234,10 +1234,10 @@
             // --- HARCAMA GRAFİĞİ VE RAPOR VERİ HAZIRLAMA ---
             function getChartDataset(expenses = state.exp) {
                 // Önce grafik için temel veri setini belirle
-                const validTripNames = (state.trips || []).map(t => t.name);
+                const validTripNames = (state.trips || []).map(t => String(t.name || '').toLowerCase().trim());
                 const base = (expenses === state.exp)
-                    ? (state._visibleExp || state.exp.filter(x => validTripNames.includes(x.trip)))
-                    : expenses.filter(x => validTripNames.includes(x.trip));
+                    ? (state._visibleExp || state.exp.filter(x => validTripNames.includes(String(x.trip || '').toLowerCase().trim())))
+                    : expenses.filter(x => validTripNames.includes(String(x.trip || '').toLowerCase().trim()));
 
                 const allExp = base.filter(x => !isNaN(Number(x.amt)) && Number(x.amt) > 0);
 
@@ -3604,9 +3604,9 @@
                 const indFilter = state.indFilter || '';
 
                 // Sadece mevcut seyahatlere ait kayıtları filtrele
-                const validTripNames = (state.trips || []).map(t => t.name);
-                const activeExp = state.exp.filter(x => validTripNames.includes(x.trip));
-                const activeRes = state.res.filter(r => validTripNames.includes(r.trip));
+                const validTripNames = (state.trips || []).map(t => String(t.name || '').toLowerCase().trim());
+                const activeExp = state.exp.filter(x => validTripNames.includes(String(x.trip || '').toLowerCase().trim()));
+                const activeRes = state.res.filter(r => validTripNames.includes(String(r.trip || '').toLowerCase().trim()));
 
                 // Harcama kayıtları (bireysel/ortak filtresine göre)
                 const filteredExpForSum = activeExp.filter(x => {
@@ -3964,9 +3964,9 @@
                 });
 
                 // Seçili seyahat ve bireysel/ortak filtresine göre rezervasyon maliyetlerini ekle
-                const validTripNames = (state.trips || []).map(t => t.name);
+                const validTripNames = (state.trips || []).map(t => String(t.name || '').toLowerCase().trim());
                 const resForHeader = state.res.filter(r => {
-                    if (!validTripNames.includes(r.trip)) return false;
+                    if (!validTripNames.includes(String(r.trip || '').toLowerCase().trim())) return false;
                     if (isFiltered && (r.trip || '') !== state.tripFilter) return false;
                     if (!r.cost) return false;
                     if (indFilter === 'individual' && r.isIndividual !== true) return false;
@@ -5513,10 +5513,10 @@ function renderApp() {
                 try {
                     const root = document.getElementById('app-root');
 
-                    const validTripNames = (state.trips || []).map(t => t.name);
+                    const validTripNames = (state.trips || []).map(t => String(t.name || '').toLowerCase().trim());
                     const exp = state.exp.filter(x => {
                         // Sadece mevcut seyahatlere ait kayıtları göster
-                        if (!validTripNames.includes(x.trip)) return false;
+                        if (!validTripNames.includes(String(x.trip || '').toLowerCase().trim())) return false;
 
                         if (state.tab === 'exp') {
                             if (state.tripFilter && x.trip !== state.tripFilter) return false;
