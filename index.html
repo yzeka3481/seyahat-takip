@@ -5647,51 +5647,46 @@ function renderApp() {
             window.handleDragEnd = (e) => { e.preventDefault(); };
 
             document.addEventListener('click', e => {
-                const t = e.target.closest('[data-act]');
-                if (!t) {
-                    // Kullanıcı menüsünü, ikon ve menü dışına tıklanınca kapat
-                    const userMenu = document.getElementById('auth-user-menu');
-                    if (userMenu && !e.target.closest('#auth-user-menu') && !e.target.closest('#auth-btn-login-toggle')) {
-                        userMenu.classList.add('hidden');
-                    }
+                const t = e.target;
+                const actEl = t.closest('[data-act]');
+                const act = actEl ? actEl.dataset.act : null;
+                const val = actEl ? actEl.dataset.val : null;
+                const id = actEl ? actEl.dataset.id : null;
 
-                    if (state.view === 'form' && e.target.classList.contains('form-modal-overlay')) {
-                        state.view = 'list';
-                        state.err = '';
-                        renderApp();
-                        return;
-                    }
-                    // Rezervasyon formu kapatma
-                    if (state.modals.resForm && e.target.classList.contains('form-modal-overlay')) {
-                        state.modals.resForm = false;
-                        state.err = '';
-                        state.tab = 'other';
-                        // Tüm accordion'ları kapat, sadece reservations'u aç
-                        state.helpersAccordion = {
-                            critical: false,
-                            places: false,
-                            health: false,
-                            transport: false,
-                            flightCheck: false,
-                            route: false,
-                            report: false,
-                            data: false,
-                            reservations: true
-                        };
-                        renderApp();
-                        setTimeout(() => {
-                            const el = document.getElementById('helper-reservations');
-                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }, 300);
-                        return;
-                    }
-                    return;
+                // Kullanıcı menüsünü, ikon ve menü dışına tıklanınca kapat
+                const userMenu = document.getElementById('auth-user-menu');
+                if (userMenu && !t.closest('#auth-user-menu') && !t.closest('#auth-btn-login-toggle')) {
+                    userMenu.classList.add('hidden');
                 }
 
-                const act = t.dataset.act, val = t.dataset.val, id = t.dataset.id;
+                // Modal dışına tıklayınca kapatma (Overlay kontrolü)
+                if (state.view === 'form' && t.classList.contains('form-modal-overlay')) {
+                    state.view = 'list'; state.err = ''; renderApp(); return;
+                }
+                if (state.modals.resForm && t.classList.contains('form-modal-overlay')) {
+                    state.modals.resForm = false; state.err = ''; state.tab = 'other';
+                    state.helpersAccordion.reservations = true; // Geri dönünce rezervasyonlar açık kalsın
+                    renderApp(); return;
+                }
+
+                // HELPER MODAL AÇILIŞLARINI YAKALA VE STATE'E İŞLE
+                const helperLink = t.closest('a');
+                const href = helperLink ? helperLink.getAttribute('href') : null;
+                if (href && href.startsWith('#helper-')) {
+                    const helperId = href.substring(8); // 'reservations', 'report' vb.
+                    if (state.helpersAccordion[helperId] !== undefined) {
+                        // Diğerlerini kapat, seçileni aç
+                        Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
+                        state.helpersAccordion[helperId] = true;
+                        renderApp();
+                        return;
+                    }
+                }
+
+                if (!actEl) return;
 
                 // Login gerektiren işlemler için kontrol
-                const requiresAuth = t.dataset.auth === 'required';
+                const requiresAuth = actEl.dataset.auth === 'required';
                 if (requiresAuth && !currentUser) {
                     openLoginModal('Bu özelliği kullanmak için giriş yapmanız gerekir.');
                     return;
@@ -5833,18 +5828,6 @@ function renderApp() {
                     return;
                 }
 
-                // HELPER MODAL AÇILIŞLARINI YAKALA VE STATE'E İŞLE
-                const href = t.getAttribute('href');
-                if (href && href.startsWith('#helper-')) {
-                    const helperId = href.substring(8); // 'reservations', 'report' vb.
-                    if (state.helpersAccordion[helperId] !== undefined) {
-                        // Diğerlerini kapat, seçileni aç
-                        Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
-                        state.helpersAccordion[helperId] = true;
-                        renderApp();
-                        return;
-                    }
-                }
 
                 if (act === 'tog-accordion') {
                     const currentStatus = state.helpersAccordion[val];
