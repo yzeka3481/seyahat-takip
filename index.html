@@ -489,15 +489,24 @@
             let chartInst = null, state = {};
 
             // Harcamayı ana para birimine dönüştürür
-            function convertToBase(amount, currency, targetCurrency = BASE_CURRENCY) {
+            function convertToBase(amount, currency, targetCurrency = BASE_CURRENCY, tripName = null) {
                 amount = Number(amount) || 0;
                 currency = currency || 'TRY';
                 targetCurrency = targetCurrency || 'TRY';
 
                 if (currency === targetCurrency) return amount;
 
-                const rateToTry = EXCHANGE_RATES[currency];
-                const rateFromTry = EXCHANGE_RATES[targetCurrency];
+                // Seyahat kilitliyse onun kurlarını kullan
+                let activeRates = EXCHANGE_RATES;
+                if (tripName) {
+                    const trip = (state.trips || []).find(t => t.name === tripName);
+                    if (trip && trip.status === 'completed' && trip.lockedRates) {
+                        activeRates = trip.lockedRates;
+                    }
+                }
+
+                const rateToTry = activeRates[currency];
+                const rateFromTry = activeRates[targetCurrency];
 
                 if (!rateToTry || !rateFromTry) {
                     console.warn(`Bilinmeyen kur: ${currency} veya ${targetCurrency}. Dönüşüm başarısız.`);
@@ -509,31 +518,32 @@
                 return amountInTry / rateFromTry;
             }
 
-            // --- KRİTİK FONKSİYON: KUR ÇEKİMİNİ SİMÜLE EDER VE UYGULAR ---
-            function fetchAndApplyRates() {
-                const MOCK_USD_RATE = 42.51920;
-                const MOCK_EUR_RATE = 49.55726;
+            // --- KRİTİK FONKSİYON: GERÇEK ZAMANLI KUR ÇEKİMİ ---
+            async function fetchAndApplyRates() {
+                try {
+                    const response = await fetch('https://open.er-api.com/v6/latest/TRY');
+                    const data = await response.json();
+                    
+                    if (data && data.rates) {
+                        // API 1 TRY = X USD veriyor, biz 1 USD = X TRY istiyoruz
+                        const rates = data.rates;
+                        const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'];
+                        
+                        currencies.forEach(cur => {
+                            if (rates[cur]) {
+                                EXCHANGE_RATES[cur] = 1 / rates[cur];
+                            }
+                        });
 
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        try {
-                            if (MOCK_USD_RATE && MOCK_USD_RATE > 0) EXCHANGE_RATES.USD = MOCK_USD_RATE;
-                            if (MOCK_EUR_RATE && MOCK_EUR_RATE > 0) EXCHANGE_RATES.EUR = MOCK_EUR_RATE;
-
-                            const now = new Date();
-                            rateLastUpdated = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} (Otomatik)`;
-
-                            console.log('Kurlar Güncellendi:', EXCHANGE_RATES, 'Zaman:', rateLastUpdated);
-
-                        } catch (e) {
-                            console.error("Kur güncelleme hatası (Simülasyon):", e);
-                            rateLastUpdated = 'Hata (Statik Kullanılıyor)';
-                        }
-
-                        renderApp();
-                        resolve();
-                    }, 1500);
-                });
+                        const now = new Date();
+                        rateLastUpdated = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} (Canlı)`;
+                        console.log('Kurlar Güncellendi (Canlı):', EXCHANGE_RATES);
+                    }
+                } catch (e) {
+                    console.error("Kur çekme hatası:", e);
+                    rateLastUpdated = 'Hata (Sabitler Kullanılıyor)';
+                }
+                renderApp();
             }
 
             // Rapor için harcama listesini getirir
@@ -1594,6 +1604,8 @@
                 startDate: new Date().toISOString().slice(0, 10),
                 endDate: '',
                 persons: '',
+                status: 'active', // active veya completed
+                lockedRates: null // Tamamlandığındaki kurlar
             });
 
             function initState() {
@@ -1722,7 +1734,8 @@
                         route: false,
                         report: false,
                         data: false,
-                        reservations: false, // YENİ: Rezervasyon akordiyonu
+                        reservations: false,
+                        trips: false, // YENİ
                     },
                     criticalNotes: criticalNotes,
                     selectedNoteTrip: selectedNoteTrip,
@@ -3331,7 +3344,7 @@
                                             ${x.payer ? `<div class="payer-info">Ödeyen: ${escStr(x.payer)}</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(x.amt)||0, x.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(convertToBase(Number(x.amt)||0, x.cur || reportCurrency, reportCurrency, x.trip))} ${reportCurrency}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${x.isIndividual ? 'badge-ind' : 'badge-shared'}">${x.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3363,7 +3376,7 @@
                                             ${r.isSettled ? `<div style="color:#2563eb; font-size:10px; font-weight:bold">✓ Ödeme Yapıldı (Ödendi)</div>` : ''}
                                         </td>
                                         <td class="amt">
-                                            ${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCurrency, reportCurrency))} ${reportCurrency}
+                                            ${fmt(convertToBase(Number(r.cost)||0, r.cur || reportCurrency, reportCurrency, r.trip))} ${reportCurrency}
                                             <div style="margin-top:2px">
                                                 <span class="badge ${r.isIndividual ? 'badge-ind' : 'badge-shared'}">${r.isIndividual ? 'Bireysel' : 'Ortak'}</span>
                                             </div>
@@ -3439,13 +3452,13 @@
                 });
 
                 filteredExpForSum.forEach(x => {
-                    allTimeTotal += convertToBase(x.amt, x.cur, baseCur);
+                    allTimeTotal += convertToBase(x.amt, x.cur, baseCur, x.trip);
                 });
 
                 // Bugünün harcamaları (sadece fiili harcamalar, bireysel/ortak filtresine göre)
                 const todayExpenses = filteredExpForSum.filter(x => x.date === today);
                 todayExpenses.forEach(x => {
-                    todayTotal += convertToBase(x.amt, x.cur, baseCur);
+                    todayTotal += convertToBase(x.amt, x.cur, baseCur, x.trip);
                 });
 
                 // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak filtresine göre)
@@ -3453,7 +3466,7 @@
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
-                    allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur);
+                    allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur, r.trip);
                 });
 
                 // YAKLAŞAN REZERVASYONLAR
@@ -3625,7 +3638,7 @@
             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/50">
                 ${latestExpenses.length > 0 ? latestExpenses.map(x => {
                     const catInfo = CATS[x.cat] || CATS.other;
-                    const estimatedBaseCur = convertToBase(x.amt, x.cur, baseCur);
+                    const estimatedBaseCur = convertToBase(x.amt, x.cur, baseCur, x.trip);
 
                     return `
                         <div data-act="detail" data-id="${x.id}" class="p-3 flex justify-between items-center hover:bg-slate-700/50 cursor-pointer transition">
@@ -3778,7 +3791,7 @@
                     const cur = x.cur || headerCur;
                     const amt = Number(x.amt) || 0;
 
-                    totalInHeaderCur += convertToBase(amt, cur, headerCur);
+                    totalInHeaderCur += convertToBase(amt, cur, headerCur, x.trip);
                     totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
                 });
 
@@ -3795,7 +3808,7 @@
                     const cur = r.cur || headerCur;
                     const amt = Number(r.cost) || 0;
 
-                    totalInHeaderCur += convertToBase(amt, cur, headerCur);
+                    totalInHeaderCur += convertToBase(amt, cur, headerCur, r.trip);
                     totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
                 });
 
@@ -3989,7 +4002,7 @@
 
                     let sumInBase = 0;
                     lst.forEach(x => {
-                        sumInBase += convertToBase(x.amt, x.cur, state.baseCurrency);
+                        sumInBase += convertToBase(x.amt, x.cur, state.baseCurrency, x.trip);
                     });
                     const sumTxt = fmtNum(sumInBase) + ' ' + state.baseCurrency;
 
@@ -4041,7 +4054,7 @@
                    </div>
 
                    <div class="text-right flex-shrink-0 w-16">
-                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt)||0, x.cur || state.baseCurrency, state.baseCurrency))}</div>
+                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt)||0, x.cur || state.baseCurrency, state.baseCurrency, x.trip))}</div>
                       <div class="text-[10px] text-slate-600">${state.baseCurrency}</div>
                    </div>
                 </div>`;
@@ -4510,9 +4523,10 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- SEYAHAT YÖNETİMİ POPUP -->
-      <div id="helper-trips" class="helper-modal">
+      <!-- SEYAHAT YÖNETİMİ POPUP -->
+      <div id="helper-trips" class="helper-modal ${state.helpersAccordion.trips ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Yönetimi</h3>
@@ -4523,18 +4537,32 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
              </div>
              
              <div class="space-y-2 max-h-[60vh] overflow-y-auto scrl pr-1">
-                 ${(state.trips || []).sort((a, b) => (b.startDate || '').localeCompare(a.startDate || '')).map(t => `
-                   <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-3 flex items-center justify-between group hover:bg-slate-800 transition">
+                 ${(state.trips || []).sort((a, b) => (b.startDate || '').localeCompare(a.startDate || '')).map(t => {
+                   const isComp = t.status === 'completed';
+                   return `
+                   <div class="bg-slate-800/50 border ${isComp ? 'border-amber-500/50' : 'border-slate-700'} rounded-xl p-3 flex items-center justify-between group hover:bg-slate-800 transition relative overflow-hidden">
+                       ${isComp ? '<div class="absolute top-0 right-0 bg-amber-500 text-slate-900 text-[8px] font-bold px-2 py-0.5 rounded-bl-lg">TAMAMLANDI</div>' : ''}
                        <div class="flex-1 min-w-0 mr-3">
-                           <div class="font-bold text-slate-200 text-sm truncate">${esc(t.name)}</div>
+                           <div class="font-bold text-slate-200 text-sm truncate flex items-center gap-2">
+                               ${esc(t.name)}
+                               ${isComp ? `<span title="Kurlar Sabitlendi" class="text-amber-500">${ICONS.lock.replace('w-4 h-4','w-3 h-3')}</span>` : ''}
+                           </div>
                            <div class="text-xs text-slate-500 mt-1 truncate">${esc(t.persons || 'Kişi eklenmemiş')}</div>
                            <div class="text-[10px] text-slate-600 font-mono mt-0.5">${fmtDate(t.startDate)} ${t.endDate ? '- ' + fmtDate(t.endDate) : ''}</div>
+                           ${isComp ? `<div class="text-[9px] text-amber-500/70 mt-1">Kur Donduruldu: USD ${fmtNum(t.lockedRates?.USD)} | EUR ${fmtNum(t.lockedRates?.EUR)}</div>` : ''}
                        </div>
-                       <button data-act="edit-trip-detail" data-id="${t.id}" class="bg-slate-700 hover:bg-blue-600 text-slate-300 hover:text-white p-2 rounded-lg transition shadow-sm">
-                           ${ICONS.edit.replace('w-4 h-4', 'w-4 h-4')}
-                       </button>
+                       <div class="flex items-center gap-2">
+                           <button data-act="${isComp ? 'reopen-trip' : 'complete-trip'}" data-id="${t.id}" 
+                                   title="${isComp ? 'Seyahati Geri Aç' : 'Seyahati Tamamla ve Kurları Sabitle'}"
+                                   class="p-2 rounded-lg transition shadow-sm ${isComp ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-slate-900' : 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white'}">
+                               ${isComp ? ICONS.refresh.replace('w-4 h-4','w-4 h-4') : ICONS.check.replace('w-4 h-4','w-4 h-4')}
+                           </button>
+                           <button data-act="edit-trip-detail" data-id="${t.id}" class="bg-slate-700 hover:bg-blue-600 text-slate-300 hover:text-white p-2 rounded-lg transition shadow-sm">
+                               ${ICONS.edit.replace('w-4 h-4', 'w-4 h-4')}
+                           </button>
+                       </div>
                    </div>
-                 `).join('')}
+                 `;}).join('')}
                  
                  ${!state.trips.length ? '<div class="text-center text-slate-500 text-sm py-8 border border-dashed border-slate-700 rounded-lg">Henüz seyahat kaydı yok.</div>' : ''}
              </div>
@@ -5058,7 +5086,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
         </div>
       ` : '';
 
-                    const estimatedBaseCur = convertToBase(x.amt, x.cur, state.baseCurrency);
+                    const estimatedBaseCur = convertToBase(x.amt, x.cur, state.baseCurrency, x.trip);
 
                     const tripMoveSection = isFuelActive ? '' : `
                <!-- SEYAHATE TAŞIMA (KOMPAKT + SEÇİM) -->
@@ -6333,7 +6361,26 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                 // SEYAHAT YÖNETİMİ AKSİYONLARI
                 if (act === 'open-trip-mgmt') {
-                    window.location.hash = 'helper-trips';
+                    state.helpersAccordion.trips = true;
+                    renderApp();
+                    return;
+                }
+                if (act === 'complete-trip') {
+                    const trip = state.trips.find(t => t.id === id);
+                    if (trip && confirm(`"${trip.name}" seyahatini tamamlamak istiyor musunuz? Bu işlem kurları şu anki değerlerinde donduracaktır.`)) {
+                        trip.status = 'completed';
+                        trip.lockedRates = JSON.parse(JSON.stringify(EXCHANGE_RATES));
+                        save(); renderApp();
+                    }
+                    return;
+                }
+                if (act === 'reopen-trip') {
+                    const trip = state.trips.find(t => t.id === id);
+                    if (trip && confirm(`"${trip.name}" seyahatini tekrar açmak istiyor musunuz? Harcamalar tekrar güncel kurlar üzerinden hesaplanacaktır.`)) {
+                        trip.status = 'active';
+                        trip.lockedRates = null;
+                        save(); renderApp();
+                    }
                     return;
                 }
 
@@ -6975,14 +7022,14 @@ if (act === 'export-pdf') {
                     filteredExpenses.forEach(x => {
                         const amt = Number(x.amt) || 0;
                         const cur = x.cur || reportCur;
-                        totalExpReport += convertToBase(amt, cur, reportCur);
+                        totalExpReport += convertToBase(amt, cur, reportCur, state.selectedReportTrip);
                     });
 
                     let totalResReport = 0;
                     filteredReservations.forEach(r => {
                         const amt = Number(r.cost) || 0;
                         const cur = r.cur || reportCur;
-                        totalResReport += convertToBase(amt, cur, reportCur);
+                        totalResReport += convertToBase(amt, cur, reportCur, state.selectedReportTrip);
                     });
 
                     const totalReport = totalExpReport + totalResReport;
@@ -7002,7 +7049,7 @@ if (act === 'export-pdf') {
                     let sharedTotal = 0;
 
                     filteredExpenses.forEach(x => {
-                        const amt = convertToBase(Number(x.amt) || 0, x.cur || reportCur, reportCur);
+                        const amt = convertToBase(Number(x.amt) || 0, x.cur || reportCur, reportCur, state.selectedReportTrip);
                         if (x.isIndividual) indivTotal += amt; else sharedTotal += amt;
                     });
                     filteredReservations.forEach(r => {
@@ -7010,7 +7057,7 @@ if (act === 'export-pdf') {
                         // Kullanıcı isteği: "Ödendi... genel hesaba eklensin fakat alacak-verecek hesabına dahil olmasın."
                         // Burada "sharedTotal" ve "indivTotal" raporun alt özeti.
                         // Settled olsa bile harcama yapılmıştır. Shared total'e eklenebilir.
-                        const amt = convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur);
+                        const amt = convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur, state.selectedReportTrip);
                         if (r.isIndividual) indivTotal += amt; else sharedTotal += amt;
                     });
 
