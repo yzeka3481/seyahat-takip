@@ -553,96 +553,7 @@
                 return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
             }
             // --- BORÇ HESAPLAMA YARDIMCISI ---
-            function calculateDebtsLegacy(tripName) {
-                if (!tripName) return null;
 
-                const tripObj = state.trips.find(t => t.name === tripName);
-                if (!tripObj || !tripObj.persons) return null;
-
-                const persons = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
-                if (persons.length < 2) return null;
-
-                const reportCur = state.reportCurrency || state.baseCurrency || BASE_CURRENCY;
-
-                // Bakiyeler: Herkes 0 ile başlar
-                const balances = {};
-                persons.forEach(p => balances[p] = 0);
-
-                let totalShared = 0;
-
-                // 1) Ortak Harcamalar
-                const tripExps = getTripExpenses(tripName).filter(x => !x.isIndividual);
-                tripExps.forEach(x => {
-                    const amtCtx = convertToBase(Number(x.amt) || 0, x.cur || reportCur, reportCur);
-                    totalShared += amtCtx;
-
-                    // Ödeyen (Payer) varsa o kişi "ödemiş" sayılır (+), yoksa "kendi ödedi" varsayımı yapılmaz.
-                    const payer = x.payer;
-                    if (payer && balances.hasOwnProperty(payer)) {
-                        balances[payer] += amtCtx;
-                    }
-                });
-
-                // 2) Ortak Rezervasyonlar
-                const tripRes = (state.res || []).filter(r => r.trip === tripName && !r.isIndividual && !isNaN(Number(r.cost)));
-                tripRes.forEach(r => {
-                    const amtCtx = convertToBase(Number(r.cost) || 0, r.cur || reportCur, reportCur, reportCur);
-                    totalShared += amtCtx;
-
-                    const payer = r.payer;
-                    if (payer && balances.hasOwnProperty(payer)) {
-                        balances[payer] += amtCtx;
-                    }
-                });
-
-                // Kişi başı düşen pay
-                const sharePerPerson = totalShared / persons.length;
-
-                // Net durumu hesapla: Ödediği - Olması Gereken
-                Object.keys(balances).forEach(p => {
-                    balances[p] -= sharePerPerson;
-                });
-
-                // Eşleştirme (Basit Greedy)
-                const debtors = [];
-                const creditors = [];
-
-                Object.entries(balances).forEach(([p, amount]) => {
-                    if (amount < -0.01) debtors.push({ p, amount });
-                    else if (amount > 0.01) creditors.push({ p, amount });
-                });
-
-                debtors.sort((a, b) => a.amount - b.amount);
-                creditors.sort((a, b) => b.amount - a.amount);
-
-                const transactions = [];
-                let i = 0;
-                let j = 0;
-
-                while (i < debtors.length && j < creditors.length) {
-                    const debtor = debtors[i];
-                    const creditor = creditors[j];
-
-                    const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-
-                    if (amount > 0) {
-                        transactions.push({ from: debtor.p, to: creditor.p, amount: amount });
-                    }
-
-                    debtor.amount += amount;
-                    creditor.amount -= amount;
-
-                    if (Math.abs(debtor.amount) < 0.01) i++;
-                    if (creditor.amount < 0.01) j++;
-                }
-
-                return {
-                    currency: reportCur,
-                    totalShared,
-                    sharePerPerson,
-                    transactions
-                };
-            }
 
             function buildReportHtml(payload) {
                 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1313,21 +1224,19 @@
                     state.chartCurrency = cur;
                 }
 
-                // Grafik için sadece seçilen para birimindeki harcamaları kullan
-                const filtered = allExp.filter(x => (x.cur || BASE_CURRENCY) === cur);
-
+                // Grafik için tüm harcamaları hedef para birimine dönüştür
                 const perCat = {};
-                filtered.forEach(x => {
+                allExp.forEach(x => {
                     const cat = x.cat || 'other';
-                    const amt = Number(x.amt) || 0;
-                    perCat[cat] = (perCat[cat] || 0) + amt;
+                    const amtInCur = convertToBase(Number(x.amt) || 0, x.cur || BASE_CURRENCY, cur, x.trip);
+                    perCat[cat] = (perCat[cat] || 0) + amtInCur;
                 });
 
                 const keys = Object.keys(perCat);
                 const labels = keys.map(id => (CATS[id] && CATS[id].l) || id);
                 const data = keys.map(id => perCat[id]);
                 const colors = keys.map(id => (CATS[id] && CATS[id].c) || 'rgba(148,163,184,0.8)');
-                const trips = [...new Set(filtered.map(x => x.trip || 'Genel'))];
+                const trips = [...new Set(allExp.map(x => x.trip || 'Genel'))];
                 const total = data.reduce((a, b) => a + b, 0);
 
                 return {
@@ -1711,7 +1620,6 @@
                     typeFilter: '',
                     indFilter: '',
                     selExp: null,
-                    selRes: null, // Yeni: Seçili Rezervasyon
                     selRes: null, // Yeni: Seçili Rezervasyon
                     modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, // resForm ve tripForm eklendi
                     form: getEmptyForm(),
@@ -3851,24 +3759,32 @@
             </div>
           </div>
 
-          <!-- Sağ taraf: Seyahat filtresi -->
-          <div class="flex flex-col gap-1 w-full md:w-auto md:min-w-[160px] max-w-[200px]">
-            <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
-              Seyahat Seçimi
-            </label>
-            <div class="relative">
-              <select
-                data-act="flt-trip"
-                class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
-                <option value="">Tüm Seyahatler</option>
-                ${trips.map(t => `
-                  <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
-                `).join('')}
-              </select>
-              <div class="pointer-events-none absolute right-3 top-2.5 text-white/80">
-                ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
-              </div>
+          <!-- Sağ taraf: Seyahat filtresi ve Grafik Butonu -->
+          <div class="flex flex-col gap-2 w-full md:w-auto md:min-w-[160px] max-w-[200px]">
+            <div>
+                <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
+                Seyahat Seçimi
+                </label>
+                <div class="relative">
+                <select
+                    data-act="flt-trip"
+                    class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
+                    <option value="">Tüm Seyahatler</option>
+                    ${trips.map(t => `
+                    <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
+                    `).join('')}
+                </select>
+                <div class="pointer-events-none absolute right-3 top-2.5 text-white/80">
+                    ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                </div>
+                </div>
             </div>
+
+            <!-- Yeni: Grafik Butonu -->
+            <button data-act="open-chart" class="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold py-2 rounded-xl border border-white/20 transition backdrop-blur-md">
+                ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                Harcama Grafiği
+            </button>
           </div>
         </div>
       </div>
@@ -5234,7 +5150,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                </div>` : ''}
 
                 <div class="flex gap-3 pt-2">
-                  <button data-act="${x.isReservation ? 'del-res' : 'del-exp-detail'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                  <button data-act="${x.isReservation ? 'del-res-detail' : 'del-exp-detail'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
                     ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
                   </button>
                   <button data-act="${x.isReservation ? 'edit-res' : 'edit'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
