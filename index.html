@@ -4688,9 +4688,10 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 <p class="text-xs text-slate-300 leading-relaxed">
                   Uçak, otel veya aktivite rezervasyonlarınızı ekleyin.
                   <br/><br/>
+                  • <strong class="text-white">Takvim:</strong> Rezervasyon detayındaki <strong class="text-emerald-400">iPhone / Takvim</strong> butonu ile telefonunuzun takvimine ekleyebilir veya <strong class="text-blue-400">Google Takvim</strong> linkini kullanabilirsiniz.
+                  <br/>
                   • <strong class="text-white">Seyahat:</strong> İlgili seyahati seçmeyi unutmayın<br/>
-                  • <strong class="text-white">Onay Kodu:</strong> Rezervasyon numarasını kaydedin<br/>
-                  • Ortak ödenen rezervasyonlar için <strong class="text-purple-300">"Ortak"</strong> seçip ödeyeni belirtin
+                  • <strong class="text-white">Onay Kodu:</strong> Rezervasyon numarasını kaydedin
                 </p>
               </div>
             </div>
@@ -6858,9 +6859,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 }
                 if (act === 'download-ics') {
                     const rId = id || state.selRes;
-                    const r = state.res.find(res => res.id === rId);
-                    if (r) {
-                        downloadICS(r);
+                    if (rId) {
+                        downloadICS(rId);
                     }
                     return;
                 }
