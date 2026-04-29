@@ -1510,28 +1510,34 @@
 
             // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
             function downloadICS(res) {
-                const formatDate = (dateStr) => dateStr.replace(/-/g, '');
-                const start = formatDate(res.startDate);
-
-                const parts = (res.endDate || res.startDate).split('-');
-                const eDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                eDate.setDate(eDate.getDate() + 1);
-
-                const y = eDate.getFullYear();
-                const m = String(eDate.getMonth() + 1).padStart(2, '0');
-                const d = String(eDate.getDate()).padStart(2, '0');
-                const end = `${y}${m}${d}`;
-
                 const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
                 const title = `${typeName}: ${res.name}`;
                 const details = `Seyahat: ${res.trip || '-'}\nKod/PNR: ${res.code || '-'}\nMaliyet: ${res.cost ? res.cost + ' ' + res.cur : '-'}\n\nNotlar:\n${res.notes || '-'}`;
                 const location = res.location || '';
 
+                // Tarihleri daha güvenli parçala (Timezone kaymalarını önlemek için)
+                const sParts = res.startDate.split('-');
+                const eParts = (res.endDate || res.startDate).split('-');
+                
+                const startObj = new Date(sParts[0], sParts[1] - 1, sParts[2]);
+                const endObj = new Date(eParts[0], eParts[1] - 1, eParts[2]);
+                endObj.setDate(endObj.getDate() + 1); // Takvim standardı: Bitiş günü +1 olmalı
+
+                const fDate = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+                const start = fDate(startObj);
+                const end = fDate(endObj);
+
+                const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                const uid = (res.id || Math.random()) + '@tripledger.com';
+
                 const icsContent = [
                     'BEGIN:VCALENDAR',
                     'VERSION:2.0',
-                    'PROID:-//TripLedger//Reservation//TR',
+                    'CALSCALE:GREGORIAN',
+                    'METHOD:PUBLISH',
                     'BEGIN:VEVENT',
+                    `UID:${uid}`,
+                    `DTSTAMP:${now}`,
                     `DTSTART;VALUE=DATE:${start}`,
                     `DTEND;VALUE=DATE:${end}`,
                     `SUMMARY:${title}`,
@@ -1541,26 +1547,20 @@
                     'END:VCALENDAR'
                 ].join('\r\n');
 
-                // Safari ve mobil tarayıcılar için daha uyumlu olan Data URI yöntemine geçiş
-                const encodedContent = encodeURIComponent(icsContent);
-                const dataUri = 'data:text/calendar;charset=utf-8,' + encodedContent;
+                const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
+                const safeName = res.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'event';
                 
-                const link = document.createElement('a');
-                link.href = dataUri;
-                // Dosya adındaki Türkçe karakterleri ve boşlukları temizle (Safari uyumu için)
-                const safeName = res.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                link.setAttribute('download', `rezervasyon_${safeName}.ics`);
-                
-                document.body.appendChild(link);
-                
-                // iPhone/iOS cihazlarda doğrudan takvim uygulamasını tetiklemeye çalış, diğerlerinde indir
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    window.location.assign(dataUri);
+                    // iPhone'da en kararlı yöntem doğrudan açmaktır
+                    window.location.href = dataUri;
                 } else {
+                    const link = document.createElement('a');
+                    link.href = dataUri;
+                    link.setAttribute('download', `${safeName}.ics`);
+                    document.body.appendChild(link);
                     link.click();
+                    document.body.removeChild(link);
                 }
-                
-                document.body.removeChild(link);
             }
 
             // YENİ FONKSİYON: Boş Seyahat Formu
