@@ -1538,8 +1538,8 @@
                     'BEGIN:VEVENT',
                     `UID:${uid}`,
                     `DTSTAMP:${now}`,
-                    `DTSTART;VALUE=DATE:${start}`,
-                    `DTEND;VALUE=DATE:${end}`,
+                    `DTSTART:${start}T000000Z`,
+                    `DTEND:${end}T000000Z`,
                     `SUMMARY:${title}`,
                     `DESCRIPTION:${details.replace(/\n/g, '\\n')}`,
                     `LOCATION:${location}`,
@@ -2300,13 +2300,7 @@
 
 
               <!-- GOOGLE TAKVİM SEÇENEĞİ -->
-              <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mb-3">
-                <input type="checkbox" id="i-res-calendar" ${f.addToCalendar ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 cursor-pointer">
-                <label for="i-res-calendar" class="flex-1 text-sm text-slate-200 cursor-pointer">
-                  <span class="font-semibold">📅 Takvime Ekle (iPhone / Google)</span>
-                  <span class="block text-xs text-slate-400 mt-0.5">Kaydettikten sonra takvim dosyası indirilecek</span>
-                </label>
-              </div>
+              <!-- Takvime ekle alanı kaldırıldı -->
 
               <button type="button" data-act="save-res" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
             </div>
@@ -6775,14 +6769,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     save();
 
-                    // Takvime ekle seçeneğini al: iPhone/ICS dosyası indir
-                    if (f.addToCalendar) {
-                        try {
-                            downloadICS(rec);
-                        } catch (e) {
-                            console.error('Takvim dosyası indirilirken hata:', e);
-                        }
-                    }
 
 
 
