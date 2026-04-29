@@ -190,73 +190,6 @@
             top: 0.75rem;
             right: 0.75rem;
         }
-
-        /* ASİSTAN PREMİUM BENTO GRID STİLLERİ */
-        .asistan-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-        }
-        .asistan-card {
-            background: rgba(30, 41, 59, 0.4);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 1.75rem;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-        .asistan-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at top right, rgba(255,255,255,0.08), transparent 70%);
-            pointer-events: none;
-        }
-        .asistan-card:hover {
-            background: rgba(30, 41, 59, 0.6);
-            border-color: rgba(255, 255, 255, 0.25);
-            transform: translateY(-6px) scale(1.02);
-            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
-        }
-        .asistan-card:active { transform: scale(0.98); }
-        .asistan-icon {
-            font-size: 2.25rem;
-            margin-bottom: 0.75rem;
-            filter: drop-shadow(0 0 8px rgba(255,255,255,0.2));
-        }
-        .asistan-label {
-            font-size: 0.9rem;
-            font-weight: 800;
-            color: #ffffff;
-            letter-spacing: -0.01em;
-        }
-        .asistan-sub {
-            font-size: 0.7rem;
-            color: #94a3b8;
-            margin-top: 0.35rem;
-            font-weight: 500;
-        }
-        .asistan-badge {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            padding: 0.25rem 0.6rem;
-            border-radius: 2rem;
-            font-size: 0.6rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
     </style>
 
 
@@ -1575,79 +1508,6 @@
                 return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}`;
             }
 
-            // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
-            function downloadICS(resId) {
-                const res = state.res.find(r => String(r.id) == String(resId));
-                if (!res) {
-                    alert("Rezervasyon kaydı bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
-                    return;
-                }
-
-                const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
-                const title = `${typeName}: ${res.name}`;
-                const details = `Seyahat: ${res.trip || '-'}\nKod/PNR: ${res.code || '-'}\nMaliyet: ${res.cost ? res.cost + ' ' + res.cur : '-'}\n\nNotlar:\n${res.notes || '-'}`;
-                const location = res.location || '';
-
-                const formatDate = (dateStr, timeStr = '090000') => {
-                    if (!dateStr) return '';
-                    return dateStr.replace(/-/g, '') + 'T' + timeStr + 'Z';
-                };
-
-                const start = formatDate(res.startDate, '090000');
-                const end = formatDate(res.endDate || res.startDate, '100000');
-
-                const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                const uid = (res.id || Math.random()) + '@tripledger.com';
-                const icsEsc = (str) => (str || '').replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
-
-                const icsContent = [
-                    'BEGIN:VCALENDAR',
-                    'VERSION:2.0',
-                    'PRODID:-//TripLedger//TR',
-                    'BEGIN:VEVENT',
-                    `UID:${uid}`,
-                    `DTSTAMP:${now}`,
-                    `SUMMARY:${icsEsc(title)}`,
-                    `DTSTART:${start}`,
-                    `DTEND:${end}`,
-                    `LOCATION:${icsEsc(location)}`,
-                    `DESCRIPTION:${icsEsc(details)}`,
-                    'END:VEVENT',
-                    'END:VCALENDAR'
-                ].join('\r\n');
-
-                const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-                
-                try {
-                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                    
-                    if (isIOS) {
-                        // iOS Safari için en güvenli yöntem: reader ile data URL'e çevirip yönlendirmek
-                        const reader = new FileReader();
-                        reader.onloadend = function() {
-                            const dataUrl = reader.result;
-                            window.location.href = dataUrl;
-                        };
-                        reader.readAsDataURL(blob);
-                    } else {
-                        // Diğer tarayıcılar için standart indirme
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = (res.name || 'rezervasyon').replace(/\s+/g, '_') + '.ics';
-                        document.body.appendChild(link);
-                        link.click();
-                        setTimeout(() => {
-                            document.body.removeChild(link);
-                            URL.revokeObjectURL(url);
-                        }, 200);
-                    }
-                } catch (e) {
-                    console.error("ICS Download error:", e);
-                    alert("Takvim dosyası indirilirken bir hata oluştu.");
-                }
-            }
-
             // YENİ FONKSİYON: Boş Seyahat Formu
             const getEmptyTripForm = () => ({
                 id: null,
@@ -2177,13 +2037,8 @@
 
             // YENİ FONKSİYON: REZERVASYON LİSTESİNİ RENDER ET
             function renderReservationList() {
-                const activeTripNames = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
                 const allReservations = state.res
-                    .filter(r => {
-                        const isFiltered = state.tripFilter ? r.trip === state.tripFilter : true;
-                        const isActive = !r.trip || r.trip === 'Genel' || activeTripNames.includes(r.trip);
-                        return isFiltered && isActive;
-                    })
+                    .filter(r => state.tripFilter ? r.trip === state.tripFilter : true) // Trip filtresi ekle
                     .sort((a, b) => (a.startDate || '').localeCompare(b.startDate));
 
                 if (!allReservations.length) {
@@ -2279,8 +2134,7 @@
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                       </div>
                    </div>
-                       
-                   </button>
+               
                  </div>
                  <div>
                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Konum (Şehir/Ülke)</label>
@@ -2391,7 +2245,13 @@
 
 
               <!-- GOOGLE TAKVİM SEÇENEĞİ -->
-              <!-- Takvime ekle alanı kaldırıldı -->
+              <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mb-3">
+                <input type="checkbox" id="i-res-calendar" ${f.addToCalendar ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 cursor-pointer">
+                <label for="i-res-calendar" class="flex-1 text-sm text-slate-200 cursor-pointer">
+                  <span class="font-semibold">📅 Google Takvim'e Ekle</span>
+                  <span class="block text-xs text-slate-400 mt-0.5">Kaydettikten sonra Google Takvim açılacak</span>
+                </label>
+              </div>
 
               <button type="button" data-act="save-res" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
             </div>
@@ -2402,7 +2262,7 @@
 
             // YENİ FONKSİYON: REZERVASYON DETAY MODALI
             function renderResDetailModal() {
-                const r = state.res.find(res => String(res.id) == String(state.selRes));
+                const r = state.res.find(res => res.id === state.selRes);
                 if (!r) return '';
 
                 const type = RESERVATION_TYPES.find(t => t.id === r.type) || RESERVATION_TYPES[0];
@@ -2471,66 +2331,16 @@
                  ` : ''}
                </div>
 
-               <!-- ÖDEYEN / PAYER -->
-               ${r.payer && !r.isIndividual ? `
-               <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
-                 <div class="text-xs font-bold text-slate-500 mb-1 uppercase">Ödemeyi Yapan</div>
-                 <p class="text-sm text-amber-200 font-bold leading-relaxed">${esc(r.payer)}</p>
-               </div>
-               ` : ''}
-
                <!-- NOTLAR -->
                <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50 min-h-[50px]">
                  <div class="text-xs font-bold text-slate-500 mb-1 uppercase">Notlar</div>
                  <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(r.notes) || '<span class="italic text-slate-600">Ekstra not yok.</span>'}</p>
                </div>
 
-               <!-- TAKVİM BUTONLARI -->
-               <div class="mb-2">
-                   ${(() => {
-                       const title = `${type.l}: ${r.name}`;
-                       const details = `Seyahat: ${r.trip || '-'}\nKod/PNR: ${r.code || '-'}\nMaliyet: ${r.cost ? r.cost + ' ' + r.cur : '-'}\n\nNotlar:\n${r.notes || '-'}`;
-                       const location = r.location || '';
-                       const formatDate = (dateStr, timeStr = '090000') => {
-                           if (!dateStr) return '';
-                           // Floating time (no Z) for better mobile compatibility
-                           return dateStr.replace(/-/g, '') + 'T' + timeStr;
-                       };
-                       const start = formatDate(r.startDate, '090000');
-                       const end = formatDate(r.endDate || r.startDate, '100000');
-                       const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0];
-                       const uid = (r.id || Math.random()) + '@tripledger.com';
-                       const icsEsc = (str) => (str || '').replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
-
-                       const icsLines = [
-                           'BEGIN:VCALENDAR',
-                           'VERSION:2.0',
-                           'METHOD:PUBLISH',
-                           'BEGIN:VEVENT',
-                           `UID:${r.id || Date.now()}`,
-                           `DTSTAMP:${now}`,
-                           `SUMMARY:${icsEsc(title)}`,
-                           `DTSTART:${start}`,
-                           `DTEND:${end}`,
-                           `LOCATION:${icsEsc(location)}`,
-                           `DESCRIPTION:${icsEsc(details)}`,
-                           'END:VEVENT',
-                           'END:VCALENDAR'
-                       ];
-                       const icsContent = icsLines.join('\r\n');
-                       // En sade hali: URL Encode + No charset in URI
-                       const dataUrl = 'data:text/calendar,' + encodeURIComponent(icsContent);
-                       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-                       return `
-                           <a href="${dataUrl}" 
-                              ${isIOS ? '' : `download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"`}
-                              class="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm py-4 rounded-xl border border-emerald-500/30 transition shadow-lg shadow-emerald-500/10">
-                               <span>📱</span> <span>Takvime Ekle (iPhone / Android)</span>
-                           </a>
-                       `;
-                   })()}
-               </div>
+               <!-- GOOGLE TAKVİM BUTONU -->
+               <a href="${getGoogleCalendarUrl(r)}" target="_blank" class="block w-full text-center bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold text-sm py-3 rounded-lg border border-slate-700/50 transition mb-2 flex items-center justify-center gap-2">
+                   <span>📅</span> <span>Google Takvim'e Ekle (Web)</span>
+               </a>
 
                <div class="flex gap-3 pt-2">
                  <button data-act="del-res-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
@@ -3571,15 +3381,10 @@
                     allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur, r.trip);
                 });
 
-                // Sadece Aktif Seyahatlerin İsimlerini Al
-                const activeTripNames = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
-
-                // YAKLAŞAN REZERVASYONLAR (Sadece Aktif Seyahatlerden)
+                // YAKLAŞAN REZERVASYONLAR
                 const now = new Date();
-                now.setHours(0,0,0,0); // Bugünün başından itibaren kontrol et (bugünküler de görünsün)
-                
                 const nextReservation = state.res
-                    .filter(r => !r.completed && r.startDate && new Date(r.startDate + "T00:00:00") >= now && (!r.trip || r.trip === 'Genel' || activeTripNames.includes(r.trip)))
+                    .filter(r => !r.completed && new Date(r.startDate) >= now)
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
                 const nextChecklistItem = state.chk.items
@@ -3630,9 +3435,8 @@
                     }
                 }
 
-                // Son 3 Harcama (Sadece Aktif Seyahatlerden)
-                const latestExpenses = state.exp
-                    .filter(x => !x.trip || x.trip === 'Genel' || activeTripNames.includes(x.trip))
+                // Son 3 Harcama
+                const latestExpenses = [...state.exp]
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
                     .slice(0, 3);
 
@@ -3643,7 +3447,6 @@
 
                 return `
         <div class="space-y-4 pb-24">
-            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.7-URL-ENCODE</div>
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
@@ -3725,10 +3528,7 @@
 
           
                 <!-- YAKLAŞAN REZERVASYON -->
-		<div data-act="${nextPlan && nextPlan.type === 'res' ? 'res-detail' : (nextPlan && nextPlan.type === 'chk' ? 'tab' : '')}" 
-             data-id="${nextPlan && nextPlan.type === 'res' ? nextPlan.item.id : ''}"
-             data-val="${nextPlan && nextPlan.type === 'chk' ? 'chk' : ''}"
-             class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4 cursor-pointer active:scale-95 transition-transform">
+		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
@@ -4027,7 +3827,7 @@
                     },
                     {
                         id: 'other',
-                        label: 'ASİSTAN',
+                        label: 'DİĞER',
                         icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 6a3 3 0 013-3h2.25a3 3 0 013 3v2.25a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm9.75 0a3 3 0 013-3H18a3 3 0 013 3v2.25a3 3 0 01-3 3h-2.25a3 3 0 01-3-3V6zM3 15.75a3 3 0 013-3h2.25a3 3 0 013 3V18a3 3 0 01-3 3H6a3 3 0 01-3-3v-2.25zm9.75 0a3 3 0 013-3H18a3 3 0 013 3V18a3 3 0 01-3 3h-2.25a3 3 0 01-3-3v-2.25z" clip-rule="evenodd" /></svg>`,
                         color: MENU_ICON_COLORS.other
                     },
@@ -4280,60 +4080,19 @@
     `;
             }
 
-            function renderAsistanTab() {
-                const activeResCount = state.res.filter(r => !r.completed).length;
-                const tripCount = state.trips.filter(t => t.status !== 'completed').length;
+            // YENİ FONKSİYON: DİĞER SEKME İÇERİĞİ
 
-                const card = (act, emoji, label, sub, badge = '', badgeColor = 'bg-blue-500/20 text-blue-400') => `
-                    <div data-act="${act.startsWith('#') ? '' : act}" ${act.startsWith('#') ? `onclick="location.href='${act}'"` : ''} 
-                         class="asistan-card">
-                        ${badge ? `<div class="asistan-badge ${badgeColor}">${badge}</div>` : ''}
-                        <div class="asistan-icon">${emoji}</div>
-                        <div>
-                            <div class="asistan-label">${label}</div>
-                            <div class="asistan-sub">${sub}</div>
-                        </div>
-                    </div>
-                `;
-
-                return `
-                <div class="space-y-6 pb-6">
-                    <div>
-                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Planlama & Evraklar</div>
-                        <div class="asistan-grid">
-                            ${card('open-trip-mgmt', '🧳', 'Seyahatler', `${tripCount} Aktif`, tripCount > 0 ? 'Aktif' : '', 'bg-emerald-500/20 text-emerald-400')}
-                            ${card('#helper-reservations', '📑', 'Belgeler', `${activeResCount} Kayıt`, activeResCount > 0 ? activeResCount : '', 'bg-amber-500/20 text-amber-400')}
-                            ${card('#helper-flights', '✈️', 'Uçuş Takibi', 'Canlı Bilgi')}
-                            ${card('#helper-route', '🗺️', 'Yol Rotası', 'Harita')}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Finans & Veri</div>
-                        <div class="asistan-grid">
-                            ${card('#helper-report', '📊', 'Rapor', 'Detaylı Analiz', 'Hazır', 'bg-blue-500/20 text-blue-400')}
-                            ${card('#helper-data', '💾', 'Yedekleme', 'Veri Aktarımı')}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Araçlar & Destek</div>
-                        <div class="asistan-grid">
-                            ${card('#helper-places', '📍', 'Keşfet', 'Yakın Yerler')}
-                            ${card('#helper-critical', '📝', 'Notlar', 'Kritik Bilgi')}
-                            ${card('#helper-transport', '🚌', 'Ulaşım', 'Araç / Metro')}
-                            ${card('#helper-health', '⚕️', 'Güvenlik', 'Acil Durum')}
-                            ${card('#helper-help', '❓', 'Yardım', 'Kılavuz')}
-                        </div>
-                    </div>
-                </div>
-                ` + renderAsistanPopups();
-            }
-
-            function renderAsistanPopups() {
+            function renderOtherTab() {
                 const loc = state.location || {};
-                const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
-                const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
-                const googleMapsBase = hasLoc ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${locLng}` : 'https://www.google.com/maps';
-                
+                // Eski sürümde lon tutulmuş olabilir
+const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
+
+
+                const googleMapsBase = hasLoc
+                    ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
+                    : 'https://www.google.com/maps';
+
                 const nearbyTouristUrl = hasLoc ? `${googleMapsBase}+tourist+attractions` : googleMapsBase;
                 const nearbyCafeUrl = hasLoc ? `${googleMapsBase}+cafes+restaurants` : googleMapsBase;
                 const nearbyHotelUrl = hasLoc ? `${googleMapsBase}+hotels` : googleMapsBase;
@@ -4344,12 +4103,15 @@
                 const allTrips = getDistinctTripsAll().sort();
                 const tripsWithSpending = allTrips;
                 const allTripsForNotes = allTrips;
+
                 let selectedTripForNotes = state.selectedNoteTrip || allTripsForNotes[0] || 'Genel';
                 if (!allTripsForNotes.includes(selectedTripForNotes) && allTripsForNotes.length > 0) {
                     selectedTripForNotes = allTripsForNotes[0];
                 }
+                state.selectedNoteTrip = selectedTripForNotes;
+
                 const notesForTrip = state.criticalNotes.filter(n => n.trip === selectedTripForNotes);
-                
+
                 const dataExport = JSON.stringify({
                     schemaVersion: 1,
                     exportedAt: new Date().toISOString(),
@@ -4361,8 +4123,40 @@
                     baseCur: state.baseCurrency || BASE_CURRENCY || 'TRY',
                     targetTimezone: state.targetTimezone || ''
                 }, null, 2);
+const helperCard = (href, emoji, label) => {
+                    return `
+    <a
+      href="${href}"
+      class="group relative flex flex-col items-center justify-center rounded-3xl border border-slate-700/70 bg-slate-900/70 px-3 py-4 shadow-lg hover:bg-slate-800/80 hover:border-slate-500 transition">
+      <div class="mb-2 text-2xl">
+        ${emoji}
+      </div>
+      <div class="text-[11px] font-semibold text-slate-100 text-center leading-tight">
+        ${label}
+      </div>
+    </a>
+  `;
+                };
 
                 return `
+   <div class="grid grid-cols-3 gap-3">
+   <!-- YENİ: SEYAHAT YÖNETİMİ BUTONU -->
+   <button data-act="open-trip-mgmt" class="group relative flex flex-col items-center justify-center rounded-3xl border border-emerald-700/70 bg-emerald-900/40 px-3 py-4 shadow-lg hover:bg-emerald-800/60 hover:border-emerald-500 transition">
+       <div class="mb-2 text-2xl">🧳</div>
+       <div class="text-[11px] font-semibold text-emerald-100 text-center leading-tight">Seyahat Yönetimi</div>
+   </button>
+
+  ${helperCard('#helper-reservations', '📑', 'Rezervasyonlar')}
+  ${helperCard('#helper-flights', '✈️', 'Uçuşlar')}
+  ${helperCard('#helper-report', '📊', 'Rapor')}
+  ${helperCard('#helper-route', '🗺️', 'Rota')}
+  ${helperCard('#helper-critical', '📝', 'Notlar')}
+  ${helperCard('#helper-places', '📍', 'Yakın Yerler')}
+  ${helperCard('#helper-health', '⚕️', 'Sağlık & Güvenlik')}
+  ${helperCard('#helper-transport', '🚌', 'Ulaşım')}
+  ${helperCard('#helper-data', '💾', 'Veri / Yedek')}
+  ${helperCard('#helper-help', '❓', 'Yardım')}
+</div>
 
       <!-- REZERVASYONLAR POPUP -->
       <div id="helper-reservations" class="helper-modal ${state.helpersAccordion.reservations ? 'active' : ''}">
@@ -4705,7 +4499,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
     </div>
-      <!-- ASİSTAN / KULLANIM KILAVUZU POPUP -->
+      <!-- YARDIM / KULLANIM KILAVUZU POPUP -->
       <div id="helper-help" class="helper-modal ${state.helpersAccordion.help ? 'active' : ''}">
         <div class="helper-modal-inner relative" style="max-width: 32rem; max-height: 85vh;">
           <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
@@ -4732,7 +4526,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   <span class="text-cyan-300">Özet</span> (genel bakış), 
                   <span class="text-emerald-300">Harcamalar</span> (kayıtlar), 
                   <span class="text-amber-300">Kontrol Listesi</span> (yapılacaklar), 
-                  <span class="text-purple-300">Asistan</span> (yardımcı araçlar)
+                  <span class="text-purple-300">Diğer</span> (yardımcı araçlar)
                 </p>
               </div>
             </div>
@@ -4800,7 +4594,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 </div>
 
                 <p class="text-xs text-slate-300 leading-relaxed">
-                  <strong class="text-white">Asistan → Rapor</strong> menüsünden bir seyahat seçtiğinizde:
+                  <strong class="text-white">Diğer → Rapor</strong> menüsünden bir seyahat seçtiğinizde:
                   <br/><br/>
                   • Toplam harcama özeti görüntülenir<br/>
                   • <strong class="text-emerald-300">Kimin kime ne kadar ödemesi gerektiği</strong> otomatik hesaplanır<br/>
@@ -4820,10 +4614,9 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 <p class="text-xs text-slate-300 leading-relaxed">
                   Uçak, otel veya aktivite rezervasyonlarınızı ekleyin.
                   <br/><br/>
-                  • <strong class="text-white">Takvim:</strong> Rezervasyon detayındaki <strong class="text-emerald-400">Takvime Ekle</strong> butonu ile telefonunuzun yerel takvimine anında kayıt oluşturabilirsiniz.
-                  <br/>
                   • <strong class="text-white">Seyahat:</strong> İlgili seyahati seçmeyi unutmayın<br/>
-                  • <strong class="text-white">Onay Kodu:</strong> Rezervasyon numarasını kaydedin
+                  • <strong class="text-white">Onay Kodu:</strong> Rezervasyon numarasını kaydedin<br/>
+                  • Ortak ödenen rezervasyonlar için <strong class="text-purple-300">"Ortak"</strong> seçip ödeyeni belirtin
                 </p>
               </div>
             </div>
@@ -4898,11 +4691,34 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
               </div>
             </div>
 
+            <!-- 9. GOOGLE TAKVİM -->
+            <div class="bg-gradient-to-br from-indigo-900/40 to-slate-800/40 rounded-xl border border-indigo-500/30 overflow-hidden">
+              <div class="p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-lg">📅</span>
+                  <h4 class="font-bold text-white text-sm">9. Google Takvim Entegrasyonu</h4>
+                </div>
+                <div class="bg-slate-800/50 rounded-lg p-3 mb-3 border border-slate-700">
+                     <p class="text-xs text-white leading-relaxed mb-2">
+                        Rezervasyonlarınızı telefon takviminize ve Google Takvim'e kolayca işleyebilirsiniz.
+                     </p>
+                    <ul class="text-[10px] text-slate-300 space-y-2 list-disc pl-4">
+                        <li><strong>Otomatik Ekleme:</strong> Rezervasyon formunu doldururken en alttaki <span class="text-white">"Google Takvim'e Ekle"</span> kutucuğunu işaretleyin. Kaydettiğiniz an takvim açılır.</li>
+                        <li><strong>Sonradan Ekleme:</strong> Herhangi bir rezervasyonun detayına girip <span class="text-white">"Google Takvim'e Ekle"</span> butonunu kullanabilirsiniz.</li>
+                    </ul>
+                </div>
+                <p class="text-xs text-slate-400 italic">
+                  Not: Bu özellik tarayıcı üzerinden çalışır ve herhangi bir uygulama izni gerektirmez.
+                </p>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
-    `;
-}
+
+  `;
+            }
 
 
             function renderForm() {
@@ -5554,14 +5370,9 @@ function renderApp() {
                         }));
 
                     const combined = state.exp.concat(resAsExp);
-                    const activeTripNames = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
 
                     const exp = combined.filter(x => {
                         if (state.tab === 'exp') {
-                            // SEYAHAT KAPALI MI? (Harcama listesinde gizle)
-                            const isActive = !x.trip || x.trip === 'Genel' || activeTripNames.includes(x.trip);
-                            if (!isActive) return false;
-
                             if (state.tripFilter && x.trip !== state.tripFilter) return false;
                             if (state.catFilter && x.cat !== state.catFilter) return false;
                             if (state.typeFilter && x.type !== state.typeFilter) return false;
@@ -5595,7 +5406,7 @@ function renderApp() {
                         } else if (state.tab === 'chk') {
                             h += renderChecklist();
                         } else if (state.tab === 'other') {
-                            h += renderAsistanTab();
+                            h += renderOtherTab();
                         }
 
                         // Yalnızca Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
@@ -6904,6 +6715,15 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     save();
 
+                    // Eğer seçenek işaretliyse Google Takvim'i aç (Pop-up blocker'a takılmaması için kullanıcı etkileşimi zincirinde olmalı)
+                    if (f.addToCalendar) {
+                        try {
+                            const calendarUrl = getGoogleCalendarUrl(rec);
+                            window.open(calendarUrl, '_blank');
+                        } catch (e) {
+                            console.error('Takvim açılırken hata:', e);
+                        }
+                    }
 
 
 
@@ -6964,13 +6784,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                             }, 300);
                         }
                     } catch (err) { console.error(err); }
-                    return;
-                }
-                if (act === 'download-ics') {
-                    const rId = id || state.selRes;
-                    if (rId) {
-                        downloadICS(rId);
-                    }
                     return;
                 }
                 if (act === 'edit-res') {
