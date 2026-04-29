@@ -2037,10 +2037,8 @@
 
             // YENİ FONKSİYON: REZERVASYON LİSTESİNİ RENDER ET
             function renderReservationList() {
-                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
                 const allReservations = state.res
                     .filter(r => state.tripFilter ? r.trip === state.tripFilter : true) // Trip filtresi ekle
-                    .filter(r => !completedTripNames.includes(r.trip))
                     .sort((a, b) => (a.startDate || '').localeCompare(b.startDate));
 
                 if (!allReservations.length) {
@@ -3357,7 +3355,6 @@
                 let todayTotal = 0;
                 let allTimeTotal = 0;
                 const indFilter = state.indFilter || '';
-                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
 
                 // Harcama kayıtları (bireysel/ortak filtresine göre)
                 const filteredExpForSum = state.exp.filter(x => {
@@ -3387,7 +3384,7 @@
                 // YAKLAŞAN REZERVASYONLAR
                 const now = new Date();
                 const nextReservation = state.res
-                    .filter(r => !r.completed && !completedTripNames.includes(r.trip) && new Date(r.startDate) >= now)
+                    .filter(r => !r.completed && new Date(r.startDate) >= now)
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
                 const nextChecklistItem = state.chk.items
@@ -3439,8 +3436,7 @@
                 }
 
                 // Son 3 Harcama
-                const latestExpenses = state.exp
-                    .filter(x => !completedTripNames.includes(x.trip))
+                const latestExpenses = [...state.exp]
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
                     .slice(0, 3);
 
