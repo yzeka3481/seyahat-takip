@@ -2525,7 +2525,7 @@
 
                        return `
                            <a href="${dataUrl}" 
-                              download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"
+                              ${isIOS ? 'target="_blank"' : `download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"`}
                               class="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm py-4 rounded-xl border border-emerald-500/30 transition shadow-lg shadow-emerald-500/10">
                                <span>📱</span> <span>Takvime Ekle (iPhone / Android)</span>
                            </a>
@@ -3644,7 +3644,7 @@
 
                 return `
         <div class="space-y-4 pb-24">
-            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.5-SAFARI-FINAL</div>
+            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.6-SAFARI-TARGET-BLANK</div>
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
