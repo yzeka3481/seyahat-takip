@@ -190,6 +190,74 @@
             top: 0.75rem;
             right: 0.75rem;
         }
+
+        /* ASİSTAN PREMİUM BENTO GRID STİLLERİ */
+        .asistan-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-auto-rows: minmax(80px, auto);
+            gap: 0.75rem;
+        }
+        .asistan-card {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.5rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .asistan-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .asistan-card:hover {
+            background: rgba(30, 41, 59, 0.6);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        .asistan-card:hover::before { opacity: 1; }
+        .asistan-card-span-3 { grid-column: span 3; }
+        .asistan-card-span-2 { grid-column: span 2; }
+        .asistan-card-span-4 { grid-column: span 4; }
+        
+        .asistan-icon {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .asistan-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1.1;
+        }
+        .asistan-sub {
+            font-size: 0.65rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+        .asistan-badge {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 2rem;
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
 
 
@@ -4158,17 +4226,66 @@
 
             // YENİ FONKSİYON: ASİSTAN SEKME İÇERİĞİ
 
-            function renderOtherTab() {
+            function renderAsistanTab() {
+                const activeResCount = state.res.filter(r => !r.completed).length;
+                const tripCount = state.trips.filter(t => t.status !== 'completed').length;
+                const checklistProgress = state.chk.items.length ? Math.round((state.chk.items.filter(i => i.done).length / state.chk.items.length) * 100) : 0;
+
+                const card = (act, emoji, label, sub, size = 'span-2', badge = '', badgeColor = 'bg-blue-500/20 text-blue-400') => `
+                    <div data-act="${act.startsWith('#') ? '' : act}" ${act.startsWith('#') ? `onclick="location.href='${act}'"` : ''} 
+                         class="asistan-card asistan-card-${size}">
+                        ${badge ? `<div class="asistan-badge ${badgeColor}">${badge}</div>` : ''}
+                        <div class="asistan-icon">${emoji}</div>
+                        <div>
+                            <div class="asistan-label">${label}</div>
+                            <div class="asistan-sub">${sub}</div>
+                        </div>
+                    </div>
+                `;
+
+                return `
+                <div class="space-y-6 pb-6">
+                    <!-- 1. GRUP: SEYAHAT PLANI & EVRAKLAR -->
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Planlama & Evraklar</div>
+                        <div class="asistan-grid">
+                            ${card('open-trip-mgmt', '🧳', 'Seyahat Yönetimi', `${tripCount} Aktif Seyahat`, 'span-3', tripCount > 0 ? 'Aktif' : '', 'bg-emerald-500/20 text-emerald-400')}
+                            ${card('#helper-reservations', '📑', 'Rezervasyonlar', `${activeResCount} Belge`, 'span-3', activeResCount > 0 ? activeResCount : '', 'bg-amber-500/20 text-amber-400')}
+                            ${card('#helper-flights', '✈️', 'Uçuş Takibi', 'Canlı Bilgi', 'span-2', 'Yeni', 'bg-purple-500/20 text-purple-400')}
+                            ${card('#helper-route', '🗺️', 'Rota & Harita', 'Gidilecek Yerler', 'span-4')}
+                        </div>
+                    </div>
+
+                    <!-- 2. GRUP: FİNANS & ANALİZ -->
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Finans & Analiz</div>
+                        <div class="asistan-grid">
+                            ${card('#helper-report', '📊', 'Harcama Raporu', 'PDF & Detaylı Analiz', 'span-4', 'Hazır', 'bg-blue-500/20 text-blue-400')}
+                            ${card('#helper-data', '💾', 'Veri & Yedek', 'Bulut Senkron', 'span-2')}
+                        </div>
+                    </div>
+
+                    <!-- 3. GRUP: ARAÇLAR & DESTEK -->
+                    <div>
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Araçlar & Destek</div>
+                        <div class="asistan-grid">
+                            ${card('#helper-places', '📍', 'Yakın Yerler', 'Keşfet', 'span-2')}
+                            ${card('#helper-critical', '📝', 'Notlar', 'Kritik Bilgiler', 'span-2')}
+                            ${card('#helper-transport', '🚌', 'Ulaşım', 'Araç & Metro', 'span-2')}
+                            ${card('#helper-health', '⚕️', 'Güvenlik', 'Acil Durum', 'span-2')}
+                            ${card('#helper-help', '❓', 'Yardım', 'Nasıl Kullanılır?', 'span-4')}
+                        </div>
+                    </div>
+                </div>
+                ` + renderAsistanPopups();
+            }
+
+            function renderAsistanPopups() {
                 const loc = state.location || {};
-                // Eski sürümde lon tutulmuş olabilir
-const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
-const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
-
-
-                const googleMapsBase = hasLoc
-                    ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
-                    : 'https://www.google.com/maps';
-
+                const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+                const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
+                const googleMapsBase = hasLoc ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${locLng}` : 'https://www.google.com/maps';
+                
                 const nearbyTouristUrl = hasLoc ? `${googleMapsBase}+tourist+attractions` : googleMapsBase;
                 const nearbyCafeUrl = hasLoc ? `${googleMapsBase}+cafes+restaurants` : googleMapsBase;
                 const nearbyHotelUrl = hasLoc ? `${googleMapsBase}+hotels` : googleMapsBase;
@@ -4179,15 +4296,12 @@ const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
                 const allTrips = getDistinctTripsAll().sort();
                 const tripsWithSpending = allTrips;
                 const allTripsForNotes = allTrips;
-
                 let selectedTripForNotes = state.selectedNoteTrip || allTripsForNotes[0] || 'Genel';
                 if (!allTripsForNotes.includes(selectedTripForNotes) && allTripsForNotes.length > 0) {
                     selectedTripForNotes = allTripsForNotes[0];
                 }
-                state.selectedNoteTrip = selectedTripForNotes;
-
                 const notesForTrip = state.criticalNotes.filter(n => n.trip === selectedTripForNotes);
-
+                
                 const dataExport = JSON.stringify({
                     schemaVersion: 1,
                     exportedAt: new Date().toISOString(),
@@ -4199,40 +4313,8 @@ const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
                     baseCur: state.baseCurrency || BASE_CURRENCY || 'TRY',
                     targetTimezone: state.targetTimezone || ''
                 }, null, 2);
-const helperCard = (href, emoji, label) => {
-                    return `
-    <a
-      href="${href}"
-      class="group relative flex flex-col items-center justify-center rounded-3xl border border-slate-700/70 bg-slate-900/70 px-3 py-4 shadow-lg hover:bg-slate-800/80 hover:border-slate-500 transition">
-      <div class="mb-2 text-2xl">
-        ${emoji}
-      </div>
-      <div class="text-[11px] font-semibold text-slate-100 text-center leading-tight">
-        ${label}
-      </div>
-    </a>
-  `;
-                };
 
                 return `
-   <div class="grid grid-cols-3 gap-3">
-   <!-- YENİ: SEYAHAT YÖNETİMİ BUTONU -->
-   <button data-act="open-trip-mgmt" class="group relative flex flex-col items-center justify-center rounded-3xl border border-emerald-700/70 bg-emerald-900/40 px-3 py-4 shadow-lg hover:bg-emerald-800/60 hover:border-emerald-500 transition">
-       <div class="mb-2 text-2xl">🧳</div>
-       <div class="text-[11px] font-semibold text-emerald-100 text-center leading-tight">Seyahat Yönetimi</div>
-   </button>
-
-  ${helperCard('#helper-reservations', '📑', 'Rezervasyonlar')}
-  ${helperCard('#helper-flights', '✈️', 'Uçuşlar')}
-  ${helperCard('#helper-report', '📊', 'Rapor')}
-  ${helperCard('#helper-route', '🗺️', 'Rota')}
-  ${helperCard('#helper-critical', '📝', 'Notlar')}
-  ${helperCard('#helper-places', '📍', 'Yakın Yerler')}
-  ${helperCard('#helper-health', '⚕️', 'Sağlık & Güvenlik')}
-  ${helperCard('#helper-transport', '🚌', 'Ulaşım')}
-  ${helperCard('#helper-data', '💾', 'Veri / Yedek')}
-  ${helperCard('#helper-help', '❓', 'Yardım')}
-</div>
 
       <!-- REZERVASYONLAR POPUP -->
       <div id="helper-reservations" class="helper-modal ${state.helpersAccordion.reservations ? 'active' : ''}">
@@ -4771,9 +4853,8 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
           </div>
         </div>
       </div>
-
-  `;
-            }
+    `;
+}
 
 
             function renderForm() {
@@ -5466,7 +5547,7 @@ function renderApp() {
                         } else if (state.tab === 'chk') {
                             h += renderChecklist();
                         } else if (state.tab === 'other') {
-                            h += renderOtherTab();
+                            h += renderAsistanTab();
                         }
 
                         // Yalnızca Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
