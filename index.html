@@ -2519,8 +2519,8 @@
                        ];
                        const icsContent = icsLines.join('\r\n');
                        const base64 = btoa(unescape(encodeURIComponent(icsContent)));
-                       // Octet-stream forces download behavior which sometimes avoids Safari's "cannot open" logic
-                       const dataUrl = 'data:application/octet-stream;base64,' + base64;
+                       // Back to text/calendar but keeping the fixed date format
+                       const dataUrl = 'data:text/calendar;base64,' + base64;
                        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
                        return `
@@ -3644,7 +3644,7 @@
 
                 return `
         <div class="space-y-4 pb-24">
-            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.4-SAFARI-FIX-V4</div>
+            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.5-SAFARI-FINAL</div>
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
