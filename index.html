@@ -2487,9 +2487,48 @@
 
                <!-- TAKVİM BUTONLARI -->
                <div class="mb-2">
-                   <button data-act="download-ics" data-id="${r.id}" class="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm py-4 rounded-xl border border-emerald-500/30 transition shadow-lg shadow-emerald-500/10">
-                       <span>📱</span> <span>Takvime Ekle (iPhone / Android)</span>
-                   </button>
+                   ${(() => {
+                       const title = `${type.l}: ${r.name}`;
+                       const details = `Seyahat: ${r.trip || '-'}\nKod/PNR: ${r.code || '-'}\nMaliyet: ${r.cost ? r.cost + ' ' + r.cur : '-'}\n\nNotlar:\n${r.notes || '-'}`;
+                       const location = r.location || '';
+                       const formatDate = (dateStr, timeStr = '090000') => {
+                           if (!dateStr) return '';
+                           return dateStr.replace(/-/g, '') + 'T' + timeStr + 'Z';
+                       };
+                       const start = formatDate(r.startDate, '090000');
+                       const end = formatDate(r.endDate || r.startDate, '100000');
+                       const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                       const uid = (r.id || Math.random()) + '@tripledger.com';
+                       const icsEsc = (str) => (str || '').replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
+
+                       const icsLines = [
+                           'BEGIN:VCALENDAR',
+                           'VERSION:2.0',
+                           'PRODID:-//TripLedger//TR',
+                           'BEGIN:VEVENT',
+                           `UID:${uid}`,
+                           `DTSTAMP:${now}`,
+                           `SUMMARY:${icsEsc(title)}`,
+                           `DTSTART:${start}`,
+                           `DTEND:${end}`,
+                           `LOCATION:${icsEsc(location)}`,
+                           `DESCRIPTION:${icsEsc(details)}`,
+                           'END:VEVENT',
+                           'END:VCALENDAR'
+                       ];
+                       const icsContent = icsLines.join('\r\n');
+                       const base64 = btoa(unescape(encodeURIComponent(icsContent)));
+                       const dataUrl = 'data:text/calendar;charset=utf-8;base64,' + base64;
+                       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+                       return `
+                           <a href="${dataUrl}" 
+                              ${isIOS ? '' : `download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"`}
+                              class="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm py-4 rounded-xl border border-emerald-500/30 transition shadow-lg shadow-emerald-500/10">
+                               <span>📱</span> <span>Takvime Ekle (iPhone / Android)</span>
+                           </a>
+                       `;
+                   })()}
                </div>
 
                <div class="flex gap-3 pt-2">
