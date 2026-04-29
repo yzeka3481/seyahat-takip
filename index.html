@@ -1508,6 +1508,50 @@
                 return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}`;
             }
 
+            // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
+            function downloadICS(res) {
+                const formatDate = (dateStr) => dateStr.replace(/-/g, '');
+                const start = formatDate(res.startDate);
+
+                const parts = (res.endDate || res.startDate).split('-');
+                const eDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                eDate.setDate(eDate.getDate() + 1);
+
+                const y = eDate.getFullYear();
+                const m = String(eDate.getMonth() + 1).padStart(2, '0');
+                const d = String(eDate.getDate()).padStart(2, '0');
+                const end = `${y}${m}${d}`;
+
+                const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
+                const title = `${typeName}: ${res.name}`;
+                const details = `Seyahat: ${res.trip || '-'}\nKod/PNR: ${res.code || '-'}\nMaliyet: ${res.cost ? res.cost + ' ' + res.cur : '-'}\n\nNotlar:\n${res.notes || '-'}`;
+                const location = res.location || '';
+
+                const icsContent = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PROID:-//TripLedger//Reservation//TR',
+                    'BEGIN:VEVENT',
+                    `DTSTART;VALUE=DATE:${start}`,
+                    `DTEND;VALUE=DATE:${end}`,
+                    `SUMMARY:${title}`,
+                    `DESCRIPTION:${details.replace(/\n/g, '\\n')}`,
+                    `LOCATION:${location}`,
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                ].join('\r\n');
+
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `rezervasyon_${res.name.replace(/\s+/g, '_')}.ics`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+
             // YENİ FONKSİYON: Boş Seyahat Formu
             const getEmptyTripForm = () => ({
                 id: null,
@@ -2248,8 +2292,8 @@
               <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mb-3">
                 <input type="checkbox" id="i-res-calendar" ${f.addToCalendar ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 cursor-pointer">
                 <label for="i-res-calendar" class="flex-1 text-sm text-slate-200 cursor-pointer">
-                  <span class="font-semibold">📅 Google Takvim'e Ekle</span>
-                  <span class="block text-xs text-slate-400 mt-0.5">Kaydettikten sonra Google Takvim açılacak</span>
+                  <span class="font-semibold">📅 Takvime Ekle (iPhone / Google)</span>
+                  <span class="block text-xs text-slate-400 mt-0.5">Kaydettikten sonra takvim dosyası indirilecek</span>
                 </label>
               </div>
 
@@ -2337,10 +2381,15 @@
                  <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(r.notes) || '<span class="italic text-slate-600">Ekstra not yok.</span>'}</p>
                </div>
 
-               <!-- GOOGLE TAKVİM BUTONU -->
-               <a href="${getGoogleCalendarUrl(r)}" target="_blank" class="block w-full text-center bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold text-sm py-3 rounded-lg border border-slate-700/50 transition mb-2 flex items-center justify-center gap-2">
-                   <span>📅</span> <span>Google Takvim'e Ekle (Web)</span>
-               </a>
+               <!-- TAKVİM BUTONLARI -->
+               <div class="grid grid-cols-2 gap-2 mb-2">
+                   <a href="${getGoogleCalendarUrl(r)}" target="_blank" class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold text-[11px] py-3 rounded-lg border border-slate-700/50 transition">
+                       <span>🌐</span> <span>Google Takvim</span>
+                   </a>
+                   <button data-act="download-ics" data-id="${r.id}" class="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-[11px] py-3 rounded-lg border border-slate-700/50 transition">
+                       <span>📱</span> <span>iPhone / Takvim</span>
+                   </button>
+               </div>
 
                <div class="flex gap-3 pt-2">
                  <button data-act="del-res-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
@@ -6715,13 +6764,12 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     save();
 
-                    // Eğer seçenek işaretliyse Google Takvim'i aç (Pop-up blocker'a takılmaması için kullanıcı etkileşimi zincirinde olmalı)
+                    // Takvime ekle seçeneğini al: iPhone/ICS dosyası indir
                     if (f.addToCalendar) {
                         try {
-                            const calendarUrl = getGoogleCalendarUrl(rec);
-                            window.open(calendarUrl, '_blank');
+                            downloadICS(rec);
                         } catch (e) {
-                            console.error('Takvim açılırken hata:', e);
+                            console.error('Takvim dosyası indirilirken hata:', e);
                         }
                     }
 
@@ -6784,6 +6832,14 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                             }, 300);
                         }
                     } catch (err) { console.error(err); }
+                    return;
+                }
+                if (act === 'download-ics') {
+                    const rId = id || state.selRes;
+                    const r = state.res.find(res => res.id === rId);
+                    if (r) {
+                        downloadICS(r);
+                    }
                     return;
                 }
                 if (act === 'edit-res') {
