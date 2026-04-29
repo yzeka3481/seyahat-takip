@@ -1509,40 +1509,38 @@
             }
 
             // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
-            function downloadICS(res) {
+            function downloadICS(resId) {
+                const res = state.res.find(r => r.id === resId);
+                if (!res) return;
+
                 const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
                 const title = `${typeName}: ${res.name}`;
                 const details = `Seyahat: ${res.trip || '-'}\nKod/PNR: ${res.code || '-'}\nMaliyet: ${res.cost ? res.cost + ' ' + res.cur : '-'}\n\nNotlar:\n${res.notes || '-'}`;
                 const location = res.location || '';
 
-                // Tarihleri daha güvenli parçala (Timezone kaymalarını önlemek için)
-                const sParts = res.startDate.split('-');
-                const eParts = (res.endDate || res.startDate).split('-');
-                
-                const startObj = new Date(sParts[0], sParts[1] - 1, sParts[2]);
-                const endObj = new Date(eParts[0], eParts[1] - 1, eParts[2]);
-                endObj.setDate(endObj.getDate() + 1); // Takvim standardı: Bitiş günü +1 olmalı
+                const formatDate = (dateStr, timeStr = '090000') => {
+                    if (!dateStr) return '';
+                    return dateStr.replace(/-/g, '') + 'T' + timeStr + 'Z';
+                };
 
-                const fDate = (d) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-                const start = fDate(startObj);
-                const end = fDate(endObj);
+                const start = formatDate(res.startDate, '090000');
+                // Bitiş tarihi yoksa başlangıçla aynı gün yap
+                const end = formatDate(res.endDate || res.startDate, '100000');
 
                 const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
                 const uid = (res.id || Math.random()) + '@tripledger.com';
-
-                // ICS Karakter Kaçış Fonksiyonu (Virgül, noktalı virgül ve ters slash'ları Apple için temizler)
                 const icsEsc = (str) => (str || '').replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
 
                 const icsContent = [
                     'BEGIN:VCALENDAR',
                     'VERSION:2.0',
-                    'PROID:-//TripLedger//TR',
+                    'PRODID:-//TripLedger//TR',
                     'BEGIN:VEVENT',
                     `UID:${uid}`,
                     `DTSTAMP:${now}`,
                     `SUMMARY:${icsEsc(title)}`,
-                    `DTSTART;VALUE=DATE:${start}`,
-                    `DTEND;VALUE=DATE:${end}`,
+                    `DTSTART:${start}`,
+                    `DTEND:${end}`,
                     `LOCATION:${icsEsc(location)}`,
                     `DESCRIPTION:${icsEsc(details)}`,
                     'END:VEVENT',
@@ -1551,15 +1549,13 @@
 
                 const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
-                const safeName = res.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'event';
                 
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    // iPhone'da doğrudan açmaya zorla (en kararlı yöntem)
                     window.location.assign(url);
                 } else {
                     const link = document.createElement('a');
                     link.href = url;
-                    link.setAttribute('download', `${safeName}.ics`);
+                    link.setAttribute('download', 'rezervasyon.ics');
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
@@ -3458,8 +3454,10 @@
 
                 // YAKLAŞAN REZERVASYONLAR (Sadece Aktif Seyahatlerden)
                 const now = new Date();
+                now.setHours(0,0,0,0); // Bugünün başından itibaren kontrol et (bugünküler de görünsün)
+                
                 const nextReservation = state.res
-                    .filter(r => !r.completed && new Date(r.startDate) >= now && (!r.trip || r.trip === 'Genel' || activeTripNames.includes(r.trip)))
+                    .filter(r => !r.completed && r.startDate && new Date(r.startDate + "T00:00:00") >= now && (!r.trip || r.trip === 'Genel' || activeTripNames.includes(r.trip)))
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
                 const nextChecklistItem = state.chk.items
