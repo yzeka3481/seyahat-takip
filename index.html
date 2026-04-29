@@ -1538,8 +1538,8 @@
                     'BEGIN:VEVENT',
                     `UID:${uid}`,
                     `DTSTAMP:${now}`,
-                    `DTSTART:${start}T000000Z`,
-                    `DTEND:${end}T000000Z`,
+                    `DTSTART;VALUE=DATE:${start}`,
+                    `DTEND;VALUE=DATE:${end}`,
                     `SUMMARY:${title}`,
                     `DESCRIPTION:${details.replace(/\n/g, '\\n')}`,
                     `LOCATION:${location}`,
@@ -1547,20 +1547,22 @@
                     'END:VCALENDAR'
                 ].join('\r\n');
 
-                const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
                 const safeName = res.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'event';
                 
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    // iPhone'da en kararlı yöntem doğrudan açmaktır
-                    window.location.href = dataUri;
+                    // iPhone'da dosyayı indirmek yerine doğrudan takvim uygulamasını tetikle (en kararlı yol)
+                    window.location.href = url;
                 } else {
                     const link = document.createElement('a');
-                    link.href = dataUri;
+                    link.href = url;
                     link.setAttribute('download', `${safeName}.ics`);
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                 }
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
             }
 
             // YENİ FONKSİYON: Boş Seyahat Formu
@@ -2379,6 +2381,14 @@
                     <a href="${r.code.startsWith('http') ? r.code : `http://${r.code}`}" target="_blank" class="text-xs text-blue-300 hover:text-blue-200 mt-1 block">Linki Aç</a>
                  ` : ''}
                </div>
+
+               <!-- ÖDEYEN / PAYER -->
+               ${r.payer && !r.isIndividual ? `
+               <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                 <div class="text-xs font-bold text-slate-500 mb-1 uppercase">Ödemeyi Yapan</div>
+                 <p class="text-sm text-amber-200 font-bold leading-relaxed">${esc(r.payer)}</p>
+               </div>
+               ` : ''}
 
                <!-- NOTLAR -->
                <div class="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50 min-h-[50px]">
