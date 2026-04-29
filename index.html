@@ -1575,7 +1575,7 @@
 
             // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
             function downloadICS(resId) {
-                const res = state.res.find(r => r.id === resId);
+                const res = state.res.find(r => String(r.id) == String(resId));
                 if (!res) return;
 
                 const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
@@ -3679,7 +3679,10 @@
 
           
                 <!-- YAKLAŞAN REZERVASYON -->
-		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
+		<div data-act="${nextPlan && nextPlan.type === 'res' ? 'res-detail' : (nextPlan && nextPlan.type === 'chk' ? 'tab' : '')}" 
+             data-id="${nextPlan && nextPlan.type === 'res' ? nextPlan.item.id : ''}"
+             data-val="${nextPlan && nextPlan.type === 'chk' ? 'chk' : ''}"
+             class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4 cursor-pointer active:scale-95 transition-transform">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
