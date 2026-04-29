@@ -194,8 +194,7 @@
         /* ASİSTAN PREMİUM BENTO GRID STİLLERİ */
         .asistan-grid {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            grid-auto-rows: minmax(80px, auto);
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
         }
         .asistan-card {
@@ -228,9 +227,7 @@
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
         .asistan-card:hover::before { opacity: 1; }
-        .asistan-card-span-3 { grid-column: span 3; }
         .asistan-card-span-2 { grid-column: span 2; }
-        .asistan-card-span-4 { grid-column: span 4; }
         
         .asistan-icon {
             font-size: 1.75rem;
@@ -1592,7 +1589,6 @@
                 };
 
                 const start = formatDate(res.startDate, '090000');
-                // Bitiş tarihi yoksa başlangıçla aynı gün yap
                 const end = formatDate(res.endDate || res.startDate, '100000');
 
                 const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -1615,22 +1611,33 @@
                     'END:VCALENDAR'
                 ].join('\r\n');
 
-                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-
                 if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    // iPhone Safari için en kararlı yöntem: Data URI (Base64)
-                    const dataUri = 'data:text/calendar;charset=utf-8;base64,' + btoa(unescape(encodeURIComponent(icsContent)));
-                    window.location.href = dataUri;
+                    // iPhone Safari için Data URI yöntemi
+                    try {
+                        const dataUri = 'data:text/calendar;charset=utf-8;base64,' + btoa(unescape(encodeURIComponent(icsContent)));
+                        const link = document.createElement('a');
+                        link.href = dataUri;
+                        link.download = 'rezervasyon.ics';
+                        link.rel = 'noopener';
+                        document.body.appendChild(link);
+                        link.click();
+                        setTimeout(() => document.body.removeChild(link), 100);
+                    } catch (e) {
+                        console.error("ICS Base64 error:", e);
+                    }
                 } else {
+                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.setAttribute('download', 'rezervasyon.ics');
+                    link.download = 'rezervasyon.ics';
                     document.body.appendChild(link);
                     link.click();
-                    document.body.removeChild(link);
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                    }, 200);
                 }
-                setTimeout(() => URL.revokeObjectURL(url), 60000);
             }
 
             // YENİ FONKSİYON: Boş Seyahat Formu
@@ -4224,16 +4231,13 @@
     `;
             }
 
-            // YENİ FONKSİYON: ASİSTAN SEKME İÇERİĞİ
-
             function renderAsistanTab() {
                 const activeResCount = state.res.filter(r => !r.completed).length;
                 const tripCount = state.trips.filter(t => t.status !== 'completed').length;
-                const checklistProgress = state.chk.items.length ? Math.round((state.chk.items.filter(i => i.done).length / state.chk.items.length) * 100) : 0;
 
-                const card = (act, emoji, label, sub, size = 'span-2', badge = '', badgeColor = 'bg-blue-500/20 text-blue-400') => `
+                const card = (act, emoji, label, sub, badge = '', badgeColor = 'bg-blue-500/20 text-blue-400') => `
                     <div data-act="${act.startsWith('#') ? '' : act}" ${act.startsWith('#') ? `onclick="location.href='${act}'"` : ''} 
-                         class="asistan-card asistan-card-${size}">
+                         class="asistan-card">
                         ${badge ? `<div class="asistan-badge ${badgeColor}">${badge}</div>` : ''}
                         <div class="asistan-icon">${emoji}</div>
                         <div>
@@ -4245,35 +4249,30 @@
 
                 return `
                 <div class="space-y-6 pb-6">
-                    <!-- 1. GRUP: SEYAHAT PLANI & EVRAKLAR -->
                     <div>
                         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Planlama & Evraklar</div>
                         <div class="asistan-grid">
-                            ${card('open-trip-mgmt', '🧳', 'Seyahat Yönetimi', `${tripCount} Aktif Seyahat`, 'span-3', tripCount > 0 ? 'Aktif' : '', 'bg-emerald-500/20 text-emerald-400')}
-                            ${card('#helper-reservations', '📑', 'Rezervasyonlar', `${activeResCount} Belge`, 'span-3', activeResCount > 0 ? activeResCount : '', 'bg-amber-500/20 text-amber-400')}
-                            ${card('#helper-flights', '✈️', 'Uçuş Takibi', 'Canlı Bilgi', 'span-2', 'Yeni', 'bg-purple-500/20 text-purple-400')}
-                            ${card('#helper-route', '🗺️', 'Rota & Harita', 'Gidilecek Yerler', 'span-4')}
+                            ${card('open-trip-mgmt', '🧳', 'Seyahatler', `${tripCount} Aktif`, tripCount > 0 ? 'Aktif' : '', 'bg-emerald-500/20 text-emerald-400')}
+                            ${card('#helper-reservations', '📑', 'Belgeler', `${activeResCount} Kayıt`, activeResCount > 0 ? activeResCount : '', 'bg-amber-500/20 text-amber-400')}
+                            ${card('#helper-flights', '✈️', 'Uçuş Takibi', 'Canlı Bilgi')}
+                            ${card('#helper-route', '🗺️', 'Yol Rotası', 'Harita')}
                         </div>
                     </div>
-
-                    <!-- 2. GRUP: FİNANS & ANALİZ -->
                     <div>
-                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Finans & Analiz</div>
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Finans & Veri</div>
                         <div class="asistan-grid">
-                            ${card('#helper-report', '📊', 'Harcama Raporu', 'PDF & Detaylı Analiz', 'span-4', 'Hazır', 'bg-blue-500/20 text-blue-400')}
-                            ${card('#helper-data', '💾', 'Veri & Yedek', 'Bulut Senkron', 'span-2')}
+                            ${card('#helper-report', '📊', 'Rapor', 'Detaylı Analiz', 'Hazır', 'bg-blue-500/20 text-blue-400')}
+                            ${card('#helper-data', '💾', 'Yedekleme', 'Veri Aktarımı')}
                         </div>
                     </div>
-
-                    <!-- 3. GRUP: ARAÇLAR & DESTEK -->
                     <div>
                         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1">Araçlar & Destek</div>
                         <div class="asistan-grid">
-                            ${card('#helper-places', '📍', 'Yakın Yerler', 'Keşfet', 'span-2')}
-                            ${card('#helper-critical', '📝', 'Notlar', 'Kritik Bilgiler', 'span-2')}
-                            ${card('#helper-transport', '🚌', 'Ulaşım', 'Araç & Metro', 'span-2')}
-                            ${card('#helper-health', '⚕️', 'Güvenlik', 'Acil Durum', 'span-2')}
-                            ${card('#helper-help', '❓', 'Yardım', 'Nasıl Kullanılır?', 'span-4')}
+                            ${card('#helper-places', '📍', 'Keşfet', 'Yakın Yerler')}
+                            ${card('#helper-critical', '📝', 'Notlar', 'Kritik Bilgi')}
+                            ${card('#helper-transport', '🚌', 'Ulaşım', 'Araç / Metro')}
+                            ${card('#helper-health', '⚕️', 'Güvenlik', 'Acil Durum')}
+                            ${card('#helper-help', '❓', 'Yardım', 'Kılavuz')}
                         </div>
                     </div>
                 </div>
