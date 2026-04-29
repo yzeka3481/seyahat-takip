@@ -2493,18 +2493,19 @@
                        const location = r.location || '';
                        const formatDate = (dateStr, timeStr = '090000') => {
                            if (!dateStr) return '';
-                           return dateStr.replace(/-/g, '') + 'T' + timeStr + 'Z';
+                           // Floating time (no Z) for better mobile compatibility
+                           return dateStr.replace(/-/g, '') + 'T' + timeStr;
                        };
                        const start = formatDate(r.startDate, '090000');
                        const end = formatDate(r.endDate || r.startDate, '100000');
-                       const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                       const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0];
                        const uid = (r.id || Math.random()) + '@tripledger.com';
                        const icsEsc = (str) => (str || '').replace(/[\\,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
 
                        const icsLines = [
                            'BEGIN:VCALENDAR',
                            'VERSION:2.0',
-                           'PRODID:-//TripLedger//TR',
+                           'PRODID:-//Apple Inc.//iOS 15.0//EN',
                            'BEGIN:VEVENT',
                            `UID:${uid}`,
                            `DTSTAMP:${now}`,
@@ -2518,12 +2519,13 @@
                        ];
                        const icsContent = icsLines.join('\r\n');
                        const base64 = btoa(unescape(encodeURIComponent(icsContent)));
-                       const dataUrl = 'data:text/calendar;charset=utf-8;base64,' + base64;
+                       // Octet-stream forces download behavior which sometimes avoids Safari's "cannot open" logic
+                       const dataUrl = 'data:application/octet-stream;base64,' + base64;
                        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
                        return `
                            <a href="${dataUrl}" 
-                              ${isIOS ? '' : `download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"`}
+                              download="${(r.name || 'rezervasyon').replace(/\s+/g, '_')}.ics"
                               class="w-full flex items-center justify-center gap-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-sm py-4 rounded-xl border border-emerald-500/30 transition shadow-lg shadow-emerald-500/10">
                                <span>📱</span> <span>Takvime Ekle (iPhone / Android)</span>
                            </a>
@@ -3642,6 +3644,7 @@
 
                 return `
         <div class="space-y-4 pb-24">
+            <div class="text-[10px] text-slate-500 font-mono text-center mb-1 opacity-50">Build: v2.3.4-SAFARI-FIX-V4</div>
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
