@@ -1578,7 +1578,10 @@
             // YENİ FONKSİYON: ICS Dosyası İndir (iPhone/Android Yerel Takvim İçin)
             function downloadICS(resId) {
                 const res = state.res.find(r => String(r.id) == String(resId));
-                if (!res) return;
+                if (!res) {
+                    alert("Rezervasyon kaydı bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
+                    return;
+                }
 
                 const typeName = (RESERVATION_TYPES.find(t => t.id === res.type) || {}).l || 'Rezervasyon';
                 const title = `${typeName}: ${res.name}`;
@@ -1613,34 +1616,35 @@
                     'END:VCALENDAR'
                 ].join('\r\n');
 
-                if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    // iPhone Safari için Data URI yöntemi
-                    try {
-                        const contentBase64 = btoa(unescape(encodeURIComponent(icsContent)));
-                        const dataUri = 'data:text/calendar;charset=utf-8;base64,' + contentBase64;
+                const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                
+                try {
+                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                    
+                    if (isIOS) {
+                        // iOS Safari için en güvenli yöntem: reader ile data URL'e çevirip yönlendirmek
+                        const reader = new FileReader();
+                        reader.onloadend = function() {
+                            const dataUrl = reader.result;
+                            window.location.href = dataUrl;
+                        };
+                        reader.readAsDataURL(blob);
+                    } else {
+                        // Diğer tarayıcılar için standart indirme
+                        const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
-                        link.href = dataUri;
-                        link.download = (res.name || 'rezervasyon') + '.ics';
-                        link.rel = 'noopener';
+                        link.href = url;
+                        link.download = (res.name || 'rezervasyon').replace(/\s+/g, '_') + '.ics';
                         document.body.appendChild(link);
                         link.click();
-                        setTimeout(() => { if (link.parentNode) document.body.removeChild(link); }, 200);
-                    } catch (e) {
-                        alert("Takvim dosyası oluşturulurken hata oluştu. Lütfen tekrar deneyin.");
-                        console.error("ICS Base64 error:", e);
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                        }, 200);
                     }
-                } else {
-                    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = 'rezervasyon.ics';
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => {
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(url);
-                    }, 200);
+                } catch (e) {
+                    console.error("ICS Download error:", e);
+                    alert("Takvim dosyası indirilirken bir hata oluştu.");
                 }
             }
 
