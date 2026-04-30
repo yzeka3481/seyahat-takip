@@ -3475,16 +3475,10 @@
                 const indFilter = state.indFilter || '';
                 const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
 
-                // TÜM AKTİF SEYAHATLERİN TOPLAMINI HESAPLA
-                const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
-                const activeTripsCount = activeTrips.length;
-
-                // Harcama kayıtları (bireysel/ortak filtresine göre, tüm aktif seyahatler)
+                // Harcama kayıtları (bireysel/ortak filtresine göre, TÜM seyahatler)
                 const filteredExpForSum = state.exp.filter(x => {
                     if (indFilter === 'individual' && x.isIndividual !== true) return false;
                     if (indFilter === 'shared' && x.isIndividual !== false) return false;
-                    // Tamamlanmış seyahatleri hariç tut
-                    if (completedTripNames.includes(x.trip)) return false;
                     return true;
                 });
 
@@ -3503,8 +3497,6 @@
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
-                    // Tamamlanmış seyahatleri hariç tut
-                    if (completedTripNames.includes(r.trip)) return;
                     allTimeTotal += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
                 });
 
@@ -3593,10 +3585,10 @@
                 <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-cyan-300/50 blur-3xl"></div>
                 <div class="absolute -left-16 -bottom-16 w-56 h-56 rounded-full bg-sky-500/35 blur-3xl"></div>
                 
-                <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
+                <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 p-3">
                     <div>
                         <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
-                            ${ICONS.calculate} TÜM SEYAHATLER TOPLAMI (${activeTripsCount} Seyahat)
+                            ${ICONS.calculate} GENEL TOPLAM (${(state.trips || []).length} Seyahat)
                         </div>
                         
                         <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
@@ -3670,7 +3662,7 @@
 
           
                 <!-- YAKLAŞAN REZERVASYON -->
-		<div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-36 flex flex-col justify-between p-4">
+                <div class="relative overflow-hidden rounded-xl border border-violet-400/40 bg-violet-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(139,92,246,0.45)] h-28 flex flex-col justify-between p-3">
                     <div class="flex items-center gap-2 text-sm text-white/80 font-semibold mb-2">
                          ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN PLAN
                     </div>
@@ -3686,7 +3678,7 @@
             </div>
             
             <!-- Son 3 Harcama Listesi -->
-            <h3 class="text-lg font-bold text-white mt-6 mb-3 flex items-center gap-2">
+            <h3 class="text-base font-bold text-white mt-4 mb-2 flex items-center gap-2">
                 ${ICONS.wallet.replace('w-4 h-4', 'w-4 h-4')} Son 3 Harcama
             </h3>
             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/50">
@@ -3893,31 +3885,34 @@
           </div>
 
           <!-- Sağ taraf: Seyahat filtresi ve Grafik Butonu -->
-          <div class="flex flex-col gap-2 w-full md:w-auto md:min-w-[160px] max-w-[200px]">
-            <div>
+          <div class="flex flex-row md:flex-col gap-2 w-full md:w-auto md:min-w-[160px] max-w-full md:max-w-[200px] items-end md:items-stretch">
+            <div class="flex-1 md:flex-none">
                 <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
                 Seyahat Seçimi
                 </label>
                 <div class="relative">
                 <select
                     data-act="flt-trip"
-                    class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
+                    class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-2 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
                     <option value="">Tüm Seyahatler</option>
                     ${trips.map(t => `
                     <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
                     `).join('')}
                 </select>
-                <div class="pointer-events-none absolute right-3 top-2.5 text-white/80">
+                <div class="pointer-events-none absolute right-3 top-3 text-white/80">
                     ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
                 </div>
                 </div>
             </div>
 
             <!-- Yeni: Grafik Butonu -->
-            <button data-act="open-chart" class="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold py-2 rounded-xl border border-white/20 transition backdrop-blur-md">
-                ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')}
-                Harcama Grafiği
-            </button>
+            <div class="flex-1 md:flex-none">
+                <label class="hidden md:block text-[10px] text-transparent font-bold uppercase ml-1">Grafik</label>
+                <button data-act="open-chart" class="w-full h-[38px] md:h-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold py-2 rounded-xl border border-white/20 transition backdrop-blur-md">
+                    ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                    Grafik
+                </button>
+            </div>
           </div>
         </div>
       </div>
