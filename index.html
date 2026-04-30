@@ -3562,11 +3562,19 @@
                     }
                 }
 
-                // Son 3 Harcama (Sadece aktif ve seçili seyahate ait olanlar)
-                const latestExpenses = state.exp
+                // Son 3 Harcama (Harcamalar + Rezervasyonlar, sadece aktif seyahatlere ait)
+                const combinedForLatest = state.exp.concat(state.res.map(r => ({
+                    ...r,
+                    amt: r.cost,
+                    cur: r.cur || 'TRY',
+                    isReservation: true,
+                    place: (RESERVATION_TYPES.find(t => t.id === r.type) || {}).l || 'Rezervasyon',
+                    date: r.startDate || r.date || ''
+                })));
+
+                const latestExpenses = combinedForLatest
                     .filter(x => {
                         if (completedTripNames.includes(x.trip)) return false;
-                        if (tripFilter && x.trip !== tripFilter) return false;
                         return true;
                     })
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
@@ -3812,20 +3820,10 @@
                 const totalsByCurrency = {};
                 const isFiltered = !!state.tripFilter;
 
-                // Seçili seyahatin para birimini belirle (tek para birimi kullanılıyorsa)
+                // Seçili seyahatin para birimi tercihini kullan (Global baseCur)
                 let headerCur = baseCur;
-                if (isFiltered) {
-                    const tripExps = visibleExp.filter(x => (x.trip || '') === state.tripFilter);
-                    const tripRes = state.res.filter(r => (r.trip || '') === state.tripFilter && r.cost);
-                    const tripCurrencies = [...new Set(
-                        tripExps.map(x => x.cur || baseCur).concat(
-                            tripRes.map(r => r.cur || baseCur)
-                        )
-                    )];
-                    if (tripCurrencies.length === 1) {
-                        headerCur = tripCurrencies[0];
-                    }
-                }
+                // NOT: Eskiden burada tek para birimi varsa otomatik ona geçiyordu. 
+                // Artık özet sayfasındaki seçim her yeri etkilesin diye bu otomatizasyonu kaldırdık.
 
                 const indFilter = state.indFilter || '';
 
