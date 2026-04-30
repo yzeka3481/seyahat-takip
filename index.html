@@ -1745,7 +1745,8 @@
                     indFilter: '',
                     selExp: null,
                     selRes: null, // Yeni: Seçili Rezervasyon
-                    modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false }, // resForm ve tripForm eklendi
+                    modals: { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false, tripComplete: false }, // tripComplete eklendi
+                    completingTripId: null, // Tamamlanan seyahat ID'si
                     form: getEmptyForm(),
                     resForm: getEmptyResForm(), // Yeni: Rezervasyon formu state'i
                     tripForm: getEmptyTripForm(), // Yeni: Seyahat formu state'i
@@ -5315,6 +5316,51 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
         </div>`;
                 }
 
+                if (type === 'trip-complete') {
+                    const trip = state.trips.find(t => t.id === state.completingTripId);
+                    if (!trip) return '';
+                    
+                    return `
+        <div class="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4 backdrop-blur-md" data-act="noop">
+          <div class="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-800 p-6 shadow-2xl relative">
+            <button data-act="close-mod" data-val="tripComplete" class="absolute top-4 right-4 text-slate-500 hover:text-white transition">${ICONS.x}</button>
+            
+            <div class="mb-6 text-center">
+              <div class="inline-flex w-12 h-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500 mb-3">
+                ${ICONS.lock.replace('w-4 h-4', 'w-6 h-6')}
+              </div>
+              <h3 class="text-lg font-bold text-white">Seyahati Kapat</h3>
+              <p class="text-xs text-slate-400 mt-1">"${esc(trip.name)}" seyahatini tamamlamak için kullanılacak kurları onaylayın.</p>
+            </div>
+            
+            <div class="space-y-4 mb-6">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">1 USD = ? TRY</label>
+                <div class="relative">
+                  <input type="number" id="complete-rate-usd" value="${EXCHANGE_RATES.USD.toFixed(4)}" step="0.0001" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-amber-500 transition shadow-sm" placeholder="42.50">
+                  <div class="absolute right-4 top-3 text-slate-500 text-xs font-bold">TRY</div>
+                </div>
+              </div>
+              
+              <div class="flex flex-col gap-1.5">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">1 EUR = ? TRY</label>
+                <div class="relative">
+                  <input type="number" id="complete-rate-eur" value="${EXCHANGE_RATES.EUR.toFixed(4)}" step="0.0001" class="w-full bg-slate-800 border border-slate-700 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-amber-500 transition shadow-sm" placeholder="45.50">
+                  <div class="absolute right-4 top-3 text-slate-500 text-xs font-bold">TRY</div>
+                </div>
+              </div>
+            </div>
+            
+            <button data-act="save-trip-completion" class="w-full bg-amber-600 hover:bg-amber-500 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-amber-900/20 transition transform active:scale-[0.98]">
+              Seyahati Tamamla ve Kurları Sabitle
+            </button>
+            <p class="text-[10px] text-center text-slate-500 mt-4 leading-relaxed">
+              Bu işlemden sonra bu seyahate ait tüm hesaplamalar yukarıdaki kurlar üzerinden sabitlenecektir.
+            </p>
+          </div>
+        </div>`;
+                }
+
                 // YENİ REZERVASYON FORMU MODALI
                 if (type === 'res-form') {
                     return renderResForm();
@@ -5593,6 +5639,7 @@ function renderApp() {
                     if (state.modals.resForm) h += renderModal('res-form');
                     if (state.modals.resDetail) h += renderModal('res-detail');
                     if (state.modals.tripForm) h += renderTripForm(); // Trip Formu Eklendi
+                    if (state.modals.tripComplete) h += renderModal('trip-complete'); // Trip Tamamlama Modalı Eklendi
 
                     if (state.lightbox) h += `<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
 
@@ -6491,10 +6538,30 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     return;
                 }
                 if (act === 'complete-trip') {
-                    const trip = state.trips.find(t => t.id === id);
-                    if (trip && confirm(`"${trip.name}" seyahatini tamamlamak istiyor musunuz? Bu işlem kurları şu anki değerlerinde donduracaktır.`)) {
+                    state.completingTripId = id;
+                    state.modals.tripComplete = true;
+                    renderApp();
+                    return;
+                }
+
+                if (act === 'save-trip-completion') {
+                    const trip = state.trips.find(t => t.id === state.completingTripId);
+                    if (trip) {
+                        const usdInput = document.getElementById('complete-rate-usd');
+                        const eurInput = document.getElementById('complete-rate-eur');
+                        
+                        const usdVal = usdInput ? parseFloat(usdInput.value) : EXCHANGE_RATES.USD;
+                        const eurVal = eurInput ? parseFloat(eurInput.value) : EXCHANGE_RATES.EUR;
+                        
                         trip.status = 'completed';
-                        trip.lockedRates = JSON.parse(JSON.stringify(EXCHANGE_RATES));
+                        trip.lockedRates = {
+                            ...EXCHANGE_RATES,
+                            USD: usdVal,
+                            EUR: eurVal
+                        };
+                        
+                        state.modals.tripComplete = false;
+                        state.completingTripId = null;
                         save(); renderApp();
                     }
                     return;
@@ -6982,7 +7049,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (val === 'tzSelect') state.modals.tzSelect = false;
                     else if (val === 'chart') { state.modals.chart = false; setTimeout(renderApp, 100); }
                     else if (val === 'resDetail') { state.modals.resDetail = false; }
-                    else state.modals = { detail: false, chart: false, data: false };
+                    else if (val === 'tripComplete') { state.modals.tripComplete = false; state.completingTripId = null; }
+                    else state.modals = { detail: false, chart: false, data: false, tzSelect: false, resForm: false, resDetail: false, tripForm: false, tripComplete: false };
                     renderApp();
                 }
 
