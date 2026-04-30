@@ -3475,33 +3475,37 @@
                 const indFilter = state.indFilter || '';
                 const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
 
-                const tripFilter = state.tripFilter;
+                // TÜM AKTİF SEYAHATLERİN TOPLAMINI HESAPLA
+                const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
+                const activeTripsCount = activeTrips.length;
 
-                // Harcama kayıtları (bireysel/ortak ve seyahat filtresine göre)
+                // Harcama kayıtları (bireysel/ortak filtresine göre, tüm aktif seyahatler)
                 const filteredExpForSum = state.exp.filter(x => {
                     if (indFilter === 'individual' && x.isIndividual !== true) return false;
                     if (indFilter === 'shared' && x.isIndividual !== false) return false;
-                    if (tripFilter && x.trip !== tripFilter) return false;
+                    // Tamamlanmış seyahatleri hariç tut
+                    if (completedTripNames.includes(x.trip)) return false;
                     return true;
                 });
 
                 filteredExpForSum.forEach(x => {
-                    allTimeTotal += convertToBase(x.amt, x.cur, baseCur, x.trip);
+                    allTimeTotal += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
                 });
 
-                // Bugünün harcamaları (sadece fiili harcamalar, bireysel/ortak filtresine göre)
+                // Bugünün harcamaları
                 const todayExpenses = filteredExpForSum.filter(x => x.date === today);
                 todayExpenses.forEach(x => {
-                    todayTotal += convertToBase(x.amt, x.cur, baseCur, x.trip);
+                    todayTotal += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
                 });
 
-                // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak ve seyahat filtresine göre)
+                // Rezervasyon maliyetleri
                 state.res.forEach(r => {
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
-                    if (tripFilter && r.trip !== tripFilter) return;
-                    allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur, r.trip);
+                    // Tamamlanmış seyahatleri hariç tut
+                    if (completedTripNames.includes(r.trip)) return;
+                    allTimeTotal += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
                 });
 
                 // YAKLAŞAN REZERVASYONLAR
@@ -3584,7 +3588,7 @@
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
                     <div>
                         <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
-                            ${ICONS.calculate} ${tripFilter ? esc(tripFilter) + ' SEYAHATİ TOPLAMI' : 'TÜM AKTİF SEYAHATLER TOPLAMI'}
+                            ${ICONS.calculate} TÜM SEYAHATLER TOPLAMI (${activeTripsCount} Seyahat)
                         </div>
                         
                         <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
@@ -3633,21 +3637,6 @@
                                 </div>
                             </div>
 
-                            <div class="flex flex-col gap-1 col-span-2 md:min-w-[160px]">
-                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
-                                    Seyahat Seçimi
-                                </label>
-                                <div class="relative">
-                                    <select
-                                        data-act="flt-trip"
-                                        class="w-full rounded-xl border border-slate-300/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
-                                        <option value="">Tüm Aktif Seyahatler</option>
-                                        ${getDistinctTripsAll().sort().map(t => `<option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
-                                    </select>
-                                    <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
-                                        ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -3845,7 +3834,7 @@
                     if (indFilter === 'individual' && x.isIndividual !== true) return;
                     if (indFilter === 'shared' && x.isIndividual !== false) return;
 
-                    const cur = x.cur || headerCur;
+                    const cur = x.cur || 'TRY';
                     const amt = Number(x.amt) || 0;
 
                     totalInHeaderCur += convertToBase(amt, cur, headerCur, x.trip);
@@ -5557,7 +5546,7 @@ function renderApp() {
                         .map(r => ({
                             ...r,
                             amt: r.cost,
-                            cur: r.cur || state.baseCurrency || BASE_CURRENCY,
+                            cur: r.cur || 'TRY',
                             place: resTypeLabels[r.type] || 'Rezervasyon', // Tip bazlı başlık
                             city: r.location || '',
                             desc: r.notes || '',
