@@ -3578,7 +3578,7 @@
 
 
                 return `
-        <div class="space-y-4 pb-24">
+        <div class="space-y-2 pb-24">
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
@@ -3643,7 +3643,7 @@
                 </div>
                 
                 <!-- 2. BUGÜNÜN HARCAMASI ve YAKLAŞAN PLAN Kartları (Yanyana 2 Box) -->
-                <div class="grid grid-cols-2 gap-3 mb-2">
+                <div class="grid grid-cols-2 gap-3">
                     
                           <!-- BUGÜNÜN HARCAMASI -->
                 <div class="relative overflow-hidden rounded-xl border border-emerald-400/40 bg-emerald-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.45)] h-32 p-4">
@@ -3676,11 +3676,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
             
             <!-- Son 3 Harcama Listesi -->
-            <h3 class="text-lg font-bold text-white mt-6 mb-3 flex items-center gap-2">
-                ${ICONS.wallet.replace('w-4 h-4', 'w-4 h-4')} Son 3 Harcama
+            <h3 class="text-[11px] font-extrabold text-white/50 mt-2 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                ${ICONS.wallet.replace('w-4 h-4', 'w-3.5 h-3.5')} Son 3 Harcama
             </h3>
             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden divide-y divide-slate-700/50">
                 ${latestExpenses.length > 0 ? latestExpenses.map(x => {
@@ -3906,11 +3905,6 @@
                 </div>
             </div>
 
-            <!-- Yeni: Grafik Butonu -->
-            <button data-act="open-chart" class="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold py-2 rounded-xl border border-white/20 transition backdrop-blur-md">
-                ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')}
-                Harcama Grafiği
-            </button>
           </div>
         </div>
       </div>
