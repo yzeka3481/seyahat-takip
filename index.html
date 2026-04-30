@@ -700,7 +700,9 @@
 
             function getTripParticipantCount(tripName) {
                 if (!tripName) return 1;
-                const trip = (state.trips || []).find(t => t.name === tripName);
+                const trip = (state.trips || []).find(t => 
+                    String(t.name).trim().toLowerCase() === String(tripName).trim().toLowerCase()
+                );
                 if (!trip || !trip.persons) return 1;
                 const count = trip.persons.split(',').map(p => p.trim()).filter(Boolean).length;
                 return count > 0 ? count : 1;
@@ -1632,6 +1634,7 @@
                 trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
                 info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
                 plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+                minus: mkSvg('<line x1="5" y1="12" x2="19" y2="12"/>'),
                 x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
                 chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
                 clock: mkSvg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 4),
@@ -1931,7 +1934,7 @@
                     selectedNoteTrip: selectedNoteTrip,
                     newCriticalNote: '',
                     selectedReportTrip: selectedNoteTrip,
-                    isIndividualView: false,
+                    isIndividualView: true,
                     chartCurrency: preferredBaseCurrency,
                     baseCurrency: preferredBaseCurrency,
                     reportCurrency: preferredBaseCurrency,
@@ -3754,26 +3757,70 @@
                     if (total > 0) tripTotals[t.name] = { total, status: t.status };
                 });
 
+                // Toplam maliyeti de hesaplayalım (Hibrit görünüm için)
+                let tripTotalInBase = 0;
+                state.exp.forEach(x => {
+                    if (indFilter === 'individual' && x.isIndividual !== true) return;
+                    if (indFilter === 'shared' && x.isIndividual !== false) return;
+                    tripTotalInBase += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
+                });
+                state.res.forEach(r => {
+                    if (!r.cost) return;
+                    if (indFilter === 'individual' && r.isIndividual !== true) return;
+                    if (indFilter === 'shared' && r.isIndividual !== false) return;
+                    tripTotalInBase += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
+                });
+
+                // Borç/Alacak Durumu
+                let debtInfo = '';
+                if (state.tripFilter) {
+                    const debts = calculateDebts(state.tripFilter);
+                    if (debts && debts.persons && debts.persons.length > 0) {
+                        const me = debts.persons[0];
+                        const myBalance = (debts.balancesAfterTransfers && debts.balancesAfterTransfers[me]) || 0;
+                        if (Math.abs(myBalance) > 1) {
+                            const color = myBalance > 0 ? 'text-emerald-600' : 'text-rose-600';
+                            const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
+                            debtInfo = `<div class="text-[11px] font-bold ${color} flex items-center gap-1">
+                                ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : ICONS.minus.replace('w-4 h-4', 'w-3 h-3')} 
+                                ${fmtNum(Math.abs(myBalance))} ${baseCur} ${label}
+                            </div>`;
+                        }
+                    }
+                }
+
+                const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
+                const primaryValue = state.isIndividualView ? allTimeTotal : tripTotalInBase;
+                const secondaryValue = state.isIndividualView ? tripTotalInBase : allTimeTotal;
+                const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
+
                 return `
         <div class="space-y-3 pb-24">
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
-            <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+            <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-500/10 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
                 <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-cyan-300/50 blur-3xl"></div>
                 <div class="absolute -left-16 -bottom-16 w-56 h-56 rounded-full bg-sky-500/35 blur-3xl"></div>
                 
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
                     <div>
-                        <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
-                            ${ICONS.calculate} GENEL TOPLAM (${(state.trips || []).length} Seyahat)
+                        <div class="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-bold mb-1 flex items-center gap-1">
+                            ${ICONS.calculate} ${state.isIndividualView ? 'BENİM PAYIM' : 'TOPLAM MALİYET'} (${(state.trips || []).length} Seyahat)
                         </div>
                         
                         <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
                             <span>
-                                ${fmtNum(allTimeTotal)} 
+                                ${fmtNum(primaryValue)} 
                                 <span class="text-lg font-semibold">${baseCur}</span>
                             </span>
                         </div>
+
+                        ${isSharedTrip ? `
+                            <div class="text-xs font-bold text-slate-500 mt-0.5 opacity-80">
+                                ${secondaryLabel}: ${fmtNum(secondaryValue)} ${baseCur}
+                            </div>
+                            ${debtInfo ? `<div class="mt-1">${debtInfo}</div>` : ''}
+                        ` : ''}
                         
                         <div class="mt-3 flex items-center gap-4">
                             <label class="premium-switch">
@@ -3781,7 +3828,7 @@
                                 <div class="switch-track">
                                     <div class="switch-thumb"></div>
                                 </div>
-                                <span class="switch-label">Benim Payım ${state.tripFilter ? `(${getTripParticipantCount(state.tripFilter)} Kişi)` : ''}</span>
+                                <span class="switch-label">${state.isIndividualView ? 'Bireysel Görünüm' : 'Genel Görünüm'}</span>
                             </label>
                         </div>
 
@@ -4052,15 +4099,40 @@
 
                     const baseAmt = convertToBase(amt, cur, headerCur, x.trip);
                     totalInHeaderCur += calculateAmountForView(baseAmt, x.isIndividual, x.trip);
-                    totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
                 });
 
-                // NOT: Rezervasyonlar artık visibleExp içerisinde 'isReservation: true' olarak bulunduğu için 
-                // burada ayrıca toplanmalarına gerek kalmadı. Bu sayede mükerrer hesaplama önlendi.
+                // Toplam seyahat maliyeti
+                let tripTotalInHeaderCur = 0;
+                visibleExp.forEach(x => {
+                    tripTotalInHeaderCur += convertToBase(Number(x.amt)||0, x.cur || 'TRY', headerCur, x.trip);
+                });
+
+                // Borç/Alacak Durumu
+                let debtInfo = '';
+                if (state.tripFilter) {
+                    const debts = calculateDebts(state.tripFilter);
+                    if (debts && debts.persons && debts.persons.length > 0) {
+                        const me = debts.persons[0];
+                        const myBalance = (debts.balancesAfterTransfers && debts.balancesAfterTransfers[me]) || 0;
+                        if (Math.abs(myBalance) > 1) {
+                            const color = myBalance > 0 ? 'text-emerald-400' : 'text-rose-400';
+                            const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
+                            debtInfo = `<div class="text-[11px] font-bold ${color} mt-1 flex items-center gap-1">
+                                ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : '➖'} 
+                                ${fmtNum(Math.abs(myBalance))} ${headerCur} ${label}
+                            </div>`;
+                        }
+                    }
+                }
+
+                const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
+                const primaryValue = state.isIndividualView ? totalInHeaderCur : tripTotalInHeaderCur;
+                const secondaryValue = state.isIndividualView ? tripTotalInHeaderCur : totalInHeaderCur;
+                const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
 
                 const headerText = isFiltered
-                    ? `${esc(state.tripFilter)} Seyahati Toplamı`
-                    : `Seçili Seyahat Harcamalar Toplamı`;
+                    ? `${esc(state.tripFilter)} Seyahati ${state.isIndividualView ? 'Payım' : 'Toplamı'}`
+                    : `Harcamalar ${state.isIndividualView ? 'Payım' : 'Toplamı'}`;
 
                 const subtitleText = `${visibleExp.length} İşlem`;
 
@@ -4087,8 +4159,15 @@
             </div>
 
             <div class="text-3xl font-extrabold text-white leading-tight mt-1">
-              ${fmtNum(totalInHeaderCur)} <span class="text-lg font-semibold">${headerCur}</span>
+              ${fmtNum(primaryValue)} <span class="text-lg font-semibold">${headerCur}</span>
             </div>
+
+            ${isSharedTrip ? `
+                <div class="text-xs font-bold text-white/70 mt-0.5">
+                    ${secondaryLabel}: ${fmtNum(secondaryValue)} ${headerCur}
+                </div>
+                ${debtInfo}
+            ` : ''}
 
             <div class="mt-3 flex items-center gap-4">
                 <label class="premium-switch">
@@ -4096,7 +4175,7 @@
                     <div class="switch-track">
                         <div class="switch-thumb"></div>
                     </div>
-                    <span class="switch-label text-white/90">Benim Payım ${state.tripFilter ? `(${getTripParticipantCount(state.tripFilter)} Kişi)` : ''}</span>
+                    <span class="switch-label text-white/90">${state.isIndividualView ? 'Bireysel Görünüm' : 'Genel Görünüm'}</span>
                 </label>
             </div>
 
@@ -5658,6 +5737,43 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                         ? ds.trips.join(', ')
                         : (state.tripFilter || 'Tüm Seyahatler');
                     const totalText = ds.total ? fmtNum(ds.total) + ' ' + (ds.currency || '') : '0';
+
+                    // Toplam maliyeti de hesaplayalım (Hibrit görünüm için)
+                    let tripTotalInBase = 0;
+                    filteredExpForSum.forEach(x => {
+                        tripTotalInBase += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
+                    });
+                    state.res.forEach(r => {
+                        if (!r.cost) return;
+                        if (indFilter === 'individual' && r.isIndividual !== true) return;
+                        if (indFilter === 'shared' && r.isIndividual !== false) return;
+                        tripTotalInBase += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
+                    });
+
+                    // Borç/Alacak Durumu
+                    let debtInfo = '';
+                    if (state.tripFilter) {
+                        const debts = calculateDebts(state.tripFilter);
+                        if (debts && debts.persons && debts.persons.length > 0) {
+                            const me = debts.persons[0];
+                            const myBalance = debts.balancesAfterTransfers[me] || 0;
+                            if (Math.abs(myBalance) > 1) {
+                                const color = myBalance > 0 ? 'text-emerald-600' : 'text-rose-600';
+                                const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
+                                debtInfo = `<div class="text-[11px] font-bold ${color} mt-1 flex items-center gap-1">
+                                    ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : ICONS.minus || '➖'} 
+                                    ${fmtNum(Math.abs(myBalance))} ${baseCur} ${label}
+                                </div>`;
+                            }
+                        }
+                    }
+
+                    const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
+
+                    const primaryValue = state.isIndividualView ? allTimeTotal : tripTotalInBase;
+                    const secondaryValue = state.isIndividualView ? tripTotalInBase : allTimeTotal;
+                    const primaryLabel = state.isIndividualView ? 'Benim Payım' : 'Toplam Maliyet';
+                    const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
 
                     return `
         <div class="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4" data-act="close-mod" data-val="chartOverlay">
