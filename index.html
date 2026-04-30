@@ -4196,6 +4196,21 @@
                 const tripsWithSpending = getDistinctTripsAll();
 
                 return `
+  <div class="grid grid-cols-1 gap-4 mb-6">
+    <a href="#helper-help" class="ast-premium-card bg-indigo-600/20 border border-indigo-500/30 shadow-lg no-underline" style="min-height: 70px; flex-direction: row; align-items: center; justify-content: space-between; border-radius: 20px; padding: 15px 20px;">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-xl">❓</div>
+        <div>
+          <div class="text-sm font-bold text-white leading-tight">Yardım ve Kullanım Kılavuzu</div>
+          <div class="text-[10px] text-indigo-300/70">Uygulama nasıl kullanılır? İpuçları ve yardım.</div>
+        </div>
+      </div>
+      <div class="text-indigo-400">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+    </a>
+  </div>
+
   <div class="ast-section-label">Kategoriler</div>
   <div class="grid grid-cols-2 gap-4 mb-6">
     <button data-act="open-trip-mgmt" class="ast-premium-card ast-bg-pink shadow-lg shadow-pink-900/20">
@@ -4242,13 +4257,6 @@
     </a>
   </div>
 
-  <div class="ast-section-label">Destek</div>
-  <div class="grid grid-cols-1 gap-4 mb-8">
-    <a href="#helper-help" class="ast-premium-card bg-slate-800 border border-slate-700 shadow-lg no-underline" style="min-height: 80px; flex-direction: row; align-items: center; justify-content: space-between;">
-      <div class="ast-card-title" style="max-width: 100%;">Yardım ve Kullanım Kılavuzu</div>
-      <div class="ast-card-icon" style="width: 40px; height: 40px; font-size: 24px; position: static;">❓</div>
-    </a>
-  </div>
 `;
             }
 
