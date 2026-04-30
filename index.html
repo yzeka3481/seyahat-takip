@@ -4224,92 +4224,113 @@
                 });
 
                 return `
-      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
-        <div class="flex justify-between items-end mb-2">
-          <div><div class="text-[9px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
-          <div class="text-xl font-bold text-white">${pct}%</div>
+      <!-- PREMİUM İLERLEME KARTI -->
+      <div class="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.2)] p-5 mb-6 group">
+        <div class="absolute -right-10 -top-10 w-32 h-32 bg-emerald-400/20 blur-3xl group-hover:bg-emerald-300/30 transition duration-700"></div>
+        <div class="absolute -left-10 -bottom-10 w-32 h-32 bg-teal-500/10 blur-3xl"></div>
+        
+        <div class="relative z-10 flex justify-between items-center mb-4">
+          <div>
+            <div class="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-1">Hazırlık Durumu</div>
+            <div class="text-lg font-bold text-white flex items-center gap-2">
+                ${done} / ${total} <span class="text-xs font-medium text-white/50">tamamlandı</span>
+            </div>
+          </div>
+          <div class="text-3xl font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]">${pct}%</div>
         </div>
-        <div class="h-2 bg-slate-900/50 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-700" style="width:${pct}%"></div></div>
+        
+        <div class="relative h-2.5 bg-slate-900/60 rounded-full overflow-hidden border border-white/5 shadow-inner">
+          <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_15px_rgba(52,211,153,0.6)] transition-all duration-1000 ease-out rounded-full" style="width:${pct}%">
+            <div class="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] animate-[shimmer_2s_infinite]"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Yeni Kategori Ekleme Paneli -->
-      <div class="mb-4 bg-slate-800/30 border border-slate-700/50 rounded-xl p-3 space-y-3">
-        <h4 class="text-sm font-bold text-slate-300">Yeni Kategori Ekle</h4>
-        <div class="flex gap-2">
-            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
-            <input id="new-cat-icon" placeholder="Emoji (🏖️)" class="w-16 text-center bg-slate-950/50 border border-slate-700 rounded-lg px-1 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
-            <button data-act="add-cat" class="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-500 transition">${ICONS.plus.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
+      <!-- KATEGORİ EKLEME (DAHA KOMPAKT) -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-3 px-1">
+            <h4 class="text-[11px] font-black text-white/40 uppercase tracking-widest">Yeni Kategori</h4>
+        </div>
+        <div class="flex gap-2 bg-slate-800/20 p-2 rounded-2xl border border-slate-700/30 backdrop-blur-sm">
+            <input id="new-cat-icon" placeholder="🏠" class="w-12 text-center bg-slate-950/40 border border-slate-700/50 rounded-xl px-1 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/50 transition text-white">
+            <input id="new-cat-name" placeholder="Örn: Evraklar, Giyim..." class="flex-1 bg-slate-950/40 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/50 transition text-slate-200 placeholder-slate-600">
+            <button data-act="add-cat" class="w-12 h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-900/40 flex items-center justify-center transition active:scale-95">
+                ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
+            </button>
         </div>
       </div>
 
-
-      <div class="pb-24 space-y-3">
+      <div class="pb-32 space-y-4">
         ${sortedCats.map(c => {
-                    // İtemleri tarihe göre sırala
                     const its = state.chk.items.filter(i => i.cat === c.id)
                         .sort((a, b) => {
-                            const dateA = new Date(a.date || '3000-01-01'); // Tarihsizler en sona
+                            const dateA = new Date(a.date || '3000-01-01');
                             const dateB = new Date(b.date || '3000-01-01');
-                            if (dateA < dateB) return -1;
-                            if (dateA > dateB) return 1;
-                            return 0;
+                            return dateA - dateB;
                         });
 
                     const isOpen = state.openChkCats[c.id];
+                    const catDone = its.filter(i => i.done).length;
+                    const catTotal = its.length;
+                    const catPct = catTotal ? Math.round((catDone * 100) / catTotal) : 0;
 
                     return `
-            <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+            <div class="group bg-slate-800/20 border border-slate-700/40 rounded-2xl overflow-hidden transition-all duration-300 hover:border-slate-600/60 shadow-sm">
               
-              <!-- KATEGORİ BAŞLIĞI VE AYARLAR -->
-              <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-800/50 transition">
-                <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center gap-3 flex-1 min-w-0 p-1 -m-1 focus:outline-none rounded-md cursor-pointer">
-                   <div class="bg-slate-800 w-8 h-8 rounded flex items-center justify-center border border-slate-700">${c.i}</div>
-                   <div>
+              <!-- KATEGORİ BAŞLIĞI -->
+              <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-700/20 transition-colors" data-act="tog-chk-cat" data-val="${c.id}">
+                <div class="flex items-center gap-4 flex-1 min-w-0">
+                   <div class="w-10 h-10 rounded-xl bg-slate-900/60 flex items-center justify-center text-xl border border-slate-700/50 shadow-inner group-hover:scale-110 transition-transform">${c.i}</div>
+                   <div class="min-w-0">
                        <div class="flex items-center gap-2">
-                           <div class="text-sm font-bold text-slate-200">${esc(c.l)}</div>
-                           <div class="text-slate-600 transform transition ${isOpen ? 'rotate-180' : ''}">${ICONS.down}</div>
+                           <div class="text-sm font-bold text-slate-200 truncate">${esc(c.l)}</div>
+                           <div class="text-slate-600 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
                        </div>
-                       <div class="text-xs text-slate-500">${its.filter(i => i.done).length}/${its.length}</div>
+                       <div class="flex items-center gap-2 mt-1">
+                           <div class="w-16 h-1 bg-slate-900 rounded-full overflow-hidden">
+                               <div class="h-full bg-emerald-500/70" style="width:${catPct}%"></div>
+                           </div>
+                           <span class="text-[10px] font-bold text-slate-500">${catDone}/${catTotal}</span>
+                       </div>
                    </div>
                 </div>
                 
-                <div class="flex items-center gap-2">
-                    <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-red-400 transition p-2 rounded-full hover:bg-slate-800/50 flex-shrink-0 z-10">
-                        ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
-                    </button>
-                </div>
+                <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-rose-400 transition p-2 rounded-xl hover:bg-rose-500/10">
+                    ${ICONS.trash.replace('w-4 h-4', 'w-4 h-4')}
+                </button>
               </div>
               
               ${isOpen ? `
-              
-              <!-- MADDE EKLEME KUTUSU (TARİHSİZ) -->
-<div class="p-3 pt-0 border-t border-slate-700/50 mt-2"> 
-  <div class="flex gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-800">
-    <input
-      id="new-chk-item-${c.id}"
-      data-cat-id="${c.id}"
-      placeholder="Yeni madde (virgülle birden fazla)"
-      class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs w-full outline-none text-slate-200 placeholder-slate-600"
-    >
-    <button
-      data-act="add-chk-single"
-      data-cat-id="${c.id}"
-      class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
-    >
-      Ekle
-    </button>
-  </div>
-</div>
+              <div class="px-4 pb-4 space-y-3 animate-[fadeIn_0.3s]">
+                <!-- MADDE EKLEME -->
+                <div class="flex gap-2 p-1.5 bg-slate-950/40 rounded-xl border border-slate-800 focus-within:border-blue-500/50 transition">
+                    <input id="new-chk-item-${c.id}" data-cat-id="${c.id}" placeholder="Madde ekle..." class="flex-1 bg-transparent px-3 py-1 text-xs outline-none text-slate-200 placeholder-slate-600">
+                    <button data-act="add-chk-single" data-cat-id="${c.id}" class="bg-blue-600/90 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition active:scale-95">Ekle</button>
+                </div>
 
+                <!-- LİSTE -->
+                <div class="space-y-1 mt-2">
+                  ${its.length ? its.map(i => `
+                    <div class="flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 hover:bg-white/5 group/item">
+                        <label class="relative flex items-center cursor-pointer">
+                            <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done ? 'checked' : ''} 
+                                   class="peer hidden">
+                            <div class="w-5 h-5 rounded-md border-2 border-slate-700 bg-slate-900/50 peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all flex items-center justify-center text-white">
+                                <svg class="w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </label>
+                        
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm transition-all duration-300 ${i.done ? 'text-slate-600 line-through' : 'text-slate-300'}">${esc(i.val)}</div>
+                            ${i.date ? `<div class="text-[9px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">${ICONS.calendar.replace('w-4 h-4', 'w-2.5 h-2.5')} ${fmtDate(i.date)}</div>` : ''}
+                        </div>
 
-              <!-- MEVCUT MADDELER -->
-              <div class="bg-slate-900/30 border-t border-slate-700/50 p-2 space-y-1" data-cat-id="${c.id}">
-                 ${its.map(i => `<div data-id="${i.id}" data-cat="${i.cat}" class="flex items-center gap-3 p-2 hover:bg-slate-800/30 rounded-lg group">
-                     <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-800">
-                     <span class="flex-1 text-sm text-slate-300 ${i.done ? 'line-through opacity-50' : ''}">${esc(i.val)}</span>
-                     <span class="text-[10px] text-slate-500 font-mono flex-shrink-0">${i.date ? fmtDate(i.date) : ''}</span>
-                     <button data-act="del-chk" data-id="${i.id}" class="text-slate-600 hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1 -m-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
-                  </div>`).join('')}
+                        <button data-act="del-chk" data-id="${i.id}" class="text-slate-700 hover:text-rose-400 opacity-0 group-item-hover:opacity-100 transition p-2">
+                            ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                        </button>
+                    </div>
+                  `).join('') : `<div class="text-center py-4 text-[11px] text-slate-600 italic">Henüz bir madde eklenmemiş</div>`}
+                </div>
               </div>` : ''}
             </div>`;
                 }).join('')}
