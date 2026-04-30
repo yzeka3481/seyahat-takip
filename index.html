@@ -6182,6 +6182,13 @@ function renderApp() {
                         }
                     }
                     renderApp();
+                    return;
+                }
+
+                if (act === 'flt-cat') {
+                    state.catFilter = val;
+                    renderApp();
+                    return;
                 }
                 if (act === 'new') {
                     state.form = getEmptyForm();
@@ -7597,7 +7604,6 @@ if (act === 'export-pdf') {
                     renderApp();
                 }
 
-                if (t.dataset.act === 'flt-cat') { state.catFilter = t.value; renderApp(); }
                 if (t.dataset.act === 'flt-type') { state.typeFilter = t.value; renderApp(); }
                 if (t.dataset.act === 'flt-ind') { state.indFilter = t.value; renderApp(); }
 
