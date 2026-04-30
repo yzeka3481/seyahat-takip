@@ -1475,6 +1475,7 @@
             // SVG İkonları
             const mkSvg = (d, s = 4) => `<svg class="w-${s} h-${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
             const ICONS = {
+                logo: mkSvg('<path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M5 7h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><path d="M3 14h18M11 11l2-2-1 4-2-2-1 2-1-1-2 1 4-4z"/><rect x="14" y="13" width="4" height="5" rx="1" fill="white" opacity="0.8"/><path d="M15 15h2M15 17h2" stroke="currentColor" stroke-width="0.8"/>', 5),
                 wallet: mkSvg('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>', 4),
                 trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
                 info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
@@ -3735,10 +3736,15 @@
                     `;
                 }).join('') : `
                     <div class="flex flex-col items-center justify-center py-10 opacity-40">
-                        <div class="w-12 h-12 mb-3 text-slate-400">
-                            ${ICONS.wallet.replace('w-4 h-4', 'w-full h-full')}
+                        <div class="relative w-11 h-11 flex items-center justify-center shrink-0">
+                           <!-- Yeni Bavul Logo Stili -->
+                           <div class="absolute inset-0 bg-teal-600 rounded-xl rotate-3 opacity-40 shadow-lg"></div>
+                           <div class="absolute inset-0 bg-gradient-to-br from-teal-500 to-cyan-700 rounded-xl shadow-xl border border-white/10"></div>
+                           <div class="relative text-white drop-shadow-lg scale-110">
+                              ${ICONS.logo}
+                           </div>
                         </div>
-                        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500 mt-4">
                             Henüz harcama kaydı bulunmamaktadır.
                         </div>
                     </div>
@@ -3752,19 +3758,21 @@
                 const timeInfo = formatTime(state.targetTimezone);
                 const loc = state.location;
                 // lat sayısal mı, ikinci koordinat lng (yoksa lon) sayısal mı?
-		const isReady = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng ?? loc.lon);
+                const isReady = loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lng ?? loc.lon);
                 const locationName = state.locationLoading ? 'Alınıyor...' : state.locationName;
                 const locIcon = isReady ? ICONS.location.replace('w-4 h-4', 'w-4 h-4') : ICONS.compass.replace('w-4 h-4', 'w-4 h-4');
 
                 return `
       <div class="glass-panel rounded-xl p-3 mb-4 flex flex-col md:flex-row items-center justify-between shadow-lg gap-3 bg-slate-900/80">
         <div class="flex items-center gap-3 w-full md:w-auto">
-           <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
-              <!-- Daha sofistike logo renkleri -->
-              <div class="absolute inset-0 bg-gradient-to-br from-indigo-700 to-purple-600 rounded-lg rotate-6 opacity-40"></div>
-              <div class="absolute inset-0 bg-gradient-to-tl from-blue-500 to-indigo-400 rounded-lg -rotate-3 opacity-90 shadow-xl"></div>
-              <div class="relative text-white drop-shadow-md">${ICONS.wallet}</div>
-           </div>
+            <div class="relative w-11 h-11 flex items-center justify-center shrink-0">
+               <!-- Yeni Bavul Logo Stili -->
+               <div class="absolute inset-0 bg-teal-600 rounded-xl rotate-3 opacity-40 shadow-lg"></div>
+               <div class="absolute inset-0 bg-gradient-to-br from-teal-500 to-cyan-700 rounded-xl shadow-xl border border-white/10"></div>
+               <div class="relative text-white drop-shadow-lg scale-110">
+                  ${ICONS.logo}
+               </div>
+            </div>
            <div>
               <h1 class="text-lg font-bold text-white tracking-tight">
                  TripLedger
@@ -3990,27 +3998,23 @@
                 ];
 
                 return `
-      <div class="glass-panel p-1 rounded-xl mb-4 flex gap-1 overflow-x-auto scrl">
-        ${tabs.map(tab => {
+      <!-- Floating Navigation Island -->
+      <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
+        <div class="glass-panel p-1.5 rounded-2xl flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-2xl bg-slate-900/60">
+            ${tabs.map(tab => {
                     const isActive = t === tab.id;
-                    const btnCls = isActive ? activeBtnCls : passiveBtnCls;
-                    // YENİ: Pasifken de rengi göster ama soft ve biraz soluk olsun
-                    const iconGradient = isActive ? tab.color : tab.color + ' opacity-40 saturate-[0.6]';
-
-                    // YENİ: İkon her zaman beyaz olsun (renkli zemin üzerinde)
-                    const iconTextCls = 'text-white drop-shadow-sm';
-
-                    const labelCls = isActive ? labelActiveCls : labelPassiveCls;
-
+                    
                     return `
-                <button data-act="tab" data-val="${tab.id}" class="${btnBaseCls} ${btnCls}">
-                    <div class="${iconBaseCls} ${iconGradient} ${iconTextCls}">
-                        ${tab.icon.replace('w-4 h-4', 'w-5 h-5')}
+                <button data-act="tab" data-val="${tab.id}" class="relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-300 ${isActive ? 'scale-110 -translate-y-1' : 'opacity-60 hover:opacity-100'}">
+                    ${isActive ? `<div class="absolute -top-1 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]"></div>` : ''}
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${isActive ? tab.color : 'from-slate-800 to-slate-900'} flex items-center justify-center mb-1 shadow-lg transition-all duration-300">
+                        ${tab.icon.replace('w-4 h-4', 'w-5 h-5 text-white')}
                     </div>
-                    <span class="${labelCls}">${tab.label}</span>
+                    <span class="text-[8px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-slate-500'} uppercase">${tab.label}</span>
                 </button>
             `;
                 }).join('')}
+        </div>
       </div>
     `;
             }
