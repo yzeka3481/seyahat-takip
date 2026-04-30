@@ -4727,18 +4727,6 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 </div>
             </div>
 
-            <!-- DİĞER ARAÇLAR -->
-            <div class="grid grid-cols-2 gap-3">
-                <button data-act="load-from-uid" class="bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 p-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-2 text-center leading-tight transition">
-                    <span>🔑</span>
-                    <span>UID ile Aktar</span>
-                </button>
-                <button data-act="scan-trips" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 p-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-2 text-center leading-tight transition">
-                    <span>🔄</span>
-                    <span>Senkronize Et</span>
-                </button>
-            </div>
-            
             <input id="io-file" data-act="io-file" type="file" accept="application/json" class="hidden" />
           </div>
         </div>
@@ -5780,7 +5768,7 @@ function renderApp() {
                         // Yalnızca Özet ve Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
                         if (state.tab === 'exp' || state.tab === 'sum') {
                             h += `
-              <div class="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+              <div class="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-40 flex flex-col md:flex-row items-center gap-3">
                 <button data-act="open-quick-exp"
                         class="w-11 h-11 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 rounded-full shadow-2xl shadow-amber-500/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 border border-white/10">
                   ${ICONS.wallet.replace('w-4 h-4', 'w-5 h-5')}
