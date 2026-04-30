@@ -3693,6 +3693,8 @@
                             ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
                             <span>Kur: USD ${fmtNum(EXCHANGE_RATES.USD)} | EUR ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})</span>
                         </div>
+                        
+
                     </div>
                     
                     
@@ -3748,9 +3750,7 @@
                         </div>
                         <div class="text-xs font-medium text-white/70">${baseCur}</div>
                         
-                        <div class="text-[9px] text-white/50 mt-3">
-                            ${todayExpenses.length} kayıt
-                        </div>
+
                     </div>
 
               
@@ -3965,15 +3965,7 @@
                     ? `${esc(state.tripFilter)} Seyahati Toplamı`
                     : `Seçili Seyahat Harcamalar Toplamı`;
 
-                const multiCurrencySummary = Object.entries(totalsByCurrency)
-                    .filter(([cur]) => cur !== headerCur)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([cur, amt]) => `${fmtNum(amt)} ${cur}`)
-                    .join(' · ');
-
-                const subtitleText = multiCurrencySummary
-                    ? `(${multiCurrencySummary}) · ${visibleExp.length} İşlem`
-                    : `${visibleExp.length} İşlem`;
+                const subtitleText = `${visibleExp.length} İşlem`;
 
                 const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
@@ -4001,14 +3993,16 @@
               ${fmtNum(totalInHeaderCur)} <span class="text-lg font-semibold">${headerCur}</span>
             </div>
 
-            <div class="text-xs text-white/70 mt-2 font-medium">
-              ${subtitleText}
             </div>
+
+
 
             <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-black/20 px-2 py-1 text-[10px] text-white/80">
               ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
               <span>Dinamik Kurlar: ${rateInfo}</span>
             </div>
+
+
           </div>
 
           <!-- Sağ taraf: Seyahat filtresi ve Grafik Butonu -->
@@ -5768,7 +5762,7 @@ function renderApp() {
                         // Yalnızca Özet ve Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
                         if (state.tab === 'exp' || state.tab === 'sum') {
                             h += `
-              <div class="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-40 flex flex-col md:flex-row items-center gap-3">
+              <div class="fixed bottom-28 right-4 md:bottom-8 md:right-8 z-[100] flex flex-col md:flex-row items-center gap-3">
                 <button data-act="open-quick-exp"
                         class="w-11 h-11 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 rounded-full shadow-2xl shadow-amber-500/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 border border-white/10">
                   ${ICONS.wallet.replace('w-4 h-4', 'w-5 h-5')}
