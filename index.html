@@ -136,7 +136,7 @@
             /* Etiket ve input arasına boşluk */
         }
 
-        /* DİĞER SEKME KART MODAL STİLLERİ */
+        /* ASİSTAN SEKME KART MODAL STİLLERİ */
         .helper-modal {
             position: fixed;
             inset: 0;
@@ -190,6 +190,116 @@
             top: 0.75rem;
             right: 0.75rem;
         }
+
+        /* --- PREMIUM ASSISTANT TAB ANIMATIONS --- */
+        @keyframes ast-float1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(12px,-18px) scale(1.15)} }
+        @keyframes ast-float2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-15px,12px) scale(1.1)} }
+        @keyframes ast-float3 { 0%,100%{transform:translate(0,0) scale(1.05)} 50%{transform:translate(8px,15px) scale(0.95)} }
+        @keyframes ast-shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes ast-pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+        @keyframes ast-breathe { 0%,100%{box-shadow:0 0 20px rgba(139,92,246,0.15)} 50%{box-shadow:0 0 35px rgba(139,92,246,0.3)} }
+
+        .ast-orb1 { animation: ast-float1 8s ease-in-out infinite; }
+        .ast-orb2 { animation: ast-float2 10s ease-in-out infinite; }
+        .ast-orb3 { animation: ast-float3 12s ease-in-out infinite; }
+
+        .ast-hero { animation: ast-breathe 4s ease-in-out infinite; }
+
+        .ast-shimmer-line {
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 60%, transparent 100%);
+            background-size: 200% 100%;
+            animation: ast-shimmer 4s linear infinite;
+        }
+
+        .ast-featured-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .ast-featured-card:hover { transform: translateY(-3px); }
+        .ast-featured-card:active { transform: scale(0.97); }
+
+        .ast-grid-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .ast-grid-card:hover { transform: translateY(-2px) scale(1.02); }
+        .ast-grid-card:active { transform: scale(0.96); }
+
+        .ast-section-label {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            color: white;
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .ast-premium-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-radius: 24px;
+            padding: 20px;
+            min-height: 140px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .ast-premium-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            filter: brightness(1.1);
+        }
+
+        .ast-premium-card:active {
+            transform: scale(0.96);
+        }
+
+        .ast-card-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+            max-width: 60%;
+            line-height: 1.2;
+            z-index: 10;
+        }
+
+        .ast-card-icon {
+            position: absolute;
+            right: -10px;
+            bottom: -5px;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            opacity: 0.9;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+            z-index: 5;
+            transition: transform 0.3s ease;
+        }
+
+        .ast-premium-card:hover .ast-card-icon {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        /* Card Colors */
+        .ast-bg-pink { background: #d81b60; }
+        .ast-bg-teal { background: #00acc1; }
+        .ast-bg-purple { background: #5e35b1; }
+        .ast-bg-orange { background: #f4511e; }
+        .ast-bg-magenta { background: #8e24aa; }
+        .ast-bg-yellow { background: #fdd835; color: #1e293b; }
+        .ast-bg-yellow .ast-card-title { color: #1e293b; }
+        .ast-bg-indigo { background: #3949ab; }
+        .ast-bg-cyan { background: #0097a7; }
     </style>
 
 
@@ -1409,7 +1519,7 @@
                 sum: 'from-blue-500 to-indigo-500',
                 exp: 'from-fuchsia-500 to-purple-500',
                 chk: 'from-emerald-500 to-teal-500',
-                other: 'from-amber-500 to-orange-500',
+                asistan: 'from-violet-500 to-purple-500',
             };
 
 
@@ -2037,8 +2147,10 @@
 
             // YENİ FONKSİYON: REZERVASYON LİSTESİNİ RENDER ET
             function renderReservationList() {
+                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
                 const allReservations = state.res
                     .filter(r => state.tripFilter ? r.trip === state.tripFilter : true) // Trip filtresi ekle
+                    .filter(r => !completedTripNames.includes(r.trip))
                     .sort((a, b) => (a.startDate || '').localeCompare(b.startDate));
 
                 if (!allReservations.length) {
@@ -2244,14 +2356,7 @@
 
 
 
-              <!-- GOOGLE TAKVİM SEÇENEĞİ -->
-              <div class="flex items-center gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3 mb-3">
-                <input type="checkbox" id="i-res-calendar" ${f.addToCalendar ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border-slate-600 bg-slate-700 cursor-pointer">
-                <label for="i-res-calendar" class="flex-1 text-sm text-slate-200 cursor-pointer">
-                  <span class="font-semibold">📅 Google Takvim'e Ekle</span>
-                  <span class="block text-xs text-slate-400 mt-0.5">Kaydettikten sonra Google Takvim açılacak</span>
-                </label>
-              </div>
+
 
               <button type="button" data-act="save-res" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/30 transition">Kaydet</button>
             </div>
@@ -2337,10 +2442,7 @@
                  <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(r.notes) || '<span class="italic text-slate-600">Ekstra not yok.</span>'}</p>
                </div>
 
-               <!-- GOOGLE TAKVİM BUTONU -->
-               <a href="${getGoogleCalendarUrl(r)}" target="_blank" class="block w-full text-center bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold text-sm py-3 rounded-lg border border-slate-700/50 transition mb-2 flex items-center justify-center gap-2">
-                   <span>📅</span> <span>Google Takvim'e Ekle (Web)</span>
-               </a>
+
 
                <div class="flex gap-3 pt-2">
                  <button data-act="del-res-detail" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
@@ -3355,6 +3457,7 @@
                 let todayTotal = 0;
                 let allTimeTotal = 0;
                 const indFilter = state.indFilter || '';
+                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
 
                 // Harcama kayıtları (bireysel/ortak filtresine göre)
                 const filteredExpForSum = state.exp.filter(x => {
@@ -3384,7 +3487,7 @@
                 // YAKLAŞAN REZERVASYONLAR
                 const now = new Date();
                 const nextReservation = state.res
-                    .filter(r => !r.completed && new Date(r.startDate) >= now)
+                    .filter(r => !r.completed && !completedTripNames.includes(r.trip) && new Date(r.startDate) >= now)
                     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))[0];
 
                 const nextChecklistItem = state.chk.items
@@ -3436,7 +3539,8 @@
                 }
 
                 // Son 3 Harcama
-                const latestExpenses = [...state.exp]
+                const latestExpenses = state.exp
+                    .filter(x => !completedTripNames.includes(x.trip))
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
                     .slice(0, 3);
 
@@ -3826,10 +3930,10 @@
                         color: MENU_ICON_COLORS.chk
                     },
                     {
-                        id: 'other',
-                        label: 'DİĞER',
-                        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 6a3 3 0 013-3h2.25a3 3 0 013 3v2.25a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm9.75 0a3 3 0 013-3H18a3 3 0 013 3v2.25a3 3 0 01-3 3h-2.25a3 3 0 01-3-3V6zM3 15.75a3 3 0 013-3h2.25a3 3 0 013 3V18a3 3 0 01-3 3H6a3 3 0 01-3-3v-2.25zm9.75 0a3 3 0 013-3H18a3 3 0 013 3V18a3 3 0 01-3 3h-2.25a3 3 0 01-3-3v-2.25z" clip-rule="evenodd" /></svg>`,
-                        color: MENU_ICON_COLORS.other
+                        id: 'asistan',
+                        label: 'ASİSTAN',
+                        icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1.17A7 7 0 0113 22h-2a7 7 0 01-6.83-3H3a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2zM9.5 16a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm5 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>`,
+                        color: MENU_ICON_COLORS.asistan
                     },
                 ];
 
@@ -4080,88 +4184,97 @@
     `;
             }
 
-            // YENİ FONKSİYON: DİĞER SEKME İÇERİĞİ
-
-            function renderOtherTab() {
+            function renderAssistantTab() {
                 const loc = state.location || {};
-                // Eski sürümde lon tutulmuş olabilir
-const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
-const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
-
+                const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+                const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
 
                 const googleMapsBase = hasLoc
                     ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
                     : 'https://www.google.com/maps';
 
-                const nearbyTouristUrl = hasLoc ? `${googleMapsBase}+tourist+attractions` : googleMapsBase;
-                const nearbyCafeUrl = hasLoc ? `${googleMapsBase}+cafes+restaurants` : googleMapsBase;
-                const nearbyHotelUrl = hasLoc ? `${googleMapsBase}+hotels` : googleMapsBase;
-                const nearbyHospitalUrl = hasLoc ? `${googleMapsBase}+hospitals` : googleMapsBase;
-                const nearbyPharmacyUrl = hasLoc ? `${googleMapsBase}+pharmacies` : googleMapsBase;
-                const nearbyPoliceUrl = hasLoc ? `${googleMapsBase}+police+stations` : googleMapsBase;
-
-                const allTrips = getDistinctTripsAll().sort();
-                const tripsWithSpending = allTrips;
-                const allTripsForNotes = allTrips;
-
-                let selectedTripForNotes = state.selectedNoteTrip || allTripsForNotes[0] || 'Genel';
-                if (!allTripsForNotes.includes(selectedTripForNotes) && allTripsForNotes.length > 0) {
-                    selectedTripForNotes = allTripsForNotes[0];
-                }
-                state.selectedNoteTrip = selectedTripForNotes;
-
-                const notesForTrip = state.criticalNotes.filter(n => n.trip === selectedTripForNotes);
-
-                const dataExport = JSON.stringify({
-                    schemaVersion: 1,
-                    exportedAt: new Date().toISOString(),
-                    exp: state.exp || [],
-                    res: state.res || [],
-                    trips: state.trips || [],
-                    chk: state.chk || {},
-                    criticalNotes: state.criticalNotes || [],
-                    baseCur: state.baseCurrency || BASE_CURRENCY || 'TRY',
-                    targetTimezone: state.targetTimezone || ''
-                }, null, 2);
-const helperCard = (href, emoji, label) => {
-                    return `
-    <a
-      href="${href}"
-      class="group relative flex flex-col items-center justify-center rounded-3xl border border-slate-700/70 bg-slate-900/70 px-3 py-4 shadow-lg hover:bg-slate-800/80 hover:border-slate-500 transition">
-      <div class="mb-2 text-2xl">
-        ${emoji}
-      </div>
-      <div class="text-[11px] font-semibold text-slate-100 text-center leading-tight">
-        ${label}
-      </div>
-    </a>
-  `;
-                };
+                const tripsWithSpending = getDistinctTripsAll();
 
                 return `
-   <div class="grid grid-cols-3 gap-3">
-   <!-- YENİ: SEYAHAT YÖNETİMİ BUTONU -->
-   <button data-act="open-trip-mgmt" class="group relative flex flex-col items-center justify-center rounded-3xl border border-emerald-700/70 bg-emerald-900/40 px-3 py-4 shadow-lg hover:bg-emerald-800/60 hover:border-emerald-500 transition">
-       <div class="mb-2 text-2xl">🧳</div>
-       <div class="text-[11px] font-semibold text-emerald-100 text-center leading-tight">Seyahat Yönetimi</div>
-   </button>
+  <div class="ast-section-label">Kategoriler</div>
+  <div class="grid grid-cols-2 gap-4 mb-6">
+    <button data-act="open-trip-mgmt" class="ast-premium-card ast-bg-pink shadow-lg shadow-pink-900/20">
+      <div class="ast-card-title">Seyahat Yönetimi</div>
+      <div class="ast-card-icon">🧳</div>
+    </button>
 
-  ${helperCard('#helper-reservations', '📑', 'Rezervasyonlar')}
-  ${helperCard('#helper-flights', '✈️', 'Uçuşlar')}
-  ${helperCard('#helper-report', '📊', 'Rapor')}
-  ${helperCard('#helper-route', '🗺️', 'Rota')}
-  ${helperCard('#helper-critical', '📝', 'Notlar')}
-  ${helperCard('#helper-places', '📍', 'Yakın Yerler')}
-  ${helperCard('#helper-health', '⚕️', 'Sağlık & Güvenlik')}
-  ${helperCard('#helper-transport', '🚌', 'Ulaşım')}
-  ${helperCard('#helper-data', '💾', 'Veri / Yedek')}
-  ${helperCard('#helper-help', '❓', 'Yardım')}
-</div>
+    <a href="#helper-reservations" class="ast-premium-card ast-bg-teal shadow-lg shadow-teal-900/20 no-underline">
+      <div class="ast-card-title">Rezervasyon Takibi</div>
+      <div class="ast-card-icon">🏨</div>
+    </a>
 
+    <a href="#helper-report" class="ast-premium-card ast-bg-purple shadow-lg shadow-purple-900/20 no-underline">
+      <div class="ast-card-title">Harcama Raporu</div>
+      <div class="ast-card-icon">📊</div>
+    </a>
+
+    <a href="#helper-route" class="ast-premium-card ast-bg-orange shadow-lg shadow-orange-900/20 no-underline">
+      <div class="ast-card-title">Rota Planlayıcı</div>
+      <div class="ast-card-icon">🗺️</div>
+    </a>
+  </div>
+
+  <div class="ast-section-label">Keşfet & Araçlar</div>
+  <div class="grid grid-cols-2 gap-4 mb-6">
+    <a href="#helper-places" class="ast-premium-card ast-bg-magenta shadow-lg shadow-magenta-900/20 no-underline">
+      <div class="ast-card-title">Yakın Yerler</div>
+      <div class="ast-card-icon">📍</div>
+    </a>
+
+    <a href="#helper-critical" class="ast-premium-card ast-bg-indigo shadow-lg shadow-indigo-900/20 no-underline">
+      <div class="ast-card-title">Kritik Notlar</div>
+      <div class="ast-card-icon">📝</div>
+    </a>
+
+    <a href="#helper-flights" class="ast-premium-card ast-bg-cyan shadow-lg shadow-cyan-900/20 no-underline">
+      <div class="ast-card-title">Uçuş Rehberi</div>
+      <div class="ast-card-icon">✈️</div>
+    </a>
+
+    <a href="#helper-data" class="ast-premium-card ast-bg-yellow shadow-lg shadow-yellow-600/20 no-underline">
+      <div class="ast-card-title">Veri & Yedekleme</div>
+      <div class="ast-card-icon">💾</div>
+    </a>
+  </div>
+
+  <div class="ast-section-label">Destek</div>
+  <div class="grid grid-cols-1 gap-4 mb-8">
+    <a href="#helper-help" class="ast-premium-card bg-slate-800 border border-slate-700 shadow-lg no-underline" style="min-height: 80px; flex-direction: row; align-items: center; justify-content: space-between;">
+      <div class="ast-card-title" style="max-width: 100%;">Yardım ve Kullanım Kılavuzu</div>
+      <div class="ast-card-icon" style="width: 40px; height: 40px; font-size: 24px; position: static;">❓</div>
+    </a>
+  </div>
+`;
+            }
+
+            function renderAssistantModals() {
+                const loc = state.location || {};
+                const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
+                const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
+
+                const nearbyTouristUrl = hasLoc ? `https://www.google.com/maps/search/tourist+attractions/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/tourist+attractions/';
+                const nearbyCafeUrl = hasLoc ? `https://www.google.com/maps/search/restaurants+cafes/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/restaurants+cafes/';
+                const nearbyHotelUrl = hasLoc ? `https://www.google.com/maps/search/hotels/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/hotels/';
+                const nearbyHospitalUrl = hasLoc ? `https://www.google.com/maps/search/hospitals/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/hospitals/';
+                const nearbyPharmacyUrl = hasLoc ? `https://www.google.com/maps/search/pharmacy/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/pharmacy/';
+                const nearbyPoliceUrl = hasLoc ? `https://www.google.com/maps/search/police/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/police/';
+
+                const tripsWithSpending = getDistinctTripsAll();
+                const allTripsForNotes = getDistinctTripsAll().sort();
+                const selectedTripForNotes = state.selectedNoteTrip || (allTripsForNotes[0] || 'Genel');
+                const notesForTrip = state.criticalNotes.filter(n => n.trip === selectedTripForNotes);
+                const dataExport = JSON.stringify(state, null, 2);
+
+                return `
       <!-- REZERVASYONLAR POPUP -->
       <div id="helper-reservations" class="helper-modal ${state.helpersAccordion.reservations ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Rezervasyonlar</h3>
@@ -4197,7 +4310,7 @@ const helperCard = (href, emoji, label) => {
       <!-- UÇUŞLAR POPUP -->
       <div id="helper-flights" class="helper-modal ${state.helpersAccordion.flights ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Uçuşlar</h3>
@@ -4232,7 +4345,7 @@ const helperCard = (href, emoji, label) => {
       <!-- RAPOR POPUP -->
       <div id="helper-report" class="helper-modal ${state.helpersAccordion.report ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Özet Raporu</h3>
@@ -4243,7 +4356,7 @@ const helperCard = (href, emoji, label) => {
       <!-- ROTA POPUP -->
       <div id="helper-route" class="helper-modal ${state.helpersAccordion.route ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yol Güzergahı Haritası</h3>
@@ -4272,7 +4385,7 @@ const helperCard = (href, emoji, label) => {
       <!-- NOTLAR POPUP -->
       <div id="helper-critical" class="helper-modal ${state.helpersAccordion.critical ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Kritik Bilgiler (Notlar)</h3>
@@ -4321,7 +4434,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- YAKIN YERLER POPUP -->
       <div id="helper-places" class="helper-modal ${state.helpersAccordion.places ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yakındaki Yerler</h3>
@@ -4348,7 +4461,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- SAĞLIK POPUP -->
       <div id="helper-health" class="helper-modal ${state.helpersAccordion.health ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Sağlık ve Güvenlik</h3>
@@ -4375,7 +4488,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- ULAŞIM POPUP -->
       <div id="helper-transport" class="helper-modal ${state.helpersAccordion.transport ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Ulaşım ve Haritalar</h3>
@@ -4402,7 +4515,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- VERİ / YEDEK POPUP -->
       <div id="helper-data" class="helper-modal ${state.helpersAccordion.data ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Veri Yönetimi (Yedekleme / Yükleme)</h3>
@@ -4450,7 +4563,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- SEYAHAT YÖNETİMİ POPUP -->
       <div id="helper-trips" class="helper-modal ${state.helpersAccordion.trips ? 'active' : ''}">
         <div class="helper-modal-inner relative">
-          <a href="#other-root" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Seyahat Yönetimi</h3>
@@ -4502,7 +4615,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       <!-- YARDIM / KULLANIM KILAVUZU POPUP -->
       <div id="helper-help" class="helper-modal ${state.helpersAccordion.help ? 'active' : ''}">
         <div class="helper-modal-inner relative" style="max-width: 32rem; max-height: 85vh;">
-          <a href="#other-root" class="helper-modal-close text-slate-400 hover:text-white">
+          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
           <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">
@@ -4526,7 +4639,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   <span class="text-cyan-300">Özet</span> (genel bakış), 
                   <span class="text-emerald-300">Harcamalar</span> (kayıtlar), 
                   <span class="text-amber-300">Kontrol Listesi</span> (yapılacaklar), 
-                  <span class="text-purple-300">Diğer</span> (yardımcı araçlar)
+                  <span class="text-purple-300">Asistan</span> (yardımcı araçlar)
                 </p>
               </div>
             </div>
@@ -4594,7 +4707,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 </div>
 
                 <p class="text-xs text-slate-300 leading-relaxed">
-                  <strong class="text-white">Diğer → Rapor</strong> menüsünden bir seyahat seçtiğinizde:
+                  <strong class="text-white">Asistan → Rapor</strong> menüsünden bir seyahat seçtiğinizde:
                   <br/><br/>
                   • Toplam harcama özeti görüntülenir<br/>
                   • <strong class="text-emerald-300">Kimin kime ne kadar ödemesi gerektiği</strong> otomatik hesaplanır<br/>
@@ -4649,7 +4762,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   Verileriniz tarayıcınızda saklanır. Kaybolmaması için:
                   <br/><br/>
                   • Sağ üstten <strong class="text-red-400">Google ile Giriş</strong> yapın (otomatik senkronizasyon)<br/>
-                  • Veya <strong class="text-white">Diğer → Veri Yönetimi</strong>'nden manuel yedek alın
+                  • Veya <strong class="text-white">Asistan → Veri Yönetimi</strong>'nden manuel yedek alın
                 </p>
               </div>
             </div>
@@ -4691,27 +4804,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
               </div>
             </div>
 
-            <!-- 9. GOOGLE TAKVİM -->
-            <div class="bg-gradient-to-br from-indigo-900/40 to-slate-800/40 rounded-xl border border-indigo-500/30 overflow-hidden">
-              <div class="p-3">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="text-lg">📅</span>
-                  <h4 class="font-bold text-white text-sm">9. Google Takvim Entegrasyonu</h4>
-                </div>
-                <div class="bg-slate-800/50 rounded-lg p-3 mb-3 border border-slate-700">
-                     <p class="text-xs text-white leading-relaxed mb-2">
-                        Rezervasyonlarınızı telefon takviminize ve Google Takvim'e kolayca işleyebilirsiniz.
-                     </p>
-                    <ul class="text-[10px] text-slate-300 space-y-2 list-disc pl-4">
-                        <li><strong>Otomatik Ekleme:</strong> Rezervasyon formunu doldururken en alttaki <span class="text-white">"Google Takvim'e Ekle"</span> kutucuğunu işaretleyin. Kaydettiğiniz an takvim açılır.</li>
-                        <li><strong>Sonradan Ekleme:</strong> Herhangi bir rezervasyonun detayına girip <span class="text-white">"Google Takvim'e Ekle"</span> butonunu kullanabilirsiniz.</li>
-                    </ul>
-                </div>
-                <p class="text-xs text-slate-400 italic">
-                  Not: Bu özellik tarayıcı üzerinden çalışır ve herhangi bir uygulama izni gerektirmez.
-                </p>
-              </div>
-            </div>
+
 
           </div>
         </div>
@@ -5405,8 +5498,8 @@ function renderApp() {
                             h += renderExpenseList(exp);
                         } else if (state.tab === 'chk') {
                             h += renderChecklist();
-                        } else if (state.tab === 'other') {
-                            h += renderOtherTab();
+                        } else if (state.tab === 'asistan') {
+                            h += renderAssistantTab();
                         }
 
                         // Yalnızca Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
@@ -5443,6 +5536,7 @@ function renderApp() {
 
                     if (state.lightbox) h += `<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
 
+                    h += renderAssistantModals();
                     h += renderUndoBar();
                     root.innerHTML = h;
                     if (state.modals.chart) {
@@ -5779,6 +5873,7 @@ function renderApp() {
                 }
 
                 if (act === 'close-all-helpers') {
+                    e.preventDefault();
                     Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
                     renderApp();
                     return;
@@ -5812,10 +5907,10 @@ function renderApp() {
                 }
 
                 if (act === 'tab') {
-                    if (val === 'sum' || val === 'exp' || val === 'chk' || val === 'other') {
+                    if (val === 'sum' || val === 'exp' || val === 'chk' || val === 'asistan') {
                         state.tab = val;
                         state.search = '';
-                        if (val === 'other') {
+                        if (val === 'asistan') {
                             handleGeolocation();
                         }
                     }
@@ -6664,9 +6759,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const settledInput = document.getElementById('i-res-settled');
                     f.isSettled = settledInput ? settledInput.checked : false;
 
-                    // Takvime ekle seçeneğini al
-                    const calendarInput = document.getElementById('i-res-calendar');
-                    f.addToCalendar = calendarInput ? calendarInput.checked : false;
+
 
 
 
@@ -6715,21 +6808,13 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     save();
 
-                    // Eğer seçenek işaretliyse Google Takvim'i aç (Pop-up blocker'a takılmaması için kullanıcı etkileşimi zincirinde olmalı)
-                    if (f.addToCalendar) {
-                        try {
-                            const calendarUrl = getGoogleCalendarUrl(rec);
-                            window.open(calendarUrl, '_blank');
-                        } catch (e) {
-                            console.error('Takvim açılırken hata:', e);
-                        }
-                    }
+
 
 
 
                     state.err = '';
                     state.modals.resForm = false;
-                    state.tab = 'other';
+                    state.tab = 'asistan';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
                     state.helpersAccordion = {
                         critical: false,
@@ -6764,7 +6849,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                             state.res = state.res.filter(x => String(x.id) !== idToDelete);
                             save();
                             state.modals.resDetail = false;
-                            state.tab = 'other';
+                            state.tab = 'asistan';
                             // Tüm accordion'ları kapat, sadece reservations'u aç
                             state.helpersAccordion = {
                                 critical: false,
