@@ -2060,10 +2060,7 @@
                                 const city =
                                     addr.city ||
                                     addr.town ||
-                                    addr.village ||
-                                    addr.suburb ||
                                     addr.state ||
-                                    data.display_name ||
                                     'Bilinmeyen Konum';
 
                                 setState({
@@ -3576,9 +3573,20 @@
                     `<option value="${c}" ${c === baseCur ? 'selected' : ''}>${c}</option>`
                 ).join('');
 
+                const tripTotals = {};
+                (state.trips || []).forEach(t => {
+                    let total = 0;
+                    state.exp.filter(x => x.trip === t.name).forEach(x => {
+                        total += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
+                    });
+                    state.res.filter(r => r.trip === t.name && r.cost).forEach(r => {
+                        total += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
+                    });
+                    if (total > 0) tripTotals[t.name] = { total, status: t.status };
+                });
 
                 return `
-        <div class="space-y-2 pb-24">
+        <div class="space-y-3 pb-24">
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
             <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
@@ -3591,9 +3599,14 @@
                             ${ICONS.calculate} GENEL TOPLAM (${(state.trips || []).length} Seyahat)
                         </div>
                         
-                        <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
-                            ${fmtNum(allTimeTotal)} 
-                            <span class="text-lg font-semibold">${baseCur}</span>
+                        <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1 flex items-center justify-between">
+                            <span>
+                                ${fmtNum(allTimeTotal)} 
+                                <span class="text-lg font-semibold">${baseCur}</span>
+                            </span>
+                            <button data-act="new" class="w-10 h-10 rounded-full bg-slate-900/10 hover:bg-slate-900/20 flex items-center justify-center transition">
+                                ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
+                            </button>
                         </div>
                         
                         <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-white/45 px-2 py-1 text-[9px] text-slate-900/80">
@@ -3667,15 +3680,33 @@
                              ${ICONS.calendar.replace('w-4 h-4', 'w-4 h-4')} YAKLAŞAN
                         </div>
                         <div>
-                            <div class="text-sm font-bold text-white line-clamp-2 leading-tight">
+                            <div class="text-sm font-bold text-white line-clamp-1 leading-tight">
                                 ${resText.split(':').slice(1).join(':').trim() || resText}
                             </div>
                             <div class="text-[10px] font-medium ${nextPlan && Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) < 7 ? 'text-yellow-300' : 'text-white/70'} mt-1">
-                                ${nextPlan ? `${Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} Gün Kaldı` : 'Mevcut Değil'}
+                                ${nextPlan ? `${Math.ceil((new Date(nextPlan.item.date || nextPlan.item.startDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} Gün Kaldı` : 'Planlanan işlem yok'}
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- 3. SEYAHAT BAZLI DAĞILIM (Yeni Premium Bölüm) -->
+                ${Object.keys(tripTotals).length > 0 ? `
+                <div class="mt-4">
+                    <h3 class="text-[11px] font-extrabold text-white/50 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                        ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')} Seyahat Bazlı Harcamalar
+                    </h3>
+                    <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                        ${Object.entries(tripTotals).sort((a,b) => b[1].total - a[1].total).map(([name, data]) => `
+                            <div class="flex-shrink-0 w-32 bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 backdrop-blur-sm">
+                                <div class="text-[9px] font-bold ${data.status === 'completed' ? 'text-slate-500' : 'text-cyan-400'} uppercase mb-1 truncate">${esc(name)}</div>
+                                <div class="text-sm font-black text-white">${fmtNum(data.total)}</div>
+                                <div class="text-[9px] text-white/40">${baseCur}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
             
             <!-- Son 3 Harcama Listesi -->
             <h3 class="text-[11px] font-extrabold text-white/50 mt-2 mb-2 flex items-center gap-2 uppercase tracking-wider">
@@ -3703,8 +3734,13 @@
                         </div>
                     `;
                 }).join('') : `
-                    <div class="text-center py-6 text-slate-500 text-sm">
-                        Henüz harcama kaydı bulunmamaktadır.
+                    <div class="flex flex-col items-center justify-center py-10 opacity-40">
+                        <div class="w-12 h-12 mb-3 text-slate-400">
+                            ${ICONS.wallet.replace('w-4 h-4', 'w-full h-full')}
+                        </div>
+                        <div class="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                            Henüz harcama kaydı bulunmamaktadır.
+                        </div>
                     </div>
                 `}
             </div>
@@ -4863,8 +4899,9 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 const isFuelActive = f.cat === 'fuel';
                 const isTransportActive = f.cat === 'transport';
 
-                // Yeni: Seyahat bazlı varsayılan para birimi
+                // Yeni: Seyahat bazlı varsayılan para birimi ve Şehir varsayılanı
                 if (!f.id) {
+                    // Para birimi varsayılanı
                     const tripName = (f.trip || state.tripFilter || '').trim();
                     if (tripName) {
                         const tripExps = state.exp.filter(x => (x.trip || '') === tripName && x.cur);
@@ -6010,6 +6047,10 @@ function renderApp() {
                     } else {
                         state.form.cur = state.baseCurrency || BASE_CURRENCY;
                     }
+                    // Konum bilgisi varsa ve Şehir alanı boşsa doldur (Sadece yeni kayıtta)
+                    if (!state.form.city && state.locationName && state.locationName !== 'Alınıyor...' && state.locationName !== 'Bilinmiyor') {
+                        state.form.city = state.locationName;
+                    }
                     state.view = 'form';
                     state.form.isFuel = false;
                     renderApp();
@@ -6020,7 +6061,11 @@ function renderApp() {
                     if (state.quickExpOpen) {
                         const baseCur = state.baseCurrency || BASE_CURRENCY;
                         if (!state.quickExp) {
-                            state.quickExp = { trip: '', cat: 'food', amt: '', cur: baseCur, payer: '' };
+                            state.quickExp = { trip: '', cat: 'food', amt: '', cur: baseCur, payer: '', city: '' };
+                        }
+                        // Konum bilgisi varsa ve Şehir boşsa doldur
+                        if (!state.quickExp.city && state.locationName && state.locationName !== 'Alınıyor...' && state.locationName !== 'Bilinmiyor') {
+                            state.quickExp.city = state.locationName;
                         }
                         if (state.tripFilter) {
                             state.quickExp.trip = state.tripFilter;
