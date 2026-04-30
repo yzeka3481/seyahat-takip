@@ -1712,8 +1712,19 @@
                     isIndividual: item.isIndividual !== undefined ? item.isIndividual : false,
                 }));
 
-                const allTrips = [...new Set((e || []).map(x => x.trip).filter(Boolean).concat((r || []).map(x => x.trip).filter(Boolean)))].sort(); // Rezervasyonlardan da seyahat adı al
-                if (allTrips.length > 0) {
+                const allTrips = [...new Set((e || []).map(x => x.trip).filter(Boolean).concat((r || []).map(x => x.trip).filter(Boolean)))].sort(); 
+
+                // Varsayılan seyahat: Tamamlanmamış en yeni seyahat
+                let defaultTrip = '';
+                const activeTrips = (t || []).filter(trip => trip.status !== 'completed');
+                if (activeTrips.length > 0) {
+                    activeTrips.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+                    defaultTrip = activeTrips[0].name;
+                }
+
+                if (defaultTrip) {
+                    selectedNoteTrip = defaultTrip;
+                } else if (allTrips.length > 0) {
                     selectedNoteTrip = allTrips[0];
                 } else {
                     selectedNoteTrip = 'Genel';
@@ -1722,11 +1733,11 @@
                 state = {
                     exp: e,
                     chk: c,
-                    res: r, // Yeni: Rezervasyonlar
-                    transfers: tf, // Yeni: Transfer/Mahsuplaşmalar
+                    res: r, 
+                    transfers: tf, 
                     view: 'list',
                     tab: 'sum',
-                    tripFilter: '',
+                    tripFilter: defaultTrip,
                     catFilter: '',
                     search: '',
                     routeTrip: '',
@@ -2093,9 +2104,10 @@
 
             // --- YARDIMCI FONKSİYON: Tüm Seyahatleri Getir (Harcama + Rezervasyon + Liste) ---
             function getDistinctTripsAll() {
-                const tripsFromExp = state.exp.map(x => x.trip).filter(Boolean);
-                const tripsFromRes = state.res.map(x => x.trip).filter(Boolean);
-                const tripsFromList = state.trips.map(x => x.name).filter(Boolean);
+                const completed = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
+                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t && !completed.includes(t));
+                const tripsFromRes = state.res.map(x => x.trip).filter(t => t && !completed.includes(t));
+                const tripsFromList = state.trips.filter(t => t.status !== 'completed').map(t => t.name);
                 return [...new Set([...tripsFromExp, ...tripsFromRes, ...tripsFromList])];
             }
 
@@ -3462,10 +3474,13 @@
                 const indFilter = state.indFilter || '';
                 const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
 
-                // Harcama kayıtları (bireysel/ortak filtresine göre)
+                const tripFilter = state.tripFilter;
+
+                // Harcama kayıtları (bireysel/ortak ve seyahat filtresine göre)
                 const filteredExpForSum = state.exp.filter(x => {
                     if (indFilter === 'individual' && x.isIndividual !== true) return false;
                     if (indFilter === 'shared' && x.isIndividual !== false) return false;
+                    if (tripFilter && x.trip !== tripFilter) return false;
                     return true;
                 });
 
@@ -3479,11 +3494,12 @@
                     todayTotal += convertToBase(x.amt, x.cur, baseCur, x.trip);
                 });
 
-                // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak filtresine göre)
+                // Rezervasyon maliyetleri (toplam harcamaya dahil, bireysel/ortak ve seyahat filtresine göre)
                 state.res.forEach(r => {
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
+                    if (tripFilter && r.trip !== tripFilter) return;
                     allTimeTotal += convertToBase(r.cost, r.cur || baseCur, baseCur, r.trip);
                 });
 
@@ -3541,9 +3557,13 @@
                     }
                 }
 
-                // Son 3 Harcama
+                // Son 3 Harcama (Sadece aktif ve seçili seyahate ait olanlar)
                 const latestExpenses = state.exp
-                    .filter(x => !completedTripNames.includes(x.trip))
+                    .filter(x => {
+                        if (completedTripNames.includes(x.trip)) return false;
+                        if (tripFilter && x.trip !== tripFilter) return false;
+                        return true;
+                    })
                     .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
                     .slice(0, 3);
 
@@ -3563,7 +3583,7 @@
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
                     <div>
                         <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
-                            ${ICONS.calculate} TÜM SEYAHATLER TOPLAMI
+                            ${ICONS.calculate} ${tripFilter ? esc(tripFilter) + ' SEYAHATİ TOPLAMI' : 'TÜM AKTİF SEYAHATLER TOPLAMI'}
                         </div>
                         
                         <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1">
@@ -3605,6 +3625,23 @@
                                         data-act="flt-ind"
                                         class="w-full rounded-xl border border-slate-300/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
                                         ${INDIVIDUAL_FILTERS.map(f => `<option value="${f.id}" ${state.indFilter === f.id ? 'selected' : ''}>${esc(f.l)}</option>`).join('')}
+                                    </select>
+                                    <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
+                                        ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-1 w-full sm:w-auto">
+                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
+                                    Seyahat Seçimi
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        data-act="flt-trip"
+                                        class="w-full rounded-xl border border-slate-300/70 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none">
+                                        <option value="">Tüm Aktif Seyahatler</option>
+                                        ${getDistinctTripsAll().sort().map(t => `<option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
                                     </select>
                                     <div class="pointer-events-none absolute right-3 top-2.5 text-slate-700/70">
                                         ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
@@ -3834,8 +3871,9 @@
                 const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
                 // KRİTİK: Harcama filtresinde hem normal harcamaları hem de rezervasyonlu seyahatleri göster
-                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t);
-                const tripsFromRes = state.res.filter(r => (parseFloat(r.cost)||0) > 0).map(r => r.trip).filter(t => t);
+                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
+                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t && !completedTripNames.includes(t));
+                const tripsFromRes = state.res.filter(r => (parseFloat(r.cost)||0) > 0).map(r => r.trip).filter(t => t && !completedTripNames.includes(t));
                 const trips = [...new Set([...tripsFromExp, ...tripsFromRes])].sort();
 
                 return `
