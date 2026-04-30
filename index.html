@@ -4259,6 +4259,11 @@
                         color: MENU_ICON_COLORS.asistan
                     },
                 ];
+                
+                // Migration/Safety: Eski 'other' tab'ini veya geçersiz sekmeleri 'asistan' veya 'sum'a yönlendir
+                if (state.tab === 'other' || !tabs.some(tab => tab.id === state.tab)) {
+                    state.tab = 'sum';
+                }
 
                 return `
       <!-- Floating Navigation Island -->
@@ -6214,7 +6219,7 @@ function renderApp() {
                     state.view = 'list'; state.err = ''; renderApp(); return;
                 }
                 if (state.modals.resForm && t.classList.contains('form-modal-overlay')) {
-                    state.modals.resForm = false; state.err = ''; state.tab = 'other';
+                    state.modals.resForm = false; state.err = ''; state.tab = 'asistan';
                     state.helpersAccordion.reservations = true; // Geri dönünce rezervasyonlar açık kalsın
                     renderApp(); return;
                 }
@@ -6278,7 +6283,7 @@ function renderApp() {
                     if (val === 'resDetail' || val === 'resDetailOverlay' || val === 'resForm') {
                         state.modals.resDetail = false;
                         state.modals.resForm = false;
-                        state.tab = 'other';
+                        state.tab = 'asistan';
                         // Tüm accordion'ları kapat, sadece reservations'u aç
                         state.helpersAccordion = {
                             critical: false,
@@ -6453,6 +6458,12 @@ function renderApp() {
                     }
                     state.view = 'form';
                     state.form.isFuel = false;
+                    // Diğer tüm modalları kapat (Örtüşmeyi önlemek için)
+                    state.modals.detail = false;
+                    state.modals.resDetail = false;
+                    state.modals.resForm = false;
+                    state.modals.chart = false;
+                    state.quickExpOpen = false;
                     renderApp();
                 }
 
@@ -6601,8 +6612,10 @@ function renderApp() {
                 }
 
                 if (act === 'new-res') {
-                    state.modals.resForm = true;
                     state.resForm = getEmptyResForm();
+                    // Diğer tüm modalları kapat (Örtüşmeyi önlemek için)
+                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
+                    state.modals.resForm = true;
                     // Rezervasyon formu açılırken listeyi kapat (Daha temiz UI)
                     state.helpersAccordion.reservations = false;
                     if (state.tripFilter) state.resForm.trip = state.tripFilter;
@@ -6612,8 +6625,9 @@ function renderApp() {
                 // YENİ: Seyahat Yönetimi popup'ından yeni seyahat ekleme
                 if (act === 'new-trip') {
                     state.tripForm = getEmptyTripForm();
+                    // Diğer tüm modalları kapat
+                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
                     state.modals.tripForm = true;
-                    // window.location.hash = '#'; // Helper menüyü KAPATMA (Scroll pozisyonunu koru)
                     renderApp();
                 }
 
@@ -6744,7 +6758,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 if (act === 'cancel-res') {
                     state.modals.resForm = false;
                     state.err = '';
-                    state.tab = 'other';
+                    state.tab = 'asistan';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
                     state.helpersAccordion = {
                         critical: false,
@@ -6999,6 +7013,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const tripToEdit = state.trips.find(t => t.id === id);
                     if (tripToEdit) {
                         state.tripForm = { ...tripToEdit }; // Formu doldur
+                        // Diğer tüm modalları kapat
+                        Object.keys(state.modals).forEach(k => state.modals[k] = false);
                         state.modals.tripForm = true;
                         // Modal hash'ini temizle ki overlay düzgün görünsün (opsiyonel)
                         window.location.hash = '';
@@ -7422,9 +7438,12 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const r = state.res.find(res => res.id === resId);
                     if (r) {
                         state.resForm = { ...r };
-                        state.modals.resDetail = false;
-                        state.modals.resForm = true;
+                        state.err = '';
+                        // TÜM modalları kapat ki form en üstte kalsın
+                        Object.keys(state.modals).forEach(k => state.modals[k] = false);
+                        state.modals.resForm = true; 
                         state.helpersAccordion.reservations = false;
+                        state.quickExpOpen = false;
                         renderApp();
                     }
                     return;
@@ -7456,8 +7475,10 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
                     state.form = { ...x };
                     state.view = 'form';
-                    state.modals.detail = false;
                     state.err = '';
+                    // TÜM modalları kapat ki form en üstte kalsın
+                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
+                    state.quickExpOpen = false;
                     renderApp();
                     return;
                 }
