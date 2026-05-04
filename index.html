@@ -4898,6 +4898,10 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                             f.cur = tripCurrencies[0];
                         }
                     }
+                    // YENİ: Tek kişilik seyahatse otomatik bireysel seç
+                    if (tripPersons.length === 1) {
+                        f.isIndividual = true;
+                    }
                 }
 
                 let payerHtml = '';
