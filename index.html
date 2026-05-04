@@ -27,7 +27,7 @@
             -webkit-user-select: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            padding-top: env(safe-area-inset-top, 0.5rem);
+            padding-top: max(1.5rem, env(safe-area-inset-top));
             padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
         }
         input, textarea, select { user-select: text; -webkit-user-select: text; }
@@ -35,7 +35,7 @@
         #app-root {
             width: 100%;
             max-width: 100%;
-            margin-top: 0;
+            margin-top: 0.5rem;
         }
 
         /* Scrollbar */
@@ -66,11 +66,6 @@
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        .neon-border {
-            border: 1px solid rgba(255, 255, 255, 0.4) !important;
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.15), 0 20px 50px rgba(0, 0, 0, 0.5) !important;
         }
 
         /* HARCAMA DETAYI MODAL BAŞLIĞI: Sade ve Profesyonel Mavi-Menekşe */
@@ -308,68 +303,6 @@
         .ast-bg-cyan { background: #0097a7; }
         .ast-bg-emerald { background: #059669; }
         .ast-bg-blue { background: #2563eb; }
-
-        /* Premium Switch Toggle */
-        .premium-switch {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-            gap: 10px;
-        }
-
-        .premium-switch input {
-            display: none;
-        }
-
-        .switch-track {
-            position: relative;
-            width: 40px;
-            height: 20px;
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 20px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-blur: 8px;
-        }
-
-        .switch-thumb {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 14px;
-            height: 14px;
-            background: #94a3b8;
-            border-radius: 50%;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .premium-switch input:checked + .switch-track {
-            background: rgba(34, 211, 238, 0.2);
-            border-color: rgba(34, 211, 238, 0.5);
-            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
-        }
-
-        .premium-switch input:checked + .switch-track .switch-thumb {
-            left: calc(100% - 16px);
-            background: #22d3ee;
-            box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
-        }
-
-        .switch-label {
-            font-size: 10px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #94a3b8;
-            transition: all 0.3s ease;
-        }
-
-        .premium-switch input:checked ~ .switch-label {
-            color: #22d3ee;
-        }
     </style>
 
 
@@ -696,23 +629,6 @@
                 // TRY'ye dönüştür, sonra hedef para birimine
                 const amountInTry = amount * rateToTry;
                 return amountInTry / rateFromTry;
-            }
-
-            function getTripParticipantCount(tripName) {
-                if (!tripName) return 1;
-                const trip = (state.trips || []).find(t => 
-                    String(t.name).trim().toLowerCase() === String(tripName).trim().toLowerCase()
-                );
-                if (!trip || !trip.persons) return 1;
-                const count = trip.persons.split(',').map(p => p.trim()).filter(Boolean).length;
-                return count > 0 ? count : 1;
-            }
-
-            function calculateAmountForView(amt, isIndividual, tripName) {
-                if (!state.isIndividualView) return amt;
-                if (isIndividual) return amt;
-                const n = getTripParticipantCount(tripName);
-                return amt / n;
             }
 
             // --- KRİTİK FONKSİYON: GERÇEK ZAMANLI KUR ÇEKİMİ ---
@@ -1511,76 +1427,6 @@
 
             const titleCase = s => s ? s.toLowerCase().split(' ').map(w => w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w).join(' ') : '';
 
-            function updateUserPassword() {
-                if (!currentUser) {
-                    state.passForm.msg = "Lütfen önce giriş yapın.";
-                    state.passForm.isError = true;
-                    renderApp();
-                    return;
-                }
-
-                const f = state.passForm;
-                if (!f.old || !f.new || !f.confirm) {
-                    f.msg = "Lütfen tüm alanları doldurun.";
-                    f.isError = true;
-                    renderApp();
-                    return;
-                }
-
-                if (f.new !== f.confirm) {
-                    f.msg = "Yeni parolalar eşleşmiyor.";
-                    f.isError = true;
-                    renderApp();
-                    return;
-                }
-
-                if (f.new.length < 6) {
-                    f.msg = "Yeni parola en az 6 karakter olmalıdır.";
-                    f.isError = true;
-                    renderApp();
-                    return;
-                }
-
-                f.msg = "Güncelleniyor...";
-                f.isError = false;
-                renderApp();
-
-                const cred = firebase.auth.EmailAuthProvider.credential(currentUser.email, f.old);
-                currentUser.reauthenticateWithCredential(cred)
-                    .then(() => {
-                        return currentUser.updatePassword(f.new);
-                    })
-                    .then(() => {
-                        f.msg = "Parolanız başarıyla güncellendi.";
-                        f.isError = false;
-                        f.old = ''; f.new = ''; f.confirm = '';
-                        renderApp();
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        f.msg = "Hata: " + (err.message || "İşlem başarısız.");
-                        f.isError = true;
-                        renderApp();
-                    });
-            }
-
-            function copyToClipboard(text, btn = null) {
-                if (!text) return;
-                navigator.clipboard.writeText(text).then(() => {
-                    if (btn) {
-                        const oldHtml = btn.innerHTML;
-                        btn.innerHTML = '<span>Kopyalandı!</span>';
-                        btn.classList.add('bg-emerald-600');
-                        setTimeout(() => {
-                            btn.innerHTML = oldHtml;
-                            btn.classList.remove('bg-emerald-600');
-                        }, 2000);
-                    }
-                }).catch(err => {
-                    console.error('Kopyalama hatası:', err);
-                });
-            }
-
             const getCityColor = (str) => {
                 let hash = 0; if (!str) return 'hsl(210, 50%, 45%)';
                 for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -1634,7 +1480,6 @@
                 trash: mkSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'),
                 info: mkSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
                 plus: mkSvg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
-                minus: mkSvg('<line x1="5" y1="12" x2="19" y2="12"/>'),
                 x: mkSvg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
                 chart: mkSvg('<path d="M21.21 15.89A10 10 0 1 1 12 2"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'),
                 clock: mkSvg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 4),
@@ -1927,14 +1772,12 @@
                         data: false,
                         reservations: false,
                         trips: false,
-                        help: false,
-                        pass: false,
+                        help: false,   // Yeni eklendi
                     },
                     criticalNotes: criticalNotes,
                     selectedNoteTrip: selectedNoteTrip,
                     newCriticalNote: '',
                     selectedReportTrip: selectedNoteTrip,
-                    isIndividualView: true,
                     chartCurrency: preferredBaseCurrency,
                     baseCurrency: preferredBaseCurrency,
                     reportCurrency: preferredBaseCurrency,
@@ -1943,15 +1786,6 @@
                     quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
                     quickExpOpen: false,
                     undo: null,
-
-                    // PAROLA GÜNCELLEME STATE
-                    passForm: {
-                        old: '',
-                        new: '',
-                        confirm: '',
-                        msg: '',
-                        isError: false
-                    }
                 };
 
                 state.openChkCats = {};
@@ -2791,22 +2625,22 @@
                 const baseCur = state.reportCurrency || state.baseCurrency || BASE_CURRENCY;
 
                 // Herkesin bakiyesi (pozitif: alacaklı, negatif: borçlu)
-                // NOT: "Ödendi/Mahsuplaşıldı" işaretli rezervasyonlar alacak-verecek hesabına DAHİL EDİLMEZ,
-                // fakat kişi başı harcama payına (toplam tüketim) DAHİL EDİLİR.
                 const balances = {};
-                const personPayments = {};       // Mahsuplaşma hesabına dahil ödemeler (borç/alacak hesabı)
-                const personPaymentsAll = {};    // Toplam ödemeler (settled dahil, ödeyen bilgisi varsa)
+                const personPayments = {};       // Mahsuplaşma hesabına dahil ödemeler
+                const personPaymentsAll = {};    // Toplam ödemeler
+                const breakdown = {};            // YENİ: Harcama dökümü
 
                 persons.forEach(p => {
                     balances[p] = 0;
                     personPayments[p] = 0;
                     personPaymentsAll[p] = 0;
+                    breakdown[p] = [];
                 });
 
-                let totalSharedAll = 0;          // Ortak harcamaların toplamı (settled dahil)
-                let totalSharedForSettlement = 0; // Mahsuplaşma hesabına dahil ortak harcama toplamı (settled hariç)
+                let totalSharedAll = 0;
+                let totalSharedForSettlement = 0;
 
-                // 1) Ortak Harcamalar (günlük harcamalar) - Settled alanı yoksa tamamı mahsuba dahildir
+                // 1) Ortak Harcamalar
                 const sharedExps = (state.exp || []).filter(x => x.trip === tripName && !x.isIndividual);
                 sharedExps.forEach(x => {
                     const amt = Number(x.amt) || 0;
@@ -2822,19 +2656,18 @@
                         personPaymentsAll[payerRaw] += amtCtx;
                     }
 
-                    // Mahsuplaşma hesabına sadece "Ödendi" olmayan kayıtlar dahil edilir
                     if (!x.isSettled) {
                         totalSharedForSettlement += amtCtx;
-
                         const payer = payerRaw || persons[0];
                         if (balances.hasOwnProperty(payer)) {
                             balances[payer] += amtCtx;
                             personPayments[payer] += amtCtx;
+                            breakdown[payer].push({ name: x.place || x.cat, amt: amtCtx, date: x.date });
                         }
                     }
                 });
 
-                // 2) Ortak Rezervasyonlar (konaklama/ulaşım vb.)
+                // 2) Ortak Rezervasyonlar
                 const sharedRes = (state.res || []).filter(r => r.trip === tripName && !r.isIndividual);
                 sharedRes.forEach(r => {
                     const cost = Number(r.cost) || 0;
@@ -2843,23 +2676,20 @@
                     const amtCtx = convertToBase(cost, r.cur, baseCur);
                     if (!amtCtx || isNaN(amtCtx)) return;
 
-                    // Toplam tüketime her durumda dahil
                     totalSharedAll += amtCtx;
 
-                    // Ödeyen bilgisi varsa, toplam ödeme istatistiğine ekle (settled dahil)
                     const payerRaw = (r.payer && String(r.payer).trim()) ? String(r.payer).trim() : '';
                     if (payerRaw && personPaymentsAll.hasOwnProperty(payerRaw)) {
                         personPaymentsAll[payerRaw] += amtCtx;
                     }
 
-                    // Mahsuplaşma hesabına sadece "Ödendi" olmayan kayıtlar dahil edilir
                     if (!r.isSettled) {
                         totalSharedForSettlement += amtCtx;
-
                         const payer = payerRaw || persons[0];
                         if (balances.hasOwnProperty(payer)) {
                             balances[payer] += amtCtx;
                             personPayments[payer] += amtCtx;
+                            breakdown[payer].push({ name: r.name, amt: amtCtx, date: r.startDate || '', isRes: true });
                         }
                     }
                 });
@@ -2869,13 +2699,10 @@
                 const sharePerPersonAll = totalSharedAll / persons.length;
                 const sharePerPersonForSettlement = totalSharedForSettlement / persons.length;
 
-                // Mahsuplaşma hesabı için net bakiye: Ödediği (mahsuba dahil) - Kişi payı (mahsuba dahil)
                 persons.forEach(p => {
                     balances[p] -= sharePerPersonForSettlement;
                 });
 
-
-                // 3) Mahsuplaşmalar / Transferler (tüketime dahil değil, borç-alacak bakiyesini düzeltir)
                 const balancesBeforeTransfers = { ...balances };
                 const transfersRaw = (state.transfers || []).filter(t => t && t.trip === tripName);
                 const appliedTransfers = [];
@@ -2890,7 +2717,6 @@
                     const amtCtx = convertToBase(amt, cur, baseCur);
                     if (!amtCtx || isNaN(amtCtx)) return;
 
-                    // from -> to ödeme yapıldı: from bakiyesi artar (borcu azalır), to bakiyesi azalır (alacağı azalır)
                     balances[from] += amtCtx;
                     balances[to] -= amtCtx;
 
@@ -2906,7 +2732,6 @@
                     });
                 });
 
-                // Borçlu/alacaklı listesi
                 const debtors = [];
                 const creditors = [];
 
@@ -2916,53 +2741,40 @@
                 });
 
                 const transactions = [];
+                debtors.sort((a, b) => a.bal - b.bal);
+                creditors.sort((a, b) => b.bal - a.bal);
 
-                debtors.sort((a, b) => a.bal - b.bal);     // En çok borcu olan önce
-                creditors.sort((a, b) => b.bal - a.bal);   // En çok alacağı olan önce
-
-                let i = 0; // debtor index
-                let j = 0; // creditor index
-
+                let i = 0;
+                let j = 0;
                 while (i < debtors.length && j < creditors.length) {
                     const debtor = debtors[i];
                     const creditor = creditors[j];
-
                     const amount = Math.min(-debtor.bal, creditor.bal);
-
                     transactions.push({
                         from: debtor.p,
                         to: creditor.p,
                         amount: Math.round(amount * 100) / 100
                     });
-
                     debtor.bal += amount;
                     creditor.bal -= amount;
-
                     if (Math.abs(debtor.bal) < 0.01) i++;
                     if (creditor.bal < 0.01) j++;
                 }
 
                 return {
-                    // Ekran/PDF istatistikleri için toplam tüketim
                     totalShared: totalSharedAll,
                     sharePerPerson: sharePerPersonAll,
-
-                    // Borç/alacak hesabı (settled hariç)
                     totalSharedForSettlement,
                     sharePerPersonForSettlement,
-
                     transactions,
                     currency: baseCur,
-
-
                     balancesBeforeTransfers,
                     balancesAfterTransfers: { ...balances },
                     transfers: appliedTransfers,
-
-                    // Kişi bazlı
-                    personPayments,        // mahsuba dahil ödemeler
-                    personPaymentsAll,     // toplam ödemeler (ödeyen bilgisi varsa)
-                    persons
+                    personPayments,
+                    personPaymentsAll,
+                    persons,
+                    breakdown // YENİ
                 };
             }
             function renderReportContent() {
@@ -3219,7 +3031,18 @@
                         const isDebtor = balance < -0.01;
                         const statusText = isCreditor ? 'Alacaklı' : isDebtor ? 'Borçlu' : 'Dengede';
                         const statusColor = isCreditor ? 'text-emerald-400' : isDebtor ? 'text-red-400' : 'text-slate-400';
-                        const balanceSign = balance > 0 ? '+' : '';
+                        const personBreakdown = (debtInfo.breakdown && debtInfo.breakdown[person]) ? debtInfo.breakdown[person] : [];
+                        const breakdownHtml = personBreakdown.length > 0 ? `
+                            <div class="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
+                                <div class="text-[9px] font-bold text-slate-500 uppercase mb-1">Paylaştığı Harcamalar:</div>
+                                ${personBreakdown.map(b => `
+                                    <div class="flex justify-between items-center text-[10px]">
+                                        <span class="text-slate-300 truncate mr-2">${b.isRes ? '🏨 ' : ''}${esc(b.name)}</span>
+                                        <span class="text-slate-400 font-mono whitespace-nowrap">${fmtNum(b.amt)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '';
 
                         return `
                 <div class="bg-slate-800/60 rounded-lg p-3 border border-slate-700/40 hover:border-slate-600/60 transition">
@@ -3236,12 +3059,8 @@
                             <span class="text-slate-400">Payı:</span>
                             <span class="text-slate-300 font-mono">${fmtNum(share)} ${debtInfo.currency}</span>
                         </div>
-                        ${(Math.abs(balance - balanceBefore) > 0.01) ? `
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Transfer Öncesi:</span>
-                            <span class="text-slate-400 font-mono">${(balanceBefore > 0 ? '+' : '')}${fmtNum(Math.abs(balanceBefore))} ${debtInfo.currency}</span>
-                        </div>` : ''}
                     </div>
+                    ${breakdownHtml}
                 </div>
             `;
                     }).join('');
@@ -3629,6 +3448,8 @@
                     </html>
                 `;
             }
+
+            // YENİ FONKSİYON: ÖZET SAYFASI (SUM TAB)
             function renderSummary() {
                 const baseCur = state.baseCurrency;
                 const today = new Date().toISOString().slice(0, 10);
@@ -3645,15 +3466,13 @@
                 });
 
                 filteredExpForSum.forEach(x => {
-                    const baseAmt = convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
-                    allTimeTotal += calculateAmountForView(baseAmt, x.isIndividual, x.trip);
+                    allTimeTotal += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
                 });
 
                 // Bugünün harcamaları
                 const todayExpenses = filteredExpForSum.filter(x => x.date === today);
                 todayExpenses.forEach(x => {
-                    const baseAmt = convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
-                    todayTotal += calculateAmountForView(baseAmt, x.isIndividual, x.trip);
+                    todayTotal += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
                 });
 
                 // Rezervasyon maliyetleri
@@ -3661,12 +3480,7 @@
                     if (!r.cost) return;
                     if (indFilter === 'individual' && r.isIndividual !== true) return;
                     if (indFilter === 'shared' && r.isIndividual !== false) return;
-                    const resCostInBase = convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
-                    const viewAmt = calculateAmountForView(resCostInBase, r.isIndividual, r.trip);
-                    allTimeTotal += viewAmt;
-                    if (r.startDate === today || r.date === today) {
-                        todayTotal += viewAmt;
-                    }
+                    allTimeTotal += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
                 });
 
                 // YAKLAŞAN REZERVASYONLAR
@@ -3757,95 +3571,42 @@
                     if (total > 0) tripTotals[t.name] = { total, status: t.status };
                 });
 
-                // Toplam maliyeti de hesaplayalım (Hibrit görünüm için)
-                let tripTotalInBase = 0;
-                state.exp.forEach(x => {
-                    if (indFilter === 'individual' && x.isIndividual !== true) return;
-                    if (indFilter === 'shared' && x.isIndividual !== false) return;
-                    tripTotalInBase += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
-                });
-                state.res.forEach(r => {
-                    if (!r.cost) return;
-                    if (indFilter === 'individual' && r.isIndividual !== true) return;
-                    if (indFilter === 'shared' && r.isIndividual !== false) return;
-                    tripTotalInBase += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
-                });
-
-                // Borç/Alacak Durumu
-                let debtInfo = '';
-                if (state.tripFilter) {
-                    const debts = calculateDebts(state.tripFilter);
-                    if (debts && debts.persons && debts.persons.length > 0) {
-                        const me = debts.persons[0];
-                        const myBalance = (debts.balancesAfterTransfers && debts.balancesAfterTransfers[me]) || 0;
-                        if (Math.abs(myBalance) > 1) {
-                            const color = myBalance > 0 ? 'text-emerald-600' : 'text-rose-600';
-                            const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
-                            debtInfo = `<div class="text-[11px] font-bold ${color} flex items-center gap-1">
-                                ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : ICONS.minus.replace('w-4 h-4', 'w-3 h-3')} 
-                                ${fmtNum(Math.abs(myBalance))} ${baseCur} ${label}
-                            </div>`;
-                        }
-                    }
-                }
-
-                const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
-                const primaryValue = state.isIndividualView ? allTimeTotal : tripTotalInBase;
-                const secondaryValue = state.isIndividualView ? tripTotalInBase : allTimeTotal;
-                const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
-
                 return `
         <div class="space-y-3 pb-24">
             
             <!-- 1. GENEL HARCAMA VE KUR BAŞLIĞI (HEADER) -->
-            <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-500/10 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+            <div class="relative overflow-hidden rounded-2xl border border-cyan-400/40 bg-cyan-400/50 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.25)]">
                 <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-cyan-300/50 blur-3xl"></div>
                 <div class="absolute -left-16 -bottom-16 w-56 h-56 rounded-full bg-sky-500/35 blur-3xl"></div>
                 
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 p-4">
                     <div>
-                        <div class="text-[10px] uppercase tracking-[0.25em] text-white/70 font-bold mb-1 flex items-center gap-1">
-                            ${ICONS.calculate} ${state.isIndividualView ? 'BENİM PAYIM' : 'TOPLAM MALİYET'} (${(state.trips || []).length} Seyahat)
+                        <div class="text-[10px] uppercase tracking-[0.25em] text-slate-900/70 font-bold mb-1 flex items-center gap-1">
+                            ${ICONS.calculate} GENEL TOPLAM (${(state.trips || []).length} Seyahat)
                         </div>
                         
-                        <div class="text-3xl font-extrabold text-white leading-tight mt-1">
+                        <div class="text-3xl font-extrabold text-slate-900 leading-tight mt-1 flex items-center justify-between">
                             <span>
-                                ${fmtNum(primaryValue)} 
+                                ${fmtNum(allTimeTotal)} 
                                 <span class="text-lg font-semibold">${baseCur}</span>
                             </span>
+                            <button data-act="new" class="w-10 h-10 rounded-full bg-slate-900/10 hover:bg-slate-900/20 flex items-center justify-center transition">
+                                ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
+                            </button>
                         </div>
-
-                        ${isSharedTrip ? `
-                            <div class="text-xs font-bold text-white/60 mt-0.5">
-                                ${secondaryLabel}: ${fmtNum(secondaryValue)} ${baseCur}
-                            </div>
-                            ${debtInfo ? `<div class="mt-1">${debtInfo}</div>` : ''}
-                        ` : ''}
                         
-                        <div class="mt-3 flex items-center gap-4">
-                            <label class="premium-switch">
-                                <input type="checkbox" data-act="toggle-individual-view" ${state.isIndividualView ? 'checked' : ''}>
-                                <div class="switch-track">
-                                    <div class="switch-thumb"></div>
-                                </div>
-                                <span class="switch-label">${state.isIndividualView ? 'Bireysel Görünüm' : 'Genel Görünüm'}</span>
-                            </label>
-                        </div>
-
-                        <div class="mt-3 inline-flex items-center gap-2 rounded-md bg-white/45 px-2 py-1 text-[9px] text-slate-900/80">
+                        <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-white/45 px-2 py-1 text-[9px] text-slate-900/80">
                             ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
                             <span>Kur: USD ${fmtNum(EXCHANGE_RATES.USD)} | EUR ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})</span>
                         </div>
-                        
-
                     </div>
                     
                     
                     <div class="flex flex-col gap-2 w-full md:w-auto">
                         <div class="grid grid-cols-2 md:flex md:flex-row gap-2 sm:gap-3">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
-                                    Para Birimi
+                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
+                                    Özet Para Birimi
                                 </label>
                                 <div class="relative">
                                     <select
@@ -3860,7 +3621,7 @@
                             </div>
 
                             <div class="flex flex-col gap-1">
-                                <label class="text-[10px] text-white/80 font-bold uppercase ml-1">
+                                <label class="text-[10px] text-slate-900/80 font-bold uppercase ml-1">
                                     Kapsam
                                 </label>
                                 <div class="relative">
@@ -3886,14 +3647,16 @@
                           <!-- BUGÜNÜN HARCAMASI -->
                 <div class="relative overflow-hidden rounded-xl border border-emerald-400/40 bg-emerald-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.45)] h-32 p-4">
                         <div class="flex items-center gap-2 text-xs text-white/80 font-semibold mb-2">
-                            ${ICONS.calculate.replace('w-4 h-4', 'w-4 h-4')} BUGÜNÜN HARCAMASI
+                            ${ICONS.calculate.replace('w-4 h-4', 'w-4 h-4')} BUGÜNÜN
                         </div>
                         <div class="text-2xl font-extrabold text-white leading-none mt-2">
                             ${fmtNum(todayTotal)}
                         </div>
                         <div class="text-xs font-medium text-white/70">${baseCur}</div>
                         
-
+                        <div class="text-[9px] text-white/50 mt-3">
+                            ${todayExpenses.length} kayıt
+                        </div>
                     </div>
 
               
@@ -3942,21 +3705,17 @@
 
                     return `
                         <div data-act="detail" data-id="${x.id}" class="p-3 flex justify-between items-center hover:bg-slate-700/50 cursor-pointer transition">
-                            <!-- Sol: İkon ve Bilgi -->
-                            <div class="flex items-center gap-3 flex-1 min-w-0 pr-2">
-                                <div class="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-lg border border-slate-700/50 shadow-inner shrink-0">
-                                    ${catInfo.i}
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="text-sm font-bold text-white line-clamp-1">${esc(x.place)}</div>
-                                    <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                                        <span class="font-medium text-blue-400">${esc(catInfo.l)}</span> · ${fmtDate(x.date)}
-                                    </div>
+                            <!-- Sol: Mekan / Kategori -->
+                            <div class="flex-1 min-w-0 pr-3">
+                                <div class="text-sm font-bold text-white line-clamp-1">${esc(x.place)}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                    <span class="font-medium">${esc(catInfo.l)}</span> · ${fmtDate(x.date)}
                                 </div>
                             </div>
-                            <!-- Sağ: Tutar -->
+                            <!-- Sağ: Tutar / Base Cur Karşılığı -->
                             <div class="text-right flex-shrink-0">
-                                <div class="text-sm font-bold text-slate-200">${fmtNum(estimatedBaseCur)} <span class="text-xs font-medium text-slate-500">${baseCur}</span></div>
+                                <div class="text-sm font-bold text-slate-200">${fmtNum(estimatedBaseCur)} <span class="text-xs font-medium">${baseCur}</span></div>
+                                
                             </div>
                         </div>
                     `;
@@ -4097,44 +3856,26 @@
                     const cur = x.cur || 'TRY';
                     const amt = Number(x.amt) || 0;
 
-                    const baseAmt = convertToBase(amt, cur, headerCur, x.trip);
-                    totalInHeaderCur += calculateAmountForView(baseAmt, x.isIndividual, x.trip);
+                    totalInHeaderCur += convertToBase(amt, cur, headerCur, x.trip);
+                    totalsByCurrency[cur] = (totalsByCurrency[cur] || 0) + amt;
                 });
 
-                // Toplam seyahat maliyeti
-                let tripTotalInHeaderCur = 0;
-                visibleExp.forEach(x => {
-                    tripTotalInHeaderCur += convertToBase(Number(x.amt)||0, x.cur || 'TRY', headerCur, x.trip);
-                });
-
-                // Borç/Alacak Durumu
-                let debtInfo = '';
-                if (state.tripFilter) {
-                    const debts = calculateDebts(state.tripFilter);
-                    if (debts && debts.persons && debts.persons.length > 0) {
-                        const me = debts.persons[0];
-                        const myBalance = (debts.balancesAfterTransfers && debts.balancesAfterTransfers[me]) || 0;
-                        if (Math.abs(myBalance) > 1) {
-                            const color = myBalance > 0 ? 'text-emerald-400' : 'text-rose-400';
-                            const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
-                            debtInfo = `<div class="text-[11px] font-bold ${color} mt-1 flex items-center gap-1">
-                                ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : '➖'} 
-                                ${fmtNum(Math.abs(myBalance))} ${headerCur} ${label}
-                            </div>`;
-                        }
-                    }
-                }
-
-                const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
-                const primaryValue = state.isIndividualView ? totalInHeaderCur : tripTotalInHeaderCur;
-                const secondaryValue = state.isIndividualView ? tripTotalInHeaderCur : totalInHeaderCur;
-                const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
+                // NOT: Rezervasyonlar artık visibleExp içerisinde 'isReservation: true' olarak bulunduğu için 
+                // burada ayrıca toplanmalarına gerek kalmadı. Bu sayede mükerrer hesaplama önlendi.
 
                 const headerText = isFiltered
-                    ? `${esc(state.tripFilter)} Seyahati ${state.isIndividualView ? 'Payım' : 'Toplamı'}`
-                    : `Harcamalar ${state.isIndividualView ? 'Payım' : 'Toplamı'}`;
+                    ? `${esc(state.tripFilter)} Seyahati Toplamı`
+                    : `Seçili Seyahat Harcamalar Toplamı`;
 
-                const subtitleText = `${visibleExp.length} İşlem`;
+                const multiCurrencySummary = Object.entries(totalsByCurrency)
+                    .filter(([cur]) => cur !== headerCur)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([cur, amt]) => `${fmtNum(amt)} ${cur}`)
+                    .join(' · ');
+
+                const subtitleText = multiCurrencySummary
+                    ? `(${multiCurrencySummary}) · ${visibleExp.length} İşlem`
+                    : `${visibleExp.length} İşlem`;
 
                 const rateInfo = `USD: ${fmtNum(EXCHANGE_RATES.USD)} | EUR: ${fmtNum(EXCHANGE_RATES.EUR)} (${rateLastUpdated})`;
 
@@ -4159,36 +3900,17 @@
             </div>
 
             <div class="text-3xl font-extrabold text-white leading-tight mt-1">
-              ${fmtNum(primaryValue)} <span class="text-lg font-semibold">${headerCur}</span>
+              ${fmtNum(totalInHeaderCur)} <span class="text-lg font-semibold">${headerCur}</span>
             </div>
 
-            ${isSharedTrip ? `
-                <div class="text-xs font-bold text-white/70 mt-0.5">
-                    ${secondaryLabel}: ${fmtNum(secondaryValue)} ${headerCur}
-                </div>
-                ${debtInfo}
-            ` : ''}
-
-            <div class="mt-3 flex items-center gap-4">
-                <label class="premium-switch">
-                    <input type="checkbox" data-act="toggle-individual-view" ${state.isIndividualView ? 'checked' : ''}>
-                    <div class="switch-track">
-                        <div class="switch-thumb"></div>
-                    </div>
-                    <span class="switch-label text-white/90">${state.isIndividualView ? 'Bireysel Görünüm' : 'Genel Görünüm'}</span>
-                </label>
+            <div class="text-xs text-white/70 mt-2 font-medium">
+              ${subtitleText}
             </div>
-
-            </div>
-
-
 
             <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-black/20 px-2 py-1 text-[10px] text-white/80">
               ${ICONS.refresh.replace('w-4 h-4', 'w-3 h-3')}
               <span>Dinamik Kurlar: ${rateInfo}</span>
             </div>
-
-
           </div>
 
           <!-- Sağ taraf: Seyahat filtresi ve Grafik Butonu -->
@@ -4259,26 +3981,21 @@
                         color: MENU_ICON_COLORS.asistan
                     },
                 ];
-                
-                // Migration/Safety: Eski 'other' tab'ini veya geçersiz sekmeleri 'asistan' veya 'sum'a yönlendir
-                if (state.tab === 'other' || !tabs.some(tab => tab.id === state.tab)) {
-                    state.tab = 'sum';
-                }
 
                 return `
       <!-- Floating Navigation Island -->
       <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
-        <div class="glass-panel neon-border p-1.5 rounded-2xl flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-2xl bg-slate-900/60">
+        <div class="glass-panel p-1.5 rounded-2xl flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-2xl bg-slate-900/60">
             ${tabs.map(tab => {
                     const isActive = t === tab.id;
                     
                     return `
                 <button data-act="tab" data-val="${tab.id}" class="relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-300 ${isActive ? 'scale-110 -translate-y-1' : 'opacity-60 hover:opacity-100'}">
-                    ${isActive ? `<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]"></div>` : ''}
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${isActive ? tab.color : 'from-slate-800 to-slate-900'} flex items-center justify-center mb-1 shadow-lg transition-all duration-300">
                         ${tab.icon.replace('w-4 h-4', 'w-5 h-5 text-white')}
                     </div>
                     <span class="text-[8px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-slate-500'} uppercase">${tab.label}</span>
+                    ${isActive ? `<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]"></div>` : ''}
                 </button>
             `;
                 }).join('')}
@@ -4290,44 +4007,40 @@
 
             function renderFilters() {
                 return `
-      <div class="flex flex-col gap-3 mb-4">
-          <!-- Arama Barı -->
-          <div class="relative w-full">
-            <span class="absolute left-3 top-2.5 text-slate-400 w-4 h-4">${ICONS.search}</span>
-            <input data-act="search" value="${esc(state.search)}" class="w-full bg-slate-800/80 border border-slate-700/50 rounded-xl py-2.5 pl-9 pr-3 text-sm text-slate-200 outline-none focus:border-blue-500 focus:bg-slate-800 transition shadow-lg" placeholder="Harcama veya mekan ara...">
-          </div>
+      <div class="flex flex-col sm:flex-row gap-2 mb-3">
+         
+         <div class="relative flex-1 min-w-[150px]">
+            <span class="absolute left-3 top-2.5 text-slate-500 w-4 h-4">${ICONS.search}</span>
+            <input data-act="search" value="${esc(state.search)}" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pl-9 pr-3 text-sm text-slate-200 outline-none focus:border-blue-500 transition" placeholder="Ara...">
+         </div>
 
-          ${state.tab === 'exp' ? `
-            <!-- Kategori Çipleri (Scrollable) -->
-            <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-1 px-1">
-                <button data-act="flt-cat" data-val="" class="px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${!state.catFilter ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500'}">
-                    TÜMÜ
-                </button>
-                ${Object.values(CATS).map(c => `
-                    <button data-act="flt-cat" data-val="${c.id}" class="px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap flex items-center gap-1.5 transition-all ${state.catFilter === c.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-500'}">
-                        <span>${c.i}</span>
-                        <span>${esc(c.l).toUpperCase()}</span>
-                    </button>
-                `).join('')}
-            </div>
+         ${state.tab === 'exp' ? `
+           <div class="relative w-full sm:w-32 flex-shrink-0">
+              <select data-act="flt-cat" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
+                <option value="">Kategori</option>
+                ${Object.values(CATS).map(c => `<option value="${c.id}" ${state.catFilter === c.id ? 'selected' : ''}>${esc(c.l)}</option>`).join('')}
+              </select>
+              <div class="absolute right-3 top-2.5 text-slate-500 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+           </div>
 
-            <!-- Diğer Filtreler -->
-            <div class="flex gap-2">
-                <div class="relative flex-1">
-                    <select data-act="flt-type" class="w-full bg-slate-800/60 border border-slate-700/50 rounded-xl py-2 px-3 text-xs text-slate-400 outline-none appearance-none cursor-pointer hover:bg-slate-800 transition">
-                        <option value="">Ödeme Tipi: Tümü</option>
-                        ${EXPENSE_TYPES.map(t => `<option value="${t.id}" ${state.typeFilter === t.id ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}
-                    </select>
-                    <div class="absolute right-3 top-2.5 text-slate-600 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
-                </div>
-                <div class="relative flex-1">
-                    <select data-act="flt-ind" class="w-full bg-slate-800/60 border border-slate-700/50 rounded-xl py-2 px-3 text-xs text-slate-400 outline-none appearance-none cursor-pointer hover:bg-slate-800 transition">
-                        ${INDIVIDUAL_FILTERS.map(f => `<option value="${f.id}" ${state.indFilter === f.id ? 'selected' : ''}>${esc(f.l)}</option>`).join('')}
-                    </select>
-                    <div class="absolute right-3 top-2.5 text-slate-600 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
-                </div>
-            </div>
-          ` : ''}
+           <div class="flex gap-2 w-full sm:w-auto">
+             <div class="relative flex-1 min-w-[50%] sm:w-32">
+                <select data-act="flt-type" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
+                  <option value="">Ödeme Tipi</option>
+                  ${EXPENSE_TYPES.map(t => `<option value="${t.id}" ${state.typeFilter === t.id ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}
+                </select>
+                <div class="absolute right-3 top-2.5 text-slate-500 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+             </div>
+
+             <div class="relative flex-1 min-w-[50%] sm:w-40">
+                <select data-act="flt-ind" class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-300 outline-none appearance-none cursor-pointer">
+                  ${INDIVIDUAL_FILTERS.map(f => `<option value="${f.id}" ${state.indFilter === f.id ? 'selected' : ''}>${esc(f.l)}</option>`).join('')}
+                </select>
+                <div class="absolute right-3 top-2.5 text-slate-500 pointer-events-none">${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}</div>
+             </div>
+           </div>
+           
+         ` : ''}
       </div>
     `;
             }
@@ -4343,8 +4056,7 @@
 
                     let sumInBase = 0;
                     lst.forEach(x => {
-                        const baseAmt = convertToBase(x.amt, x.cur, state.baseCurrency, x.trip);
-                        sumInBase += calculateAmountForView(baseAmt, x.isIndividual, x.trip);
+                        sumInBase += convertToBase(x.amt, x.cur, state.baseCurrency, x.trip);
                     });
                     const sumTxt = fmtNum(sumInBase) + ' ' + state.baseCurrency;
 
@@ -4377,26 +4089,30 @@
                         const separatorClass = isLast ? '' : 'border-b border-slate-200';
 
                         return `
-                <div data-act="detail" data-id="${x.id}" class="p-3 pl-4 flex justify-between items-center hover:bg-slate-200 cursor-pointer transition border-l-[3px] border-transparent hover:border-slate-400 ${separatorClass}">
-                    <div class="flex items-center gap-3 flex-1 min-w-0 pr-2">
-                        <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-sm border border-slate-300 shadow-sm shrink-0">
-                            ${catInfo.i}
+                <div data-act="detail" data-id="${x.id}" class="p-3 pl-6 flex justify-between items-center hover:bg-slate-200 cursor-pointer transition border-l-[3px] border-transparent hover:border-slate-400 ${separatorClass}">
+                  
+                    <div class="flex-1 min-w-0 pr-2">
+                        <div class="flex items-center gap-1.5">
+                            <div class="text-sm font-bold text-slate-900 line-clamp-1">${esc(x.place)}</div>
+                            ${x.isReservation ? `<span class="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded border border-indigo-200 font-bold uppercase tracking-tighter">Rezervasyon</span>` : ''}
                         </div>
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <div class="text-sm font-bold text-slate-900 line-clamp-1">${esc(x.place)}</div>
-                                ${x.isReservation ? `<span class="bg-indigo-100 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded border border-indigo-200 font-bold uppercase tracking-tighter">Rezervasyon</span>` : ''}
-                            </div>
-                            <div class="text-[10px] text-slate-500 line-clamp-1">
-                                <span class="font-bold text-blue-600">${esc(catInfo.l)}</span> · ${fmtDate(x.date)}
-                            </div>
-                        </div>
+                        <div class="text-[10px] text-slate-600 line-clamp-1">${esc(x.trip || 'Genel')} · ${fmtDate(x.date)}</div>
                     </div>
-                   <div class="flex-shrink-0 text-right">
-                       <div class="text-sm font-bold text-slate-900">${fmtNum(x.amt)} <span class="text-[10px] text-slate-500">${x.cur}</span></div>
-                       <div class="text-[9px] text-slate-400 mt-0.5">
-                           ${esc(typeInfo.l)} · <span class="font-medium ${x.isIndividual ? 'text-blue-500' : 'text-emerald-600'}">${x.isIndividual ? 'Bireysel' : (x.payer || 'Ortak')}</span>
+
+                   <div class="flex-shrink-0 w-32 text-[10px] pr-2 text-right">
+                       <div class="flex items-center gap-1.5 justify-end">
+                           <span class="text-xs text-slate-700">${catInfo.i}</span>
+                           <span class="text-slate-700 font-medium">${esc(catInfo.l)}</span>
                        </div>
+                       <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                           <span class="text-[9px] text-slate-500 mr-1">${esc(typeInfo.l)}</span>
+                           <span class="text-slate-600 font-medium">(${x.isIndividual ? 'Bireysel' : 'Ortak'}${!x.isIndividual && x.payer ? ` · <span class="text-emerald-600 font-bold">${esc(x.payer)}</span>` : ''}${(!x.isIndividual && x.isSettled) ? ` · <span class="text-emerald-700 font-bold">Ödendi</span>` : ''})</span>
+                       </div>
+                   </div>
+
+                   <div class="text-right flex-shrink-0 w-16">
+                      <div class="text-sm font-bold text-slate-900">${fmtNum(convertToBase(Number(x.amt)||0, x.cur || state.baseCurrency, state.baseCurrency, x.trip))}</div>
+                      <div class="text-[10px] text-slate-600">${state.baseCurrency}</div>
                    </div>
                 </div>`;
                     }).join('') : ''}
@@ -4416,113 +4132,92 @@
                 });
 
                 return `
-      <!-- PREMİUM İLERLEME KARTI -->
-      <div class="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 backdrop-blur-xl shadow-[0_0_30px_rgba(16,185,129,0.2)] p-5 mb-6 group">
-        <div class="absolute -right-10 -top-10 w-32 h-32 bg-emerald-400/20 blur-3xl group-hover:bg-emerald-300/30 transition duration-700"></div>
-        <div class="absolute -left-10 -bottom-10 w-32 h-32 bg-teal-500/10 blur-3xl"></div>
-        
-        <div class="relative z-10 flex justify-between items-center mb-4">
-          <div>
-            <div class="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mb-1">Hazırlık Durumu</div>
-            <div class="text-lg font-bold text-white flex items-center gap-2">
-                ${done} / ${total} <span class="text-xs font-medium text-white/50">tamamlandı</span>
-            </div>
-          </div>
-          <div class="text-3xl font-black text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]">${pct}%</div>
+      <div class="relative overflow-hidden bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/20 rounded-xl p-4 mb-4">
+        <div class="flex justify-between items-end mb-2">
+          <div><div class="text-[9px] font-bold text-emerald-400 uppercase">Hazırlık Durumu</div><div class="text-sm text-emerald-100/80">${done} / ${total} tamamlandı</div></div>
+          <div class="text-xl font-bold text-white">${pct}%</div>
         </div>
-        
-        <div class="relative h-2.5 bg-slate-900/60 rounded-full overflow-hidden border border-white/5 shadow-inner">
-          <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_15px_rgba(52,211,153,0.6)] transition-all duration-1000 ease-out rounded-full" style="width:${pct}%">
-            <div class="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] animate-[shimmer_2s_infinite]"></div>
-          </div>
+        <div class="h-2 bg-slate-900/50 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-700" style="width:${pct}%"></div></div>
+      </div>
+
+      <!-- Yeni Kategori Ekleme Paneli -->
+      <div class="mb-4 bg-slate-800/30 border border-slate-700/50 rounded-xl p-3 space-y-3">
+        <h4 class="text-sm font-bold text-slate-300">Yeni Kategori Ekle</h4>
+        <div class="flex gap-2">
+            <input id="new-cat-name" placeholder="Kategori Adı (Örn: Plaj Malzemeleri)" class="flex-1 bg-slate-950/50 border border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
+            <input id="new-cat-icon" placeholder="Emoji (🏖️)" class="w-16 text-center bg-slate-950/50 border border-slate-700 rounded-lg px-1 py-2 text-sm outline-none focus:border-blue-500 text-slate-200">
+            <button data-act="add-cat" class="bg-blue-600 text-white px-3 rounded-lg hover:bg-blue-500 transition">${ICONS.plus.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
         </div>
       </div>
 
-      <!-- KATEGORİ EKLEME (DAHA KOMPAKT) -->
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-3 px-1">
-            <h4 class="text-[11px] font-black text-white/40 uppercase tracking-widest">Yeni Kategori</h4>
-        </div>
-        <div class="flex gap-2 bg-slate-800/20 p-2 rounded-2xl border border-slate-700/30 backdrop-blur-sm">
-            <input id="new-cat-icon" placeholder="🏠" class="w-12 text-center bg-slate-950/40 border border-slate-700/50 rounded-xl px-1 py-2.5 text-base outline-none focus:ring-2 focus:ring-blue-500/50 transition text-white">
-            <input id="new-cat-name" placeholder="Örn: Evraklar, Giyim..." class="flex-1 bg-slate-950/40 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500/50 transition text-slate-200 placeholder-slate-600">
-            <button data-act="add-cat" class="w-12 h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-900/40 flex items-center justify-center transition active:scale-95">
-                ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
-            </button>
-        </div>
-      </div>
 
-      <div class="pb-32 space-y-4">
+      <div class="pb-24 space-y-3">
         ${sortedCats.map(c => {
+                    // İtemleri tarihe göre sırala
                     const its = state.chk.items.filter(i => i.cat === c.id)
                         .sort((a, b) => {
-                            const dateA = new Date(a.date || '3000-01-01');
+                            const dateA = new Date(a.date || '3000-01-01'); // Tarihsizler en sona
                             const dateB = new Date(b.date || '3000-01-01');
-                            return dateA - dateB;
+                            if (dateA < dateB) return -1;
+                            if (dateA > dateB) return 1;
+                            return 0;
                         });
 
                     const isOpen = state.openChkCats[c.id];
-                    const catDone = its.filter(i => i.done).length;
-                    const catTotal = its.length;
-                    const catPct = catTotal ? Math.round((catDone * 100) / catTotal) : 0;
 
                     return `
-            <div class="group bg-slate-800/20 border border-slate-700/40 rounded-2xl overflow-hidden transition-all duration-300 hover:border-slate-600/60 shadow-sm">
+            <div class="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
               
-              <!-- KATEGORİ BAŞLIĞI -->
-              <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-700/20 transition-colors" data-act="tog-chk-cat" data-val="${c.id}">
-                <div class="flex items-center gap-4 flex-1 min-w-0">
-                   <div class="w-10 h-10 rounded-xl bg-slate-900/60 flex items-center justify-center text-xl border border-slate-700/50 shadow-inner group-hover:scale-110 transition-transform">${c.i}</div>
-                   <div class="min-w-0">
+              <!-- KATEGORİ BAŞLIĞI VE AYARLAR -->
+              <div class="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-800/50 transition">
+                <div data-act="tog-chk-cat" data-val="${c.id}" class="flex items-center gap-3 flex-1 min-w-0 p-1 -m-1 focus:outline-none rounded-md cursor-pointer">
+                   <div class="bg-slate-800 w-8 h-8 rounded flex items-center justify-center border border-slate-700">${c.i}</div>
+                   <div>
                        <div class="flex items-center gap-2">
-                           <div class="text-sm font-bold text-slate-200 truncate">${esc(c.l)}</div>
-                           <div class="text-slate-600 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">${ICONS.down.replace('w-4 h-4', 'w-3 h-3')}</div>
+                           <div class="text-sm font-bold text-slate-200">${esc(c.l)}</div>
+                           <div class="text-slate-600 transform transition ${isOpen ? 'rotate-180' : ''}">${ICONS.down}</div>
                        </div>
-                       <div class="flex items-center gap-2 mt-1">
-                           <div class="w-16 h-1 bg-slate-900 rounded-full overflow-hidden">
-                               <div class="h-full bg-emerald-500/70" style="width:${catPct}%"></div>
-                           </div>
-                           <span class="text-[10px] font-bold text-slate-500">${catDone}/${catTotal}</span>
-                       </div>
+                       <div class="text-xs text-slate-500">${its.filter(i => i.done).length}/${its.length}</div>
                    </div>
                 </div>
                 
-                <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-rose-400 transition p-2 rounded-xl hover:bg-rose-500/10">
-                    ${ICONS.trash.replace('w-4 h-4', 'w-4 h-4')}
-                </button>
+                <div class="flex items-center gap-2">
+                    <button data-act="del-chk-cat-confirm" data-id="${c.id}" class="text-slate-600 hover:text-red-400 transition p-2 rounded-full hover:bg-slate-800/50 flex-shrink-0 z-10">
+                        ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
+                    </button>
+                </div>
               </div>
               
               ${isOpen ? `
-              <div class="px-4 pb-4 space-y-3 animate-[fadeIn_0.3s]">
-                <!-- MADDE EKLEME -->
-                <div class="flex gap-2 p-1.5 bg-slate-950/40 rounded-xl border border-slate-800 focus-within:border-blue-500/50 transition">
-                    <input id="new-chk-item-${c.id}" data-cat-id="${c.id}" placeholder="Madde ekle..." class="flex-1 bg-transparent px-3 py-1 text-xs outline-none text-slate-200 placeholder-slate-600">
-                    <button data-act="add-chk-single" data-cat-id="${c.id}" class="bg-blue-600/90 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition active:scale-95">Ekle</button>
-                </div>
+              
+              <!-- MADDE EKLEME KUTUSU (TARİHSİZ) -->
+<div class="p-3 pt-0 border-t border-slate-700/50 mt-2"> 
+  <div class="flex gap-2 p-2 bg-slate-900/50 rounded-lg border border-slate-800">
+    <input
+      id="new-chk-item-${c.id}"
+      data-cat-id="${c.id}"
+      placeholder="Yeni madde (virgülle birden fazla)"
+      class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs w-full outline-none text-slate-200 placeholder-slate-600"
+    >
+    <button
+      data-act="add-chk-single"
+      data-cat-id="${c.id}"
+      class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-bold"
+    >
+      Ekle
+    </button>
+  </div>
+</div>
 
-                <!-- LİSTE -->
-                <div class="space-y-1 mt-2">
-                  ${its.length ? its.map(i => `
-                    <div class="flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 hover:bg-white/5 group/item">
-                        <label class="relative flex items-center cursor-pointer">
-                            <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done ? 'checked' : ''} 
-                                   class="peer hidden">
-                            <div class="w-5 h-5 rounded-md border-2 border-slate-700 bg-slate-900/50 peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all flex items-center justify-center text-white">
-                                <svg class="w-3 h-3 opacity-0 peer-checked:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            </div>
-                        </label>
-                        
-                        <div class="flex-1 min-w-0">
-                            <div class="text-sm transition-all duration-300 ${i.done ? 'text-slate-600 line-through' : 'text-slate-300'}">${esc(i.val)}</div>
-                            ${i.date ? `<div class="text-[9px] text-slate-500 font-medium flex items-center gap-1 mt-0.5">${ICONS.calendar.replace('w-4 h-4', 'w-2.5 h-2.5')} ${fmtDate(i.date)}</div>` : ''}
-                        </div>
 
-                        <button data-act="del-chk" data-id="${i.id}" class="text-slate-700 hover:text-rose-400 opacity-0 group-item-hover:opacity-100 transition p-2">
-                            ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')}
-                        </button>
-                    </div>
-                  `).join('') : `<div class="text-center py-4 text-[11px] text-slate-600 italic">Henüz bir madde eklenmemiş</div>`}
-                </div>
+              <!-- MEVCUT MADDELER -->
+              <div class="bg-slate-900/30 border-t border-slate-700/50 p-2 space-y-1" data-cat-id="${c.id}">
+                 ${its.map(i => `<div data-id="${i.id}" data-cat="${i.cat}" class="flex items-center gap-3 p-2 hover:bg-slate-800/30 rounded-lg group">
+                     <input type="checkbox" data-act="chk" data-id="${i.id}" ${i.done ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-800">
+                     <span class="flex-1 text-sm text-slate-300 ${i.done ? 'line-through opacity-50' : ''}">${esc(i.val)}</span>
+                     <span class="text-[10px] text-slate-500 font-mono flex-shrink-0">${i.date ? fmtDate(i.date) : ''}</span>
+                     <button data-act="del-chk" data-id="${i.id}" class="text-slate-600 hover:text-rose-400 opacity-50 group-hover:opacity-100 transition p-1 -m-1">${ICONS.x.replace('w-4 h-4', 'w-3.5 h-3.5')}</button>
+                  </div>`).join('')}
               </div>` : ''}
             </div>`;
                 }).join('')}
@@ -4557,7 +4252,12 @@
     </a>
   </div>
 
-  <div class="ast-section-label">Seyahat Planlama</div>
+  <!-- SEYAHAT PLANLAMA -->
+  <div class="mb-8">
+      <div class="ast-section-label flex items-center gap-2 px-1">
+          <span class="w-1.5 h-4 bg-pink-500 rounded-full"></span>
+          Seyahat Planlama
+      </div>
   <div class="grid grid-cols-2 gap-4 mb-6">
     <button data-act="open-trip-mgmt" class="ast-premium-card ast-bg-pink shadow-lg shadow-pink-900/20 col-span-2">
       <div class="ast-card-title">Seyahat Yönetimi</div>
@@ -4574,16 +4274,28 @@
       <div class="ast-card-icon">🏨</div>
     </a>
   </div>
+  </div>
 
-  <div class="ast-section-label">Finans ve Analiz</div>
+  <!-- FİNANS VE ANALİZ -->
+  <div class="mb-8">
+      <div class="ast-section-label flex items-center gap-2 px-1">
+          <span class="w-1.5 h-4 bg-purple-500 rounded-full"></span>
+          Finans ve Analiz
+      </div>
   <div class="grid grid-cols-2 gap-4 mb-6">
     <a href="#helper-report" class="ast-premium-card ast-bg-purple shadow-lg shadow-purple-900/20 no-underline col-span-2">
       <div class="ast-card-title">Harcama Raporu</div>
       <div class="ast-card-icon">📊</div>
     </a>
   </div>
+  </div>
 
-  <div class="ast-section-label">Seyahat Rehberi</div>
+  <!-- SEYAHAT REHBERİ -->
+  <div class="mb-8">
+      <div class="ast-section-label flex items-center gap-2 px-1">
+          <span class="w-1.5 h-4 bg-cyan-500 rounded-full"></span>
+          Seyahat Rehberi
+      </div>
   <div class="grid grid-cols-2 gap-4 mb-6">
     <a href="#helper-flights" class="ast-premium-card ast-bg-cyan shadow-lg shadow-cyan-900/20 no-underline col-span-2">
       <div class="ast-card-title">Uçuş Rehberi</div>
@@ -4596,35 +4308,37 @@
     </a>
 
     <a href="#helper-places" class="ast-premium-card ast-bg-magenta shadow-lg shadow-magenta-900/20 no-underline">
-      <div class="ast-card-title">Mekan Bulucu</div>
+      <div class="ast-card-title">Yakın Yerler</div>
       <div class="ast-card-icon">📍</div>
     </a>
   </div>
+  </div>
 
-  <div class="ast-section-label">Güvenlik ve Destek</div>
+  <!-- DESTEK VE VERİ -->
+  <div class="mb-12">
+      <div class="ast-section-label flex items-center gap-2 px-1">
+          <span class="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
+          Destek ve Veri
+      </div>
   <div class="grid grid-cols-2 gap-4 mb-6">
     <a href="#helper-health" class="ast-premium-card ast-bg-emerald shadow-lg shadow-emerald-900/20 no-underline">
       <div class="ast-card-title">Sağlık ve Güvenlik</div>
       <div class="ast-card-icon">🏥</div>
     </a>
 
-    <a href="#helper-pass" class="ast-premium-card bg-zinc-700/40 border border-zinc-600/30 no-underline">
-      <div class="ast-card-title text-zinc-300">Parolayı Güncelle</div>
-      <div class="ast-card-icon">🔐</div>
-    </a>
-
-    <a href="#helper-critical" class="ast-premium-card bg-rose-600/20 border border-rose-500/30 no-underline">
-      <div class="ast-card-title text-rose-400">Kritik Notlar</div>
+    <a href="#helper-critical" class="ast-premium-card ast-bg-indigo shadow-lg shadow-indigo-900/20 no-underline">
+      <div class="ast-card-title">Kritik Notlar</div>
       <div class="ast-card-icon">📝</div>
     </a>
-
-    <a href="#helper-data" class="ast-premium-card bg-yellow-600/20 border border-yellow-500/30 no-underline">
-      <div class="ast-card-title text-yellow-400">Veri & Yedekleme</div>
+    <a href="#helper-data" class="ast-premium-card ast-bg-yellow shadow-lg shadow-yellow-600/30 no-underline col-span-2 !min-h-[90px]">
+      <div class="ast-card-title">Veri Yönetimi & Yedekleme</div>
       <div class="ast-card-icon">💾</div>
     </a>
   </div>
+  </div>
+
   <!-- Alt menüden kaçmak için ekstra boşluk -->
-  <div class="h-24 md:hidden"></div>
+  <div class="h-28 md:hidden"></div>
 `;
             }
 
@@ -4813,7 +4527,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
           <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
-          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">📍 Mekan Bulucu</h3>
+          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Yakındaki Yerler</h3>
           <div class="space-y-3">
             <p class="text-xs text-slate-400">Konumunuza göre gezilecek yerler, kafeler ve oteller için kısayollar.</p>
             <div class="grid grid-cols-3 gap-3 pt-1">
@@ -4894,47 +4608,43 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
           <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
-          <h3 class="font-bold text-white mb-6 text-center text-base sm:text-lg">💾 Veri Yönetimi</h3>
-          
-          <div class="grid grid-cols-1 gap-4">
-            <!-- DIŞA AKTAR -->
-            <div class="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4">
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center text-teal-400">
-                        ${ICONS.download || '⬇️'}
-                    </div>
-                    <div>
-                        <div class="text-xs font-bold text-white">Verileri Yedekle</div>
-                        <div class="text-[10px] text-slate-500">Tüm verilerinizi JSON dosyası olarak indirin.</div>
-                    </div>
-                </div>
-                <button data-act="download-json" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold text-xs transition">
-                    JSON Dosyası İndir
-                </button>
+          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Veri Yönetimi (Yedekleme / Yükleme)</h3>
+          <div class="space-y-3">
+            <p class="text-sm text-slate-400 mb-1">
+              Tüm uygulama verilerinizi JSON formatında dışa aktarabilir veya geri yükleyebilirsiniz.
+            </p>
+            <textarea id="io-txt" class="w-full h-48 bg-black/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono outline-none focus:border-teal-400 placeholder-slate-500"
+              placeholder="Veri yedeği burada görünecek veya buraya yapıştırarak içe aktarabilirsiniz.">${esc(dataExport)}</textarea>
+            
+<div class="flex flex-col sm:flex-row gap-3 pt-1">
+              <button data-act="copy-json" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
+                Kopyala
+              </button>
+              <button data-act="download-json" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
+                JSON İndir
+              </button>
             </div>
 
-            <!-- İÇE AKTAR -->
-            <div class="bg-slate-800/40 border border-slate-700/30 rounded-2xl p-4">
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                        ${ICONS.upload || '⬆️'}
-                    </div>
-                    <div>
-                        <div class="text-xs font-bold text-white">Yedekten Geri Yükle</div>
-                        <div class="text-[10px] text-slate-500">Daha önce aldığınız bir yedeği sisteme yükleyin.</div>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button data-act="pick-json-file" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl font-bold text-xs transition">
-                        Dosya Seç
-                    </button>
-                    <button data-act="imp" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl font-bold text-xs transition">
-                        Yükle
-                    </button>
-                </div>
+            <div class="flex flex-col sm:flex-row gap-3 pt-1">
+              <button data-act="pick-json-file" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
+                Dosya Seç
+              </button>
+              <button data-act="imp" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg font-bold text-sm">
+                Yükle
+              </button>
+            </div>
+
+            <div class="pt-4 border-t border-slate-700/50 mt-4 space-y-2">
+              <button data-act="load-from-uid" class="w-full bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition">
+                🔑 Eski Hesaptan (UID) Verileri Aktar
+              </button>
+              <button data-act="scan-trips" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition">
+                🔄 Seyahat Listesini Tara ve Senkronize Et
+              </button>
             </div>
 
             <input id="io-file" data-act="io-file" type="file" accept="application/json" class="hidden" />
+
           </div>
         </div>
       </div>
@@ -4987,50 +4697,6 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
              <button data-act="new-trip" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-bold shadow-lg shadow-emerald-500/30 transition flex items-center justify-center gap-2">
                  ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')} Yeni Seyahat Ekle
              </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- PAROLA GÜNCELLEME POPUP -->
-      <div id="helper-pass" class="helper-modal ${state.helpersAccordion.pass ? 'active' : ''}">
-        <div class="helper-modal-inner relative" style="max-width: 28rem;">
-          <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
-            ${ICONS.x}
-          </a>
-          <h3 class="font-bold text-white mb-6 text-center text-base sm:text-lg">🔐 Parolayı Güncelle</h3>
-          
-          <div class="space-y-4">
-            ${state.passForm.msg ? `
-                <div class="p-3 rounded-xl text-xs font-bold ${state.passForm.isError ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}">
-                    ${state.passForm.msg}
-                </div>
-            ` : ''}
-
-            <div>
-                <label class="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Mevcut Parola</label>
-                <input type="password" data-act="pass-input" data-field="old" value="${state.passForm.old}" class="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-teal-500 transition" placeholder="••••••••">
-            </div>
-
-            <div class="grid grid-cols-1 gap-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Yeni Parola</label>
-                    <input type="password" data-act="pass-input" data-field="new" value="${state.passForm.new}" class="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-teal-500 transition" placeholder="En az 6 karakter">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Yeni Parola (Tekrar)</label>
-                    <input type="password" data-act="pass-input" data-field="confirm" value="${state.passForm.confirm}" class="w-full bg-slate-900/60 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-teal-500 transition" placeholder="••••••••">
-                </div>
-            </div>
-
-            <button data-act="run-update-pass" class="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-teal-900/30 transition-all transform active:scale-95 flex items-center justify-center gap-2 mt-2">
-                🔄 Parolayı Güncelle
-            </button>
-            
-            ${!currentUser ? `
-                <p class="text-[10px] text-center text-slate-500 mt-2">
-                    Bu özelliği kullanabilmek için giriş yapmış olmanız gerekmektedir.
-                </p>
-            ` : ''}
           </div>
         </div>
       </div>
@@ -5325,9 +4991,9 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
             <div id="settled-wrapper" class="${f.isIndividual ? 'hidden' : ''} flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg mb-3">
                 <div class="flex flex-col">
                     <label for="i-isSettled" class="text-sm font-bold text-slate-200 cursor-pointer">
-                        Ödendi (Mahsuplaşılmış)
+                        Mahsuplaşma Dışı (Ödendi)
                     </label>
-                    <span class="text-[10px] text-slate-500">Kim-kime hesabına dahil edilmez; kişi başı harcamaya dahil edilir</span>
+                    <span class="text-[10px] text-slate-500">Hesaba katılır ama borç/alacak dağılımına girmez</span>
                 </div>
                 <input type="checkbox" id="i-isSettled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-5 h-5 rounded border border-slate-600 bg-slate-900/40">
             </div>
@@ -5363,17 +5029,26 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
             <div class="grid grid-cols-2 gap-3">
                <div class="col-span-1 relative">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Toplam Tutar</label>
-                  <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
-                  <select id="i-cur" class="absolute right-1 top-[28px] bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
-                     ${AVAILABLE_CURRENCIES.map(c => `<option value="${c}" ${f.cur === c ? 'selected' : ''}>${c}</option>`).join('')}
-                  </select>
+                  <div class="relative">
+                    <input id="i-amt" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 pr-16 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.amt)}">
+                    <select id="i-cur" class="absolute right-1 top-1 bottom-1 bg-slate-700 text-slate-200 rounded-md text-xs px-2 outline-none border-l border-slate-600 cursor-pointer">
+                       ${AVAILABLE_CURRENCIES.map(c => `<option value="${c}" ${f.cur === c ? 'selected' : ''}>${c}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div id="amt-preview" class="mt-1 text-[10px] text-slate-500 font-medium px-1 flex items-center gap-1 min-h-[15px]">
+                    ${f.amt && f.cur && f.cur !== state.baseCurrency ? `
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                    ≈ ${fmtNum(convertToBase(f.amt, f.cur, state.baseCurrency))} ${state.baseCurrency}
+                    ` : ''}
+                  </div>
                </div>
                <div class="col-span-1 flex flex-col">
                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Kişi Sayısı</label>
-                  <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 flex-1">
+                  <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 h-[48px]">
                       <span class="text-slate-500 text-xs mr-2">Kişi:</span>
                       <input id="i-ppl" type="number" inputmode="numeric" min="1" class="w-full bg-transparent text-sm text-slate-200 outline-none text-center" value="${f.ppl}">
                   </div>
+                  <div class="mt-1 min-h-[15px]"></div>
                </div>
             </div>
             
@@ -5384,7 +5059,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">
       Tarih
     </label>
-    <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 h-10">
+    <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-3 h-[48px]">
       <input
         id="i-date"
         type="date"
@@ -5401,7 +5076,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
     <div class="relative">
       <select
         id="i-type"
-        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 pr-8 h-10 text-sm text-slate-200 outline-none appearance-none cursor-pointer"
+        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 pr-8 h-[48px] text-sm text-slate-200 outline-none appearance-none cursor-pointer"
       >
         ${EXPENSE_TYPES.map(t => `<option value="${t.id}" ${f.type === t.id ? 'selected' : ''}>${esc(t.l)}</option>`).join('')}
       </select>
@@ -5743,43 +5418,6 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                         : (state.tripFilter || 'Tüm Seyahatler');
                     const totalText = ds.total ? fmtNum(ds.total) + ' ' + (ds.currency || '') : '0';
 
-                    // Toplam maliyeti de hesaplayalım (Hibrit görünüm için)
-                    let tripTotalInBase = 0;
-                    filteredExpForSum.forEach(x => {
-                        tripTotalInBase += convertToBase(x.amt, x.cur || 'TRY', baseCur, x.trip);
-                    });
-                    state.res.forEach(r => {
-                        if (!r.cost) return;
-                        if (indFilter === 'individual' && r.isIndividual !== true) return;
-                        if (indFilter === 'shared' && r.isIndividual !== false) return;
-                        tripTotalInBase += convertToBase(r.cost, r.cur || 'TRY', baseCur, r.trip);
-                    });
-
-                    // Borç/Alacak Durumu
-                    let debtInfo = '';
-                    if (state.tripFilter) {
-                        const debts = calculateDebts(state.tripFilter);
-                        if (debts && debts.persons && debts.persons.length > 0) {
-                            const me = debts.persons[0];
-                            const myBalance = debts.balancesAfterTransfers[me] || 0;
-                            if (Math.abs(myBalance) > 1) {
-                                const color = myBalance > 0 ? 'text-emerald-600' : 'text-rose-600';
-                                const label = myBalance > 0 ? 'Alacaklısın' : 'Borcun var';
-                                debtInfo = `<div class="text-[11px] font-bold ${color} mt-1 flex items-center gap-1">
-                                    ${myBalance > 0 ? ICONS.plus.replace('w-4 h-4', 'w-3 h-3') : ICONS.minus || '➖'} 
-                                    ${fmtNum(Math.abs(myBalance))} ${baseCur} ${label}
-                                </div>`;
-                            }
-                        }
-                    }
-
-                    const isSharedTrip = state.tripFilter && getTripParticipantCount(state.tripFilter) > 1;
-
-                    const primaryValue = state.isIndividualView ? allTimeTotal : tripTotalInBase;
-                    const secondaryValue = state.isIndividualView ? tripTotalInBase : allTimeTotal;
-                    const primaryLabel = state.isIndividualView ? 'Benim Payım' : 'Toplam Maliyet';
-                    const secondaryLabel = state.isIndividualView ? 'Toplam' : 'Benim Payım';
-
                     return `
         <div class="fixed inset-0 z-[250] bg-black/80 flex items-center justify-center p-4" data-act="close-mod" data-val="chartOverlay">
           <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden" data-act="noop">
@@ -6009,11 +5647,14 @@ function renderApp() {
                             h += renderAssistantTab();
                         }
 
-                        // Yalnızca Özet ve Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
-                        if (state.tab === 'exp' || state.tab === 'sum') {
+                        // Yalnızca Harcamalar sekmesindeyken + ve Hızlı Ekle butonlarını göster
+                        if (state.tab === 'exp') {
                             h += `
-              <div class="fixed bottom-28 right-4 md:bottom-8 md:right-8 z-[100] flex flex-col md:flex-row items-center gap-3">
-
+              <div class="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+                <button data-act="open-quick-exp"
+                        class="w-11 h-11 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 rounded-full shadow-2xl shadow-amber-500/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 border border-white/10">
+                  ${ICONS.wallet.replace('w-4 h-4', 'w-5 h-5')}
+                </button>
                 <button data-act="new"
                         class="w-12 h-12 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 rounded-full shadow-2xl shadow-cyan-600/40 flex items-center justify-center transition transform hover:scale-105 active:scale-95 border border-white/10">
                   ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
@@ -6144,12 +5785,20 @@ function renderApp() {
                     } else {
                         // Trip seçildi
                         state.form.trip = e.target.value;
-                        // Seyahat'in kişi bilgisi var mı kontrol et
                         const tripObj = state.trips.find(t => t.name === state.form.trip);
                         if (tripObj && tripObj.persons) {
-                            state.form.isIndividual = false; // Ortak harcamaya çevir ki Payer alanı görünsün
+                            const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                            if (pList.length === 1) {
+                                state.form.isIndividual = true; // Tek kişi varsa direkt bireysel/kendisi olarak işaretle
+                                state.form.payer = pList[0];
+                            } else if (pList.length > 1) {
+                                state.form.isIndividual = false;
+                            }
                         }
                         renderApp();
+                        // Odak kaybını önle (Datalist seçiminden sonra)
+                        const el = document.getElementById('i-trip');
+                        if (el) el.focus();
                     }
                 }
 
@@ -6188,7 +5837,13 @@ function renderApp() {
                         state.resForm.trip = e.target.value;
                         const tripObj = state.trips.find(t => t.name === state.resForm.trip);
                         if (tripObj && tripObj.persons) {
-                            state.resForm.isIndividual = false;
+                            const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                            if (pList.length === 1) {
+                                state.resForm.isIndividual = true;
+                                state.resForm.payer = pList[0];
+                            } else {
+                                state.resForm.isIndividual = false;
+                            }
                         }
                         renderApp();
                     }
@@ -6219,7 +5874,7 @@ function renderApp() {
                     state.view = 'list'; state.err = ''; renderApp(); return;
                 }
                 if (state.modals.resForm && t.classList.contains('form-modal-overlay')) {
-                    state.modals.resForm = false; state.err = ''; state.tab = 'asistan';
+                    state.modals.resForm = false; state.err = ''; state.tab = 'other';
                     state.helpersAccordion.reservations = true; // Geri dönünce rezervasyonlar açık kalsın
                     renderApp(); return;
                 }
@@ -6244,12 +5899,6 @@ function renderApp() {
                 const requiresAuth = actEl.dataset.auth === 'required';
                 if (requiresAuth && !currentUser) {
                     openLoginModal('Bu özelliği kullanmak için giriş yapmanız gerekir.');
-                    return;
-                }
-
-                if (act === 'toggle-individual-view') {
-                    state.isIndividualView = !state.isIndividualView;
-                    renderApp();
                     return;
                 }
 
@@ -6283,7 +5932,7 @@ function renderApp() {
                     if (val === 'resDetail' || val === 'resDetailOverlay' || val === 'resForm') {
                         state.modals.resDetail = false;
                         state.modals.resForm = false;
-                        state.tab = 'asistan';
+                        state.tab = 'other';
                         // Tüm accordion'ları kapat, sadece reservations'u aç
                         state.helpersAccordion = {
                             critical: false,
@@ -6383,11 +6032,6 @@ function renderApp() {
                     return;
                 }
 
-                if (act === 'run-update-pass') {
-                    updateUserPassword();
-                    return;
-                }
-
                 if (act === 'close-all-helpers') {
                     e.preventDefault();
                     Object.keys(state.helpersAccordion).forEach(k => state.helpersAccordion[k] = false);
@@ -6431,23 +6075,22 @@ function renderApp() {
                         }
                     }
                     renderApp();
-                    return;
-                }
-
-                if (act === 'flt-cat') {
-                    state.catFilter = val;
-                    renderApp();
-                    return;
                 }
                 if (act === 'new') {
                     state.form = getEmptyForm();
                     if (state.tripFilter) {
                         state.form.trip = state.tripFilter;
                         const suggestedCur = getCurrencyForTrip(state.tripFilter);
-                        if (suggestedCur) {
-                            state.form.cur = suggestedCur;
-                        } else {
-                            state.form.cur = state.baseCurrency || BASE_CURRENCY;
+                        state.form.cur = suggestedCur || (state.baseCurrency || BASE_CURRENCY);
+                        
+                        // YENİ: Tek kişi varsa otomatik seç
+                        const tripObj = state.trips.find(t => t.name === state.tripFilter);
+                        if (tripObj && tripObj.persons) {
+                            const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                            if (pList.length === 1) {
+                                state.form.isIndividual = false;
+                                state.form.payer = pList[0];
+                            }
                         }
                     } else {
                         state.form.cur = state.baseCurrency || BASE_CURRENCY;
@@ -6458,12 +6101,6 @@ function renderApp() {
                     }
                     state.view = 'form';
                     state.form.isFuel = false;
-                    // Diğer tüm modalları kapat (Örtüşmeyi önlemek için)
-                    state.modals.detail = false;
-                    state.modals.resDetail = false;
-                    state.modals.resForm = false;
-                    state.modals.chart = false;
-                    state.quickExpOpen = false;
                     renderApp();
                 }
 
@@ -6612,22 +6249,30 @@ function renderApp() {
                 }
 
                 if (act === 'new-res') {
-                    state.resForm = getEmptyResForm();
-                    // Diğer tüm modalları kapat (Örtüşmeyi önlemek için)
-                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
                     state.modals.resForm = true;
+                    state.resForm = getEmptyResForm();
                     // Rezervasyon formu açılırken listeyi kapat (Daha temiz UI)
                     state.helpersAccordion.reservations = false;
-                    if (state.tripFilter) state.resForm.trip = state.tripFilter;
+                    if (state.tripFilter) {
+                        state.resForm.trip = state.tripFilter;
+                        // YENİ: Tek kişi varsa otomatik 'bireysel' yap
+                        const tripObj = state.trips.find(t => t.name === state.tripFilter);
+                        if (tripObj && tripObj.persons) {
+                            const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
+                            if (pList.length === 1) {
+                                state.resForm.isIndividual = true;
+                                state.resForm.payer = pList[0];
+                            }
+                        }
+                    }
                     renderApp();
                 }
 
                 // YENİ: Seyahat Yönetimi popup'ından yeni seyahat ekleme
                 if (act === 'new-trip') {
                     state.tripForm = getEmptyTripForm();
-                    // Diğer tüm modalları kapat
-                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
                     state.modals.tripForm = true;
+                    // window.location.hash = '#'; // Helper menüyü KAPATMA (Scroll pozisyonunu koru)
                     renderApp();
                 }
 
@@ -6758,7 +6403,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 if (act === 'cancel-res') {
                     state.modals.resForm = false;
                     state.err = '';
-                    state.tab = 'asistan';
+                    state.tab = 'other';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
                     state.helpersAccordion = {
                         critical: false,
@@ -7013,8 +6658,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const tripToEdit = state.trips.find(t => t.id === id);
                     if (tripToEdit) {
                         state.tripForm = { ...tripToEdit }; // Formu doldur
-                        // Diğer tüm modalları kapat
-                        Object.keys(state.modals).forEach(k => state.modals[k] = false);
                         state.modals.tripForm = true;
                         // Modal hash'ini temizle ki overlay düzgün görünsün (opsiyonel)
                         window.location.hash = '';
@@ -7438,12 +7081,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const r = state.res.find(res => res.id === resId);
                     if (r) {
                         state.resForm = { ...r };
-                        state.err = '';
-                        // TÜM modalları kapat ki form en üstte kalsın
-                        Object.keys(state.modals).forEach(k => state.modals[k] = false);
-                        state.modals.resForm = true; 
+                        state.modals.resDetail = false;
+                        state.modals.resForm = true;
                         state.helpersAccordion.reservations = false;
-                        state.quickExpOpen = false;
                         renderApp();
                     }
                     return;
@@ -7475,10 +7115,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
                     state.form = { ...x };
                     state.view = 'form';
+                    state.modals.detail = false;
                     state.err = '';
-                    // TÜM modalları kapat ki form en üstte kalsın
-                    Object.keys(state.modals).forEach(k => state.modals[k] = false);
-                    state.quickExpOpen = false;
                     renderApp();
                     return;
                 }
@@ -7869,6 +7507,7 @@ if (act === 'export-pdf') {
                     renderApp();
                 }
 
+                if (t.dataset.act === 'flt-cat') { state.catFilter = t.value; renderApp(); }
                 if (t.dataset.act === 'flt-type') { state.typeFilter = t.value; renderApp(); }
                 if (t.dataset.act === 'flt-ind') { state.indFilter = t.value; renderApp(); }
 
@@ -7975,34 +7614,19 @@ if (act === 'export-pdf') {
             document.addEventListener('input', e => {
                 const t = e.target;
 
+                // ARAMA
                 if (t.dataset.act === 'search') {
-                    // Eski input içeriği ve imleç pozisyonu
-                    const input = t;
-                    const value = input.value;
-                    const caret = input.selectionStart ?? value.length;
-
-                    // Arama state'ini güncelle
+                    const value = t.value;
+                    const caret = t.selectionStart ?? value.length;
                     state.search = value;
-
-                    // Uygulamayı yeniden çiz
                     renderApp();
-
-                    // Yeniden çizilen DOM'da arama kutusunu tekrar bul
                     const newInput = document.querySelector('input[data-act="search"]');
                     if (newInput) {
-                        // Tekrar odak ver
                         newInput.focus();
-                        // İmleci eski pozisyona getir (try/catch: bazı tarayıcılarda hata atmaması için)
-                        try {
-                            newInput.setSelectionRange(caret, caret);
-                        } catch (e) { }
+                        try { newInput.setSelectionRange(caret, caret); } catch (e) { }
                     }
-
-                    // Bu event burada bitti
                     return;
                 }
-
-
 
                 if (t.dataset.act === 'update-new-note') {
                     state.newCriticalNote = t.value;
@@ -8010,14 +7634,14 @@ if (act === 'export-pdf') {
                 }
 
                 // Harcama formu inputları
-                if (t.closest('.form-modal-overlay') && !t.closest('[data-act="save-res"]')) { // Sadece harcama formu alanları
+                const formOverlay = t.closest('.form-modal-overlay');
+                if (formOverlay && !t.closest('[data-act="save-res"]')) { 
                     const fExp = state.form;
                     let shouldRender = false;
 
                     switch (t.id) {
                         case 'i-trip':
                             fExp.trip = t.value;
-                            // Seyahat değişince, o seyahatte tek bir para birimi varsa varsayılanı ona çek
                             (function () {
                                 const tripName = (t.value || '').trim();
                                 if (tripName) {
@@ -8034,6 +7658,16 @@ if (act === 'export-pdf') {
                         case 'i-place': fExp.place = t.value; break;
                         case 'i-amt':
                             fExp.amt = t.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                            // KRİTİK: renderApp() ASLA ÇAĞRILMAZ, SADECE PREVIEW GÜNCELLENİR
+                            const preview = document.getElementById('amt-preview');
+                            if (preview) {
+                                if (fExp.amt && fExp.cur && fExp.cur !== state.baseCurrency) {
+                                    const conv = convertToBase(fExp.amt, fExp.cur, state.baseCurrency);
+                                    preview.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span> ≈ ${fmtNum(conv)} ${state.baseCurrency}`;
+                                } else {
+                                    preview.innerHTML = '';
+                                }
+                            }
                             break;
                         case 'i-cur': fExp.cur = t.value; shouldRender = true; break;
                         case 'i-ppl': fExp.ppl = t.value; break;
@@ -8045,15 +7679,19 @@ if (act === 'export-pdf') {
                         case 'i-fuel-amount':
                             fExp.fuelAmount = t.value.replace(',', '.').replace(/[^0-9.]/g, '');
                             break;
-                        default: return;
+                        default: break;
                     }
 
                     if (shouldRender) {
+                        const caret = t.selectionStart;
                         renderApp();
+                        const el = document.getElementById(t.id);
+                        if (el) { el.focus(); try { el.setSelectionRange(caret, caret); } catch(e){} }
                     }
+                    return;
                 }
 
-                // Rezervasyon formu inputları ARTİK BURADA DEĞİL. SAVE ANINDA DOM'DAN OKUNUYOR.
+                // Rezervasyon formu inputları
                 if (state.modals.resForm) {
                     const fRes = state.resForm;
                     let shouldRender = false;
@@ -8065,20 +7703,18 @@ if (act === 'export-pdf') {
                         case 'i-res-code': fRes.code = t.value; break;
                         case 'i-res-cost': fRes.cost = t.value.replace(',', '.').replace(/[^0-9.]/g, ''); break;
                         case 'i-res-notes': fRes.notes = t.value; break;
-                        // Tarih ve Kur alanı input'tan renderApp() çağırmalı ki güncel değerler formda görünsün
                         case 'i-res-start-date': fRes.startDate = t.value; shouldRender = true; break;
                         case 'i-res-end-date': fRes.endDate = t.value; shouldRender = true; break;
                         case 'i-res-cur': fRes.cur = t.value; shouldRender = true; break;
-                        default: return;
+                        default: break;
                     }
 
                     if (shouldRender) {
+                        const caret = t.selectionStart;
                         renderApp();
+                        const el = document.getElementById(t.id);
+                        if (el) { el.focus(); try { el.setSelectionRange(caret, caret); } catch(e){} }
                     }
-                }
-                if (t.dataset.act === 'pass-input') {
-                    state.passForm[t.dataset.field] = t.value;
-                    return;
                 }
             });
 
