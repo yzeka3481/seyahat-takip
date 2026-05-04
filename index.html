@@ -521,9 +521,11 @@
             }
 
             function getDistinctTripsAll() {
-                const fromExp = (state && state.exp ? state.exp : []).map(x => x.trip).filter(Boolean);
-                const fromRes = (state && state.res ? state.res : []).map(x => x.trip).filter(Boolean);
-                return [...new Set([...fromExp, ...fromRes])];
+                const completed = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
+                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t && !completed.includes(t));
+                const tripsFromRes = state.res.map(x => x.trip).filter(t => t && !completed.includes(t));
+                const tripsFromList = state.trips.filter(t => t.status !== 'completed').map(t => t.name);
+                return [...new Set([...tripsFromExp, ...tripsFromRes, ...tripsFromList])];
             }
 
             function getCurrencyForTrip(tripName) {
@@ -2102,14 +2104,6 @@
                 );
             };
 
-            // --- YARDIMCI FONKSİYON: Tüm Seyahatleri Getir (Harcama + Rezervasyon + Liste) ---
-            function getDistinctTripsAll() {
-                const completed = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
-                const tripsFromExp = state.exp.map(x => x.trip).filter(t => t && !completed.includes(t));
-                const tripsFromRes = state.res.map(x => x.trip).filter(t => t && !completed.includes(t));
-                const tripsFromList = state.trips.filter(t => t.status !== 'completed').map(t => t.name);
-                return [...new Set([...tripsFromExp, ...tripsFromRes, ...tripsFromList])];
-            }
 
             // --- YARDIMCI FONKSİYON: Rota Oluşturma Linki (MEKAN BAZLI) ---
             const getRouteUrl = (tripName) => {
@@ -2140,26 +2134,23 @@
             // KRİTİK DÜZELTME: AKORDİYON ITEM RENDERER GENEL ALANA TAŞINDI
             const accordionItem = (id, icon, title, content) => {
                 const isOpen = state.helpersAccordion[id];
-                // Max height reservation, critical ve report için daha fazla olacak
-                const maxHeight = (id === 'critical' || id === 'report' || id === 'route' || id === 'reservations') ? '900px' : '500px';
-
                 return `
-          <div id="helper-${id}" class="bg-slate-800/60 rounded-xl border border-slate-700/50 shadow-lg overflow-hidden">
-              <button data-act="tog-accordion" data-val="${id}" class="w-full flex justify-between items-center p-4 hover:bg-slate-800/80 transition focus:outline-none">
-                  <h3 class="flex items-center gap-3 text-base font-bold text-white">
-                      ${icon} ${title}
-                  </h3>
-                  <span class="text-slate-600 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}">
-                      ${ICONS.down.replace('w-4 h-4', 'w-4 h-4')}
-                  </span>
-              </button>
-              <div class="transition-all duration-300 ease-in-out overflow-hidden" style="max-height: ${isOpen ? maxHeight : '0'};">
-                  <div class="p-4 pt-0">
-                      ${content}
-                  </div>
-              </div>
-          </div>
-      `;
+        <div class="bg-slate-900/60 border border-slate-700/50 rounded-2xl overflow-hidden transition-all duration-300 ${isOpen ? 'ring-1 ring-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : ''}">
+            <button data-act="toggle-ast-acc" data-id="${id}" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/40 transition">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-lg">${icon}</div>
+                    <span class="text-sm font-bold text-slate-200">${title}</span>
+                </div>
+                <div class="text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-400' : ''}">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+            </button>
+            <div class="transition-all duration-300 ${isOpen ? 'max-h-[1200px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}">
+                <div class="p-4 pt-0 border-t border-slate-800/30">
+                    ${content}
+                </div>
+            </div>
+        </div>`;
             };
 
             // YENİ FONKSİYON: REZERVASYON LİSTESİNİ RENDER ET
@@ -2309,39 +2300,46 @@
                  </div>
               </div>
               
-              <!-- BİREYSEL / ORTAK -->
-              <div class="flex items-center gap-3">
-                <div class="flex-1">
-                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bu Rezervasyon</label>
-                  <div class="inline-flex gap-2 rounded-lg bg-slate-800/80 p-1 border border-slate-700 w-full">
-                    <button
-                      type="button"
-                      data-act="set-res-ind"
-                      data-val="shared"
-                      class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${!f.isIndividual ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/60' : 'text-slate-300 border border-transparent'
-                    }">
-                      Ortak
-                    </button>
-                    <button
-                      type="button"
-                      data-act="set-res-ind"
-                      data-val="individual"
-                      class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${f.isIndividual ? 'bg-amber-500/25 text-amber-100 border border-amber-400/70' : 'text-slate-300 border border-transparent'
-                    }">
-                      Bireysel
-                    </button>
+              ${(() => {
+                const currentTripObj = (state.trips || []).find(t => t.name === f.trip);
+                const tripPersons = currentTripObj ? currentTripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
+                
+                if (tripPersons.length <= 1) return '';
+                
+                return `
+                <!-- BİREYSEL / ORTAK -->
+                <div class="flex items-center gap-3">
+                  <div class="flex-1">
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bu Rezervasyon</label>
+                    <div class="inline-flex gap-2 rounded-lg bg-slate-800/80 p-1 border border-slate-700 w-full">
+                      <button
+                        type="button"
+                        data-act="set-res-ind"
+                        data-val="shared"
+                        class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${!f.isIndividual ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/60' : 'text-slate-300 border border-transparent'}">
+                        Ortak
+                      </button>
+                      <button
+                        type="button"
+                        data-act="set-res-ind"
+                        data-val="individual"
+                        class="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md ${f.isIndividual ? 'bg-amber-500/25 text-amber-100 border border-amber-400/70' : 'text-slate-300 border border-transparent'}">
+                        Bireysel
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- ÖDENDİ (İS SETTLED) -->
+                  <div>
+                     <label class="block text-xs font-bold text-slate-500 mb-1 uppercase opacity-0">D</label>
+                     <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-[7px] h-[38px]">
+                        <input type="checkbox" id="i-res-settled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-700 cursor-pointer">
+                        <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Ödendi</label>
+                     </div>
                   </div>
                 </div>
-                
-                <!-- ÖDENDİ (İS SETTLED) -->
-                <div>
-                   <label class="block text-xs font-bold text-slate-500 mb-1 uppercase opacity-0">D</label>
-                   <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-[7px] h-[38px]">
-                      <input type="checkbox" id="i-res-settled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border-slate-600 bg-slate-700 cursor-pointer">
-                      <label for="i-res-settled" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">Ödendi</label>
-                   </div>
-                </div>
-              </div>
+                `;
+              })()}
 
               <!-- HARCAMAYI YAPAN (PAYER) - REZERVASYON İÇİN -->
               <div id="res-payer-wrapper" style="display: ${f.isIndividual ? 'none' : 'block'}">
@@ -3598,9 +3596,6 @@
                                 ${fmtNum(allTimeTotal)} 
                                 <span class="text-lg font-semibold">${baseCur}</span>
                             </span>
-                            <button data-act="new" class="w-10 h-10 rounded-full bg-slate-900/10 hover:bg-slate-900/20 flex items-center justify-center transition">
-                                ${ICONS.plus.replace('w-4 h-4', 'w-5 h-5')}
-                            </button>
                         </div>
                         
                         <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-white/45 px-2 py-1 text-[9px] text-slate-900/80">
@@ -3684,24 +3679,6 @@
                     </div>
                 </div>
 
-                <!-- 3. SEYAHAT BAZLI DAĞILIM (Yeni Premium Bölüm) -->
-                ${Object.keys(tripTotals).length > 0 ? `
-                <div class="mt-4">
-                    <h3 class="text-[11px] font-extrabold text-white/50 mb-2 flex items-center gap-2 uppercase tracking-wider">
-                        ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')} Seyahat Bazlı Harcamalar
-                    </h3>
-                    <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        ${Object.entries(tripTotals).sort((a,b) => b[1].total - a[1].total).map(([name, data]) => `
-                            <div class="flex-shrink-0 w-32 bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 backdrop-blur-sm">
-                                <div class="text-[9px] font-bold ${data.status === 'completed' ? 'text-slate-500' : 'text-cyan-400'} uppercase mb-1 truncate">${esc(name)}</div>
-                                <div class="text-sm font-black text-white">${fmtNum(data.total)}</div>
-                                <div class="text-[9px] text-white/40">${baseCur}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
-            
             <!-- Son 3 Harcama Listesi -->
             <h3 class="text-[11px] font-extrabold text-white/50 mt-2 mb-2 flex items-center gap-2 uppercase tracking-wider">
                 ${ICONS.wallet.replace('w-4 h-4', 'w-3.5 h-3.5')} Son 3 Harcama
@@ -3743,6 +3720,24 @@
                     </div>
                 `}
             </div>
+
+            <!-- 3. SEYAHAT BAZLI DAĞILIM (Yeni Premium Bölüm) -->
+            ${Object.keys(tripTotals).length > 0 ? `
+            <div class="mt-4">
+                <h3 class="text-[11px] font-extrabold text-white/50 mb-2 flex items-center gap-2 uppercase tracking-wider">
+                    ${ICONS.chart.replace('w-4 h-4', 'w-3.5 h-3.5')} Seyahat Bazlı Harcamalar
+                </h3>
+                <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                    ${Object.entries(tripTotals).sort((a,b) => b[1].total - a[1].total).map(([name, data]) => `
+                        <div class="flex-shrink-0 w-32 bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 backdrop-blur-sm">
+                            <div class="text-[9px] font-bold ${data.status === 'completed' ? 'text-slate-500' : 'text-cyan-400'} uppercase mb-1 truncate">${esc(name)}</div>
+                            <div class="text-sm font-black text-white">${fmtNum(data.total)}</div>
+                            <div class="text-[9px] text-white/40">${baseCur}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ` : ''}
         </div>
       `;
             }
@@ -3991,19 +3986,19 @@
                 ];
 
                 return `
-      <!-- Floating Navigation Island -->
+      <!-- Floating White Glass Navigation Island -->
       <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
-        <div class="glass-panel p-1.5 rounded-2xl flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-2xl bg-slate-900/60">
+        <div class="glass-panel p-1.5 rounded-2xl flex items-center justify-between shadow-[0_20px_60px_rgba(0,0,0,0.4)] border border-white/40 backdrop-blur-3xl bg-white/10">
             ${tabs.map(tab => {
                     const isActive = t === tab.id;
                     
                     return `
-                <button data-act="tab" data-val="${tab.id}" class="relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-300 ${isActive ? 'scale-110 -translate-y-1' : 'opacity-60 hover:opacity-100'}">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${isActive ? tab.color : 'from-slate-800 to-slate-900'} flex items-center justify-center mb-1 shadow-lg transition-all duration-300">
+                <button data-act="tab" data-val="${tab.id}" class="relative flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-300 ${isActive ? 'scale-110 -translate-y-1' : 'opacity-70 hover:opacity-100'}">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${isActive ? tab.color : 'from-white/10 to-white/5'} flex items-center justify-center mb-1 shadow-lg transition-all duration-300 border ${isActive ? 'border-white/30' : 'border-white/10'}">
                         ${tab.icon.replace('w-4 h-4', 'w-5 h-5 text-white')}
                     </div>
-                    <span class="text-[8px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-slate-500'} uppercase">${tab.label}</span>
-                    ${isActive ? `<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]"></div>` : ''}
+                    <span class="text-[8px] font-bold tracking-tight ${isActive ? 'text-white' : 'text-white/60'} uppercase">${tab.label}</span>
+                    ${isActive ? `<div class="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_15px_#ffffff]"></div>` : ''}
                 </button>
             `;
                 }).join('')}
@@ -4233,121 +4228,105 @@
     `;
             }
 
-            function renderAssistantTab() {
+
+            function renderHelperItems(type) {
                 const loc = state.location || {};
                 const locLng = (typeof loc.lng === 'number') ? loc.lng : (typeof loc.lon === 'number' ? loc.lon : null);
                 const hasLoc = Number.isFinite(loc.lat) && Number.isFinite(locLng);
 
-                const googleMapsBase = hasLoc
-                    ? `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`
-                    : 'https://www.google.com/maps';
+                const itemsMap = {
+                    places: [
+                        { i: '🍴', l: 'Yakın Restoranlar', d: 'Google Haritalar\'da ara', url: hasLoc ? `https://www.google.com/maps/search/restaurants+cafes/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/restaurants+cafes/' },
+                        { i: '🏛️', l: 'Turistik Yerler', d: 'Görülecek önemli noktalar', url: hasLoc ? `https://www.google.com/maps/search/tourist+attractions/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/tourist+attractions/' }
+                    ],
+                    health: [
+                        { i: '💊', l: 'Eczaneler', d: 'En yakın nöbetçi/açık eczaneler', url: hasLoc ? `https://www.google.com/maps/search/pharmacy/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/pharmacy/' },
+                        { i: '🏥', l: 'Hastaneler', d: 'Acil durum ve sağlık merkezleri', url: hasLoc ? `https://www.google.com/maps/search/hospitals/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/hospitals/' }
+                    ],
+                    transport: [
+                        { i: '🚌', l: 'Toplu Taşıma', d: 'Duraklar ve hat bilgileri', url: hasLoc ? `https://www.google.com/maps/search/transit+station/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/transit+station/' },
+                        { i: '🚕', l: 'Taksi Durakları', d: 'Yakın taksi noktaları', url: hasLoc ? `https://www.google.com/maps/search/taxi+stand/@${loc.lat},${locLng},14z` : 'https://www.google.com/maps/search/taxi+stand/' }
+                    ]
+                };
 
-                const tripsWithSpending = getDistinctTripsAll();
+                return (itemsMap[type] || []).map(item => `
+                    <a href="${item.url}" target="_blank" class="flex items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/30 hover:border-blue-500/50 hover:bg-slate-800/60 transition group mt-2">
+                        <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">${item.i}</div>
+                        <div class="flex-1">
+                            <div class="text-xs font-bold text-slate-200">${item.l}</div>
+                            <div class="text-[9px] text-slate-500 uppercase font-bold">${item.d}</div>
+                        </div>
+                        <div class="text-slate-600 group-hover:text-blue-400 transition-colors">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </div>
+                    </a>
+                `).join('');
+            }
+
+            function renderAssistantTab() {
+                const loc = state.location || {};
+                const lat = loc.lat;
+                const lng = loc.lng || loc.lon || null;
+                const hasLoc = Number.isFinite(lat) && Number.isFinite(lng);
+
+                const getPremiumCard = (title, desc, icon, action, colorClass) => `
+                    <div data-act="${action}" class="relative overflow-hidden ${colorClass} rounded-2xl p-5 h-32 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 shadow-lg group">
+                        <div class="relative z-10 flex flex-col justify-between h-full w-2/3">
+                            <h4 class="text-lg font-black text-white leading-tight">${title}</h4>
+                            <p class="text-[10px] text-white/70 font-medium leading-tight">${desc}</p>
+                        </div>
+                        <div class="absolute -right-2 -bottom-2 text-7xl opacity-40 group-hover:opacity-60 transition-opacity duration-500 transform group-hover:rotate-12 group-hover:scale-110">
+                            ${icon}
+                        </div>
+                    </div>
+                `;
 
                 return `
-  <div class="grid grid-cols-1 gap-4 mb-6">
-    <a href="#helper-help" class="ast-premium-card bg-indigo-600/20 border border-indigo-500/30 shadow-lg no-underline" style="min-height: 70px; flex-direction: row; align-items: center; justify-content: space-between; border-radius: 20px; padding: 15px 20px;">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-xl">❓</div>
-        <div>
-          <div class="text-sm font-bold text-white leading-tight">Yardım ve Kullanım Kılavuzu</div>
-          <div class="text-[10px] text-indigo-300/70">Uygulama nasıl kullanılır? İpuçları ve yardım.</div>
-        </div>
-      </div>
-      <div class="text-indigo-400">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </div>
-    </a>
-  </div>
+                <div class="space-y-8 pb-32 animate-[fadeIn_0.3s] px-1">
+                    
+                    <!-- BÖLÜM 1: SEYAHAT ARAÇLARI -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-black text-white tracking-tight">Seyahat Araçları</h3>
+                            <div class="h-px flex-1 bg-slate-800 ml-4"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            ${getPremiumCard('Seyahat Yönetimi', 'Yeni Seyahat & Düzenle', '🌍', 'open-trip-mgmt', 'bg-gradient-to-br from-indigo-500 to-purple-600')}
+                            ${getPremiumCard('Rezervasyonlarım', 'Uçuş ve Oteller', '✈️', 'open-res-modal', 'bg-gradient-to-br from-pink-600 to-rose-700')}
+                            ${getPremiumCard('Rota Planla', 'Harcama Rotası', '📍', 'open-route-modal', 'bg-gradient-to-br from-blue-600 to-cyan-700')}
+                            ${getPremiumCard('Harcama Raporu', 'Analiz & PDF Rapor', '📊', 'open-report-modal', 'bg-gradient-to-br from-emerald-600 to-teal-700')}
+                            ${getPremiumCard('Kritik Bilgiler', 'Pasaport, Vize & Notlar', '📌', 'open-notes-modal', 'bg-gradient-to-br from-violet-600 to-purple-700')}
+                            ${getPremiumCard('Uçuş Takip', 'Canlı Uçuşlar', '🚀', 'open-flights', 'bg-gradient-to-br from-sky-500 to-indigo-600')}
+                        </div>
+                    </div>
 
-  <!-- SEYAHAT PLANLAMA -->
-  <div class="mb-8">
-      <div class="ast-section-label flex items-center gap-2 px-1">
-          <span class="w-1.5 h-4 bg-pink-500 rounded-full"></span>
-          Seyahat Planlama
-      </div>
-  <div class="grid grid-cols-2 gap-4 mb-6">
-    <button data-act="open-trip-mgmt" class="ast-premium-card ast-bg-pink shadow-lg shadow-pink-900/20 col-span-2">
-      <div class="ast-card-title">Seyahat Yönetimi</div>
-      <div class="ast-card-icon">🧳</div>
-    </button>
+                    <!-- BÖLÜM 2: BİLGİ BANKASI -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-black text-white tracking-tight">Bilgi Bankası</h3>
+                            <div class="h-px flex-1 bg-slate-800 ml-4"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            ${getPremiumCard('Mekanlar', 'Restoran & Kafe', '🍴', 'open-places-modal', 'bg-gradient-to-br from-orange-500 to-amber-600')}
+                            ${getPremiumCard('Sağlık', 'Eczane & Hastane', '💊', 'open-health-modal', 'bg-gradient-to-br from-rose-500 to-red-600')}
+                            ${getPremiumCard('Ulaşım', 'Durak & Taksi', '🚌', 'open-transport-modal', 'bg-gradient-to-br from-cyan-500 to-blue-600')}
+                            ${getPremiumCard('Yardım Merkezi', 'Kullanım Kılavuzu', '❓', 'open-help-modal', 'bg-gradient-to-br from-slate-600 to-slate-800')}
+                        </div>
+                    </div>
 
-    <a href="#helper-route" class="ast-premium-card ast-bg-orange shadow-lg shadow-orange-900/20 no-underline">
-      <div class="ast-card-title">Rota Planlayıcı</div>
-      <div class="ast-card-icon">🗺️</div>
-    </a>
+                    <!-- VERİ YÖNETİMİ (ALT BAR) -->
+                    <div data-act="open-data-modal" class="mt-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800 transition-colors shadow-xl">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl">💾</div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white uppercase tracking-tight">Veri Yönetimi</h4>
+                                <p class="text-[10px] text-slate-500 font-medium">Yedekleme ve Senkronizasyon</p>
+                            </div>
+                        </div>
+                        <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </div>
 
-    <a href="#helper-reservations" class="ast-premium-card ast-bg-teal shadow-lg shadow-teal-900/20 no-underline">
-      <div class="ast-card-title">Rezervasyon Takibi</div>
-      <div class="ast-card-icon">🏨</div>
-    </a>
-  </div>
-  </div>
-
-  <!-- FİNANS VE ANALİZ -->
-  <div class="mb-8">
-      <div class="ast-section-label flex items-center gap-2 px-1">
-          <span class="w-1.5 h-4 bg-purple-500 rounded-full"></span>
-          Finans ve Analiz
-      </div>
-  <div class="grid grid-cols-2 gap-4 mb-6">
-    <a href="#helper-report" class="ast-premium-card ast-bg-purple shadow-lg shadow-purple-900/20 no-underline col-span-2">
-      <div class="ast-card-title">Harcama Raporu</div>
-      <div class="ast-card-icon">📊</div>
-    </a>
-  </div>
-  </div>
-
-  <!-- SEYAHAT REHBERİ -->
-  <div class="mb-8">
-      <div class="ast-section-label flex items-center gap-2 px-1">
-          <span class="w-1.5 h-4 bg-cyan-500 rounded-full"></span>
-          Seyahat Rehberi
-      </div>
-  <div class="grid grid-cols-2 gap-4 mb-6">
-    <a href="#helper-flights" class="ast-premium-card ast-bg-cyan shadow-lg shadow-cyan-900/20 no-underline col-span-2">
-      <div class="ast-card-title">Uçuş Rehberi</div>
-      <div class="ast-card-icon">✈️</div>
-    </a>
-
-    <a href="#helper-transport" class="ast-premium-card ast-bg-blue shadow-lg shadow-blue-900/20 no-underline">
-      <div class="ast-card-title">Ulaşım ve Haritalar</div>
-      <div class="ast-card-icon">🚌</div>
-    </a>
-
-    <a href="#helper-places" class="ast-premium-card ast-bg-magenta shadow-lg shadow-magenta-900/20 no-underline">
-      <div class="ast-card-title">Yakın Yerler</div>
-      <div class="ast-card-icon">📍</div>
-    </a>
-  </div>
-  </div>
-
-  <!-- DESTEK VE VERİ -->
-  <div class="mb-12">
-      <div class="ast-section-label flex items-center gap-2 px-1">
-          <span class="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
-          Destek ve Veri
-      </div>
-  <div class="grid grid-cols-2 gap-4 mb-6">
-    <a href="#helper-health" class="ast-premium-card ast-bg-emerald shadow-lg shadow-emerald-900/20 no-underline">
-      <div class="ast-card-title">Sağlık ve Güvenlik</div>
-      <div class="ast-card-icon">🏥</div>
-    </a>
-
-    <a href="#helper-critical" class="ast-premium-card ast-bg-indigo shadow-lg shadow-indigo-900/20 no-underline">
-      <div class="ast-card-title">Kritik Notlar</div>
-      <div class="ast-card-icon">📝</div>
-    </a>
-    <a href="#helper-data" class="ast-premium-card ast-bg-yellow shadow-lg shadow-yellow-600/30 no-underline col-span-2 !min-h-[90px]">
-      <div class="ast-card-title">Veri Yönetimi & Yedekleme</div>
-      <div class="ast-card-icon">💾</div>
-    </a>
-  </div>
-  </div>
-
-  <!-- Alt menüden kaçmak için ekstra boşluk -->
-  <div class="h-28 md:hidden"></div>
-`;
+                </div>`;
             }
 
             function renderAssistantModals() {
@@ -4975,6 +4954,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                </div>
             </div>
 
+            ${tripPersons.length > 1 ? `
             <div class="grid grid-cols-2 gap-3">
                 <div class="flex items-center justify-between p-2.5 bg-slate-800/40 border border-slate-700 rounded-lg">
                     <div class="flex flex-col">
@@ -4991,6 +4971,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                     <input type="checkbox" id="i-isSettled" ${f.isSettled ? 'checked' : ''} class="custom-checkbox w-4 h-4 rounded border border-slate-600 bg-slate-900/40">
                 </div>
             </div>
+            ` : ''}
 
             <div id="payer-wrapper" style="display: ${f.isIndividual ? 'none' : 'block'}">
                 ${payerHtml}
@@ -5211,6 +5192,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                      Mevcut Seyahat: <span class="text-slate-200">${esc(x.trip || 'Genel')}</span>
                    </p>
                  </div>
+{{ ... }}
                </div>
       `;
 
@@ -5520,10 +5502,25 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 </div>
               </div>
 
+              <!-- YENİ: ROTA EKLE (HIZLI PANEL) -->
+              <div class="flex items-center justify-between p-2.5 bg-slate-950/40 border border-slate-700/50 rounded-xl cursor-pointer hover:bg-slate-950/60 transition group" onclick="const cb = this.querySelector('#q-addToRoute'); cb.checked = !cb.checked;">
+                  <div class="flex items-center gap-2">
+                      <div class="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                          ${ICONS.location.replace('w-4 h-4', 'w-3 h-3')}
+                      </div>
+                      <div class="text-[10px] font-bold text-slate-300">Harita Rotasına Ekle</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation()">
+                      <input type="checkbox" id="q-addToRoute" class="sr-only peer" ${q.addToRoute ? 'checked' : ''}>
+                      <div class="w-7 h-4 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+              </div>
+
               <button type="button" data-act="save-quick-exp"
                       class="w-full mt-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-extrabold rounded-xl py-3 flex items-center justify-center gap-2 shadow">
                 <span>💾</span> Hızlı Kaydet
               </button>
+
             </div>
           </div>
         </div>
@@ -6046,10 +6043,11 @@ function renderApp() {
                         if (tripObj && tripObj.persons) {
                             const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
                             if (pList.length === 1) {
-                                state.form.isIndividual = false;
+                                state.form.isIndividual = true;
                                 state.form.payer = pList[0];
                             }
                         }
+
                     } else {
                         state.form.cur = state.baseCurrency || BASE_CURRENCY;
                     }
@@ -6156,6 +6154,9 @@ function renderApp() {
                     }
 
 
+                    const addToRouteCb = document.getElementById('q-addToRoute');
+                    const addToRoute = addToRouteCb ? !!addToRouteCb.checked : false;
+
                     const now = new Date();
                     const dateStr = now.toISOString().split('T')[0];
                     const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -6174,7 +6175,7 @@ function renderApp() {
                         place: defaultPlaceMap[cat] || 'Hızlı Harcama',
                         cat,
                         type: EXPENSE_TYPES[0].id,
-                        isIndividual: false,
+                        isIndividual: persons.length === 1,
                         payer,
                         amt,
                         cur,
@@ -6185,8 +6186,9 @@ function renderApp() {
                         startKm: '',
                         endKm: '',
                         fuelAmount: '',
-                        addToRoute: false
+                        addToRoute: addToRoute
                     };
+
 
                     state.exp.push(newExp);
                     state.quickExpOpen = false;
@@ -6399,6 +6401,23 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         renderApp();
                     }
                 }
+
+                if (act === 'toggle-ast-acc') {
+                    const accId = id || val;
+                    state.helpersAccordion[accId] = !state.helpersAccordion[accId];
+                    renderApp();
+                }
+
+                if (act === 'open-res-modal') { state.helpersAccordion.reservations = true; renderApp(); }
+                if (act === 'open-route-modal') { state.helpersAccordion.route = true; renderApp(); }
+                if (act === 'open-notes-modal') { state.helpersAccordion.critical = true; renderApp(); }
+                if (act === 'open-report-modal') { state.helpersAccordion.report = true; renderApp(); }
+                if (act === 'open-data-modal') { state.helpersAccordion.data = true; renderApp(); }
+                if (act === 'open-flights') { state.helpersAccordion.flights = true; renderApp(); }
+                if (act === 'open-places-modal') { state.helpersAccordion.places = true; renderApp(); }
+                if (act === 'open-health-modal') { state.helpersAccordion.health = true; renderApp(); }
+                if (act === 'open-transport-modal') { state.helpersAccordion.transport = true; renderApp(); }
+                if (act === 'open-help-modal') { state.helpersAccordion.help = true; renderApp(); }
                 if (act === 'del-note') {
                     e.stopPropagation(); // Güvenlik: Tıklama yayılımını durdur
                     e.preventDefault(); // Varsayılan davranışı engelle
@@ -7616,11 +7635,22 @@ if (act === 'export-pdf') {
                                     const tripCurrencies = [...new Set(tripExps.map(x => x.cur || BASE_CURRENCY))];
                                     if (tripCurrencies.length === 1) {
                                         fExp.cur = tripCurrencies[0];
-                                        shouldRender = true;
                                     }
                                 }
                             })();
+                            shouldRender = true;
                             break;
+                        case 'i-isIndividual': 
+                            fExp.isIndividual = t.checked; 
+                            shouldRender = true; 
+                            break;
+                        case 'i-isSettled': 
+                            fExp.isSettled = t.checked; 
+                            break;
+                        case 'i-addToRoute': 
+                            fExp.addToRoute = t.checked; 
+                            break;
+
                         case 'i-city': fExp.city = t.value; break;
                         case 'i-place': fExp.place = t.value; break;
                         case 'i-amt':
