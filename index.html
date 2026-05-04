@@ -684,9 +684,9 @@
                     .map(r => ({
                         ...r,
                         amt: r.cost,
-                        cat: catMap[r.type] || 'other', // Doğru kategori eşleşmesi
-                        l: r.name, // Mekan ismi olarak rezervasyon adını kullan
-                        loc: r.location, // Lokasyon bilgisi
+                        cat: catMap[r.type] || 'other',
+                        place: r.name || 'Rezervasyon', // Rapor için 'place' olarak ayarla
+                        city: r.location || 'Genel',    // Rapor için 'city' olarak ayarla
                         isRes: true
                     }));
                 
@@ -698,8 +698,9 @@
                 
                 return combined.map(x => ({
                     ...x,
-                    payer: x.payer || firstPerson, // Harcayan boşsa ilk kişiyi yaz
-                    l: x.l || x.loc || 'Bilinmeyen Yer' // Mekan ismi boş kalmasın
+                    payer: x.payer || firstPerson,
+                    city: (x.city || '').trim() || 'Genel',
+                    place: (x.place || '').trim() || 'Diğer'
                 }));
             }
             // --- BORÇ HESAPLAMA YARDIMCISI ---
