@@ -84,7 +84,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            z-index: 200;
+            z-index: 300;
             background-color: rgba(0, 0, 0, 0.85);
             /* Daha koyu arka plan */
             backdrop-filter: blur(8px);
@@ -671,7 +671,7 @@
                     'flight': 'transport',
                     'transport': 'transport',
                     'food': 'food',
-                    'activity': 'fun',
+                    'activity': 'activity',
                     'other': 'other'
                 };
 
@@ -3973,10 +3973,16 @@
                 <select
                     data-act="flt-trip"
                     class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
-                    <option value="">Tüm Seyahatler</option>
-                    ${trips.map(t => `
-                    <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
-                    `).join('')}
+                    ${(() => {
+                        const activeTrips = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
+                        const options = activeTrips.map(t => `
+                            <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
+                        `);
+                        if (activeTrips.length > 1 || activeTrips.length === 0) {
+                            options.unshift(`<option value="" ${!state.tripFilter ? 'selected' : ''}>Tüm Seyahatler</option>`);
+                        }
+                        return options.join('');
+                    })()}
                 </select>
                 <div class="pointer-events-none absolute right-3 top-2.5 text-white/80">
                     ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
@@ -5273,7 +5279,6 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                      Mevcut Seyahat: <span class="text-slate-200">${esc(x.trip || 'Genel')}</span>
                    </p>
                  </div>
-{{ ... }}
                </div>
       `;
 
@@ -5352,13 +5357,20 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   </div>
                </div>` : ''}
 
-                <div class="flex gap-3 pt-2">
-                  <button data-act="${x.isReservation ? 'del-res-detail' : 'del-exp-detail'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
-                    ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
-                  </button>
-                  <button data-act="${x.isReservation ? 'edit-res' : 'edit'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
-                    ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
-                  </button>
+                <div class="flex flex-col gap-2 pt-2">
+                   ${x.isReservation ? `
+                   <button data-act="tog-res-comp" data-id="${x.id}" class="w-full py-2.5 rounded-lg font-bold text-sm ${x.completed ? 'bg-slate-700 text-slate-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'} transition flex items-center justify-center gap-2">
+                     ${x.completed ? `🔄 Tamamlandı (Geri Al)` : `✅ Tamamla / Bitti`}
+                   </button>
+                   ` : ''}
+                   <div class="flex gap-3">
+                    <button data-act="${x.isReservation ? 'del-res-detail' : 'del-exp-detail'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-gradient-to-r from-red-600/10 to-rose-700/10 text-red-400 border border-red-500/20 hover:from-red-600 hover:to-rose-700 hover:text-white transition flex items-center justify-center gap-1.5">
+                        ${ICONS.trash.replace('w-4 h-4', 'w-3.5 h-3.5')} Sil
+                    </button>
+                    <button data-act="${x.isReservation ? 'edit-res' : 'edit'}" data-id="${x.id}" class="flex-1 py-2.5 rounded-lg font-bold text-sm bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 transition flex items-center justify-center gap-1.5">
+                        ${ICONS.edit.replace('w-4 h-4', 'w-3.5 h-3.5')} Düzenle
+                    </button>
+                   </div>
                 </div>
              </div>
           </div>
@@ -6280,12 +6292,7 @@ function renderApp() {
                 }
                 if (act === 'cancel') {
                     state.view = 'list';
-                    state.err = '';
-                    renderApp();
-                }
-
-                if (act === 'cancel') {
-                    state.view = 'list';
+                    if (!state.tab) state.tab = 'sum'; // Güvenlik önlemi
                     state.err = '';
                     renderApp();
                 }
@@ -6728,9 +6735,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 if (act === 'del-exp-detail') {
                     e.preventDefault();
                     e.stopPropagation();
+                    const idToDelete = id || String(state.selExp);
                     try {
-                        if (state.selExp && confirm('Bu harcama kaydı kalıcı olarak silinsin mi?')) {
-                            const idToDelete = String(state.selExp);
+                        if (idToDelete && confirm('Bu harcama kaydı kalıcı olarak silinsin mi?')) {
                             const deleted = state.exp.find(x => String(x.id) === idToDelete);
                             if (deleted) setUndo({ kind: 'exp', item: deleted, message: 'Harcama silindi. (Geri alınabilir)' });
                             state.exp = state.exp.filter(x => String(x.id) !== idToDelete);
@@ -7108,14 +7115,25 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }, 50);
                 }
 
+                if (act === 'tog-res-comp') {
+                    const resId = id || state.selRes;
+                    const res = state.res.find(r => String(r.id) === String(resId));
+                    if (res) {
+                        res.completed = !res.completed;
+                        save();
+                        renderApp();
+                    }
+                    return;
+                }
+                
                 // Rezervasyon Listesi İşlemleri
                 if (act === 'res-detail') { state.selRes = id; state.modals.resDetail = true; renderApp(); }
                 if (act === 'del-res-detail') {
                     e.stopPropagation();
                     e.preventDefault();
+                    const idToDelete = id || String(state.selRes);
                     try {
-                        if (state.selRes && confirm('Bu rezervasyon kalıcı olarak silinsin mi?')) {
-                            const idToDelete = String(state.selRes);
+                        if (idToDelete && confirm('Bu rezervasyon kalıcı olarak silinsin mi?')) {
                             const deleted = state.res.find(x => String(x.id) === idToDelete);
                             if (deleted) setUndo({ kind: 'res', item: deleted, message: 'Rezervasyon silindi. (Geri alınabilir)' });
                             state.res = state.res.filter(x => String(x.id) !== idToDelete);
