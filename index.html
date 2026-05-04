@@ -4291,12 +4291,15 @@
                             <div class="h-px flex-1 bg-slate-800 ml-4"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            ${getPremiumCard('Seyahat Yönetimi', 'Yeni Seyahat & Düzenle', '🌍', 'open-trip-mgmt', 'bg-gradient-to-br from-indigo-500 to-purple-600')}
-                            ${getPremiumCard('Rezervasyonlarım', 'Uçuş ve Oteller', '✈️', 'open-res-modal', 'bg-gradient-to-br from-pink-600 to-rose-700')}
-                            ${getPremiumCard('Rota Planla', 'Harcama Rotası', '📍', 'open-route-modal', 'bg-gradient-to-br from-blue-600 to-cyan-700')}
+                            <!-- SEYAHAT YÖNETİMİ: TEK VE GENİŞ -->
+                            <div class="col-span-2">
+                                ${getPremiumCard('Seyahat Yönetimi', 'Tüm Seyahatlerinizi Buradan Yönetin & Düzenleyin', '🌍', 'open-trip-mgmt', 'bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600')}
+                            </div>
+                            <!-- DİĞER ARAÇLAR: 2x2 -->
+                            ${getPremiumCard('Rezervasyonlarım', 'Uçuş ve Oteller', '✈️', 'open-res-modal', 'bg-gradient-to-br from-blue-600 to-indigo-700')}
+                            ${getPremiumCard('Rota Planla', 'Harcama Rotası', '📍', 'open-route-modal', 'bg-gradient-to-br from-cyan-600 to-blue-700')}
                             ${getPremiumCard('Harcama Raporu', 'Analiz & PDF Rapor', '📊', 'open-report-modal', 'bg-gradient-to-br from-emerald-600 to-teal-700')}
-                            ${getPremiumCard('Kritik Bilgiler', 'Pasaport, Vize & Notlar', '📌', 'open-notes-modal', 'bg-gradient-to-br from-violet-600 to-purple-700')}
-                            ${getPremiumCard('Uçuş Takip', 'Canlı Uçuşlar', '🚀', 'open-flights', 'bg-gradient-to-br from-sky-500 to-indigo-600')}
+                            ${getPremiumCard('Kritik Bilgiler', 'Pasaport & Vize', '📌', 'open-notes-modal', 'bg-gradient-to-br from-violet-600 to-purple-700')}
                         </div>
                     </div>
 
@@ -4310,20 +4313,37 @@
                             ${getPremiumCard('Mekanlar', 'Restoran & Kafe', '🍴', 'open-places-modal', 'bg-gradient-to-br from-orange-500 to-amber-600')}
                             ${getPremiumCard('Sağlık', 'Eczane & Hastane', '💊', 'open-health-modal', 'bg-gradient-to-br from-rose-500 to-red-600')}
                             ${getPremiumCard('Ulaşım', 'Durak & Taksi', '🚌', 'open-transport-modal', 'bg-gradient-to-br from-cyan-500 to-blue-600')}
-                            ${getPremiumCard('Yardım Merkezi', 'Kullanım Kılavuzu', '❓', 'open-help-modal', 'bg-gradient-to-br from-slate-600 to-slate-800')}
+                            ${getPremiumCard('Uçuş Takip', 'Canlı Uçuşlar', '🚀', 'open-flights', 'bg-gradient-to-br from-sky-500 to-indigo-600')}
                         </div>
                     </div>
 
-                    <!-- VERİ YÖNETİMİ (ALT BAR) -->
-                    <div data-act="open-data-modal" class="mt-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-slate-800 transition-colors shadow-xl">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl">💾</div>
-                            <div>
-                                <h4 class="text-sm font-bold text-white uppercase tracking-tight">Veri Yönetimi</h4>
-                                <p class="text-[10px] text-slate-500 font-medium">Yedekleme ve Senkronizasyon</p>
+                    <!-- BÖLÜM 3: DESTEK VE YÖNETİM (RENKLİ BARLAR) -->
+                    <div class="space-y-3 pt-2">
+                        <!-- YARDIM MERKEZİ -->
+                        <div data-act="open-help-modal" class="relative overflow-hidden rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl group bg-gradient-to-r from-blue-600 to-indigo-700 border border-white/10">
+                            <div class="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl shadow-inner">❓</div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white uppercase tracking-tight">Yardım Merkezi</h4>
+                                    <p class="text-[10px] text-white/70 font-medium">Kullanım Kılavuzu & Rehber</p>
+                                </div>
                             </div>
+                            <svg class="w-5 h-5 text-white/50 group-hover:text-white transition-colors relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </div>
-                        <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+
+                        <!-- VERİ YÖNETİMİ -->
+                        <div data-act="open-data-modal" class="relative overflow-hidden rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl group bg-gradient-to-r from-emerald-600 to-teal-700 border border-white/10">
+                            <div class="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>
+                            <div class="flex items-center gap-4 relative z-10">
+                                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl shadow-inner">💾</div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white uppercase tracking-tight">Veri Yönetimi</h4>
+                                    <p class="text-[10px] text-white/70 font-medium">Yedekleme ve Senkronizasyon</p>
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-white/50 group-hover:text-white transition-colors relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </div>
                     </div>
 
                 </div>`;
@@ -4590,47 +4610,58 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
       </div>
 
       <!-- VERİ / YEDEK POPUP -->
+      <!-- VERİ YÖNETİMİ POPUP (SADELEŞTİRİLMİŞ) -->
       <div id="helper-data" class="helper-modal ${state.helpersAccordion.data ? 'active' : ''}">
         <div class="helper-modal-inner relative">
           <a href="#" data-act="close-all-helpers" class="helper-modal-close text-slate-400 hover:text-white">
             ${ICONS.x}
           </a>
-          <h3 class="font-bold text-white mb-4 text-center text-base sm:text-lg">Veri Yönetimi (Yedekleme / Yükleme)</h3>
-          <div class="space-y-3">
-            <p class="text-sm text-slate-400 mb-1">
-              Tüm uygulama verilerinizi JSON formatında dışa aktarabilir veya geri yükleyebilirsiniz.
-            </p>
-            <textarea id="io-txt" class="w-full h-48 bg-black/50 border border-slate-700/70 rounded-lg px-3 py-2 text-xs text-slate-100 font-mono outline-none focus:border-teal-400 placeholder-slate-500"
-              placeholder="Veri yedeği burada görünecek veya buraya yapıştırarak içe aktarabilirsiniz.">${esc(dataExport)}</textarea>
+          <h3 class="font-bold text-white mb-6 text-center text-base sm:text-lg">Veri Yönetimi</h3>
+          
+          <div class="space-y-5">
             
-<div class="flex flex-col sm:flex-row gap-3 pt-1">
-              <button data-act="copy-json" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
-                Kopyala
-              </button>
-              <button data-act="download-json" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
-                JSON İndir
-              </button>
+            <!-- DIŞA AKTAR: JSON İNDİR -->
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Yedek Al</h4>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-tight">Verileri JSON olarak indir</p>
+                    </div>
+                </div>
+                <button data-act="download-json" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20 transition">
+                    JSON Dosyası İndir
+                </button>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-3 pt-1">
-              <button data-act="pick-json-file" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-2.5 rounded-lg font-medium text-sm">
-                Dosya Seç
-              </button>
-              <button data-act="imp" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg font-bold text-sm">
-                Yükle
-              </button>
-            </div>
-
-            <div class="pt-4 border-t border-slate-700/50 mt-4 space-y-2">
-              <button data-act="load-from-uid" class="w-full bg-indigo-600/10 hover:bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition">
-                🔑 Eski Hesaptan (UID) Verileri Aktar
-              </button>
-              <button data-act="scan-trips" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-2 transition">
-                🔄 Seyahat Listesini Tara ve Senkronize Et
-              </button>
+            <!-- İÇE AKTAR: JSON YÜKLE -->
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Geri Yükle</h4>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-tight">Cihazdan JSON yükle</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button data-act="pick-json-file" class="flex-1 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 py-3 rounded-lg font-bold text-sm transition">
+                        Dosya Seç
+                    </button>
+                    <button data-act="imp" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-bold text-sm shadow-lg shadow-emerald-500/20 transition">
+                        Yükle
+                    </button>
+                </div>
             </div>
 
             <input id="io-file" data-act="io-file" type="file" accept="application/json" class="hidden" />
+            
+            <p class="text-[10px] text-center text-slate-600 italic">
+                * Yükleme işlemi mevcut tüm verilerin üzerine yazacaktır.
+            </p>
 
           </div>
         </div>
