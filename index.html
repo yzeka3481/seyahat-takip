@@ -664,8 +664,22 @@
             // Rapor için harcama listesini getirir
             function getTripExpenses(tripName) {
                 if (!tripName) return [];
-                // Sadece seçili seyahatin harcamalarını getir
-                return state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
+                
+                // 1. Normal Harcamalar
+                const exps = state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
+                
+                // 2. Maliyeti olan Rezervasyonlar (Uçak, Otel vb.)
+                const ress = (state.res || [])
+                    .filter(r => r.trip === tripName && !isNaN(Number(r.cost)) && Number(r.cost) > 0)
+                    .map(r => ({
+                        ...r,
+                        amt: r.cost, // Rapor motoru 'amt' bekliyor
+                        cat: r.type, // Kategori olarak rezervasyon tipini kullan (flight, hotel vb.)
+                        l: r.name,
+                        isRes: true
+                    }));
+                
+                return [...exps, ...ress];
             }
             // --- BORÇ HESAPLAMA YARDIMCISI ---
 
@@ -2779,10 +2793,21 @@
                 };
             }
             function renderReportContent() {
-                const allTrips = [...new Set(state.exp.map(x => x.trip).filter(Boolean).concat(state.res.map(x => x.trip).filter(Boolean)).concat((state.transfers || []).map(x => x.trip).filter(Boolean)))].sort();
+                // Tamamlanmış seyahatlerin isimlerini al
+                const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
+
+                // Sadece aktif olan (tamamlanmamış) seyahatleri listele
+                const allTrips = [...new Set([
+                    ...(state.trips || []).filter(t => t.status !== 'completed').map(t => t.name),
+                    ...state.exp.map(x => x.trip).filter(t => !completedTripNames.includes(t)),
+                    ...state.res.map(x => x.trip).filter(t => !completedTripNames.includes(t)),
+                    ...(state.transfers || []).map(x => x.trip).filter(t => !completedTripNames.includes(t))
+                ].filter(Boolean))].sort();
+
                 let selectedTrip = state.selectedReportTrip;
 
-                if (!allTrips.includes(selectedTrip)) {
+                // Eğer seçili seyahat tamamlanmışlar arasındaysa veya listede yoksa ilk aktif seyahati seç
+                if (!allTrips.includes(selectedTrip) || completedTripNames.includes(selectedTrip)) {
                     selectedTrip = allTrips[0] || 'Genel';
                     state.selectedReportTrip = selectedTrip;
                 }
@@ -4842,40 +4867,43 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
               </div>
             </div>
 
-            <!-- 7. VERİ YEDEKLEMİ -->
-            <!-- 8. İPUÇLARI -->
+            <!-- 7. SEYAHAT KAPATMA VE KUR KİLİTLEME -->
+            <div class="bg-gradient-to-br from-slate-900/40 to-slate-800/40 rounded-xl border border-slate-500/30 overflow-hidden">
+              <div class="p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-lg">🔒</span>
+                  <h4 class="font-bold text-white text-sm">7. Seyahati Kapatma & Kurlar</h4>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Seyahatiniz bittiğinde <strong class="text-amber-300">"Seyahati Tamamla"</strong> butonuna basarak seyahati arşive alabilir ve o günkü döviz kurlarını sabitleyebilirsiniz. Bu, gelecekteki kur değişimlerinden raporunuzun etkilenmesini önler.
+                </p>
+              </div>
+            </div>
+
+            <!-- 8. VERİ YEDEKLEME VE GİZLİLİK -->
+            <div class="bg-gradient-to-br from-indigo-900/40 to-slate-800/40 rounded-xl border border-indigo-500/30 overflow-hidden">
+              <div class="p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-lg">💾</span>
+                  <h4 class="font-bold text-white text-sm">8. Veri Yedekleme & Gizlilik</h4>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Verileriniz tamamen yereldir. <strong class="text-white">Veri Yönetimi</strong> panelinden JSON yedeği alarak verilerinizi güvenle saklayabilir veya başka bir cihaza taşıyabilirsiniz.
+                </p>
+              </div>
+            </div>
+
+            <!-- 9. İPUÇLARI VE KISAYOLLAR -->
             <div class="bg-gradient-to-br from-teal-900/40 to-slate-800/40 rounded-xl border border-teal-500/30 overflow-hidden">
               <div class="p-3">
                 <div class="flex items-center gap-2 mb-2">
                   <span class="text-lg">💡</span>
-                  <h4 class="font-bold text-white text-sm">8. Hızlı İpuçları</h4>
-                </div>
-                <div class="bg-slate-800/50 rounded-lg p-3 mb-3 border border-slate-700">
-                  <div class="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <div class="w-10 h-10 bg-amber-500/30 rounded-full flex items-center justify-center mb-1 mx-auto border border-amber-500/50">
-                        <span class="text-lg">⚡</span>
-                      </div>
-                      <span class="text-[10px] text-slate-300">Hızlı Ekle</span>
-                    </div>
-                    <div>
-                      <div class="w-10 h-10 bg-cyan-500/30 rounded-full flex items-center justify-center mb-1 mx-auto border border-cyan-500/50">
-                        <span class="text-lg">+</span>
-                      </div>
-                      <span class="text-[10px] text-slate-300">Yeni Kayıt</span>
-                    </div>
-                    <div>
-                      <div class="w-10 h-10 bg-purple-500/30 rounded-full flex items-center justify-center mb-1 mx-auto border border-purple-500/50">
-                        <span class="text-lg">📊</span>
-                      </div>
-                      <span class="text-[10px] text-slate-300">Grafik</span>
-                    </div>
-                  </div>
+                  <h4 class="font-bold text-white text-sm">9. İpuçları & Kısayollar</h4>
                 </div>
                 <p class="text-xs text-slate-300 leading-relaxed">
-                  • <strong class="text-amber-300">⚡ Hızlı Ekle:</strong> Seyahat, kategori ve tutar ile anında harcama ekleyin<br/>
-                  • <strong class="text-white">Özet ekranı:</strong> Yaklaşan seyahatler ve bakiyenizi görün<br/>
-                  • <strong class="text-white">Şehir grupları:</strong> Harcamaları şehirlere göre filtreleyin
+                  • <strong class="text-cyan-300">Hızlı Ekle:</strong> Özet ekranındaki kısayol butonuyla anında harcama girin.<br/>
+                  • <strong class="text-emerald-300">Fotoğraflar:</strong> Harcama detayına tıklayarak fiş/fatura fotoğrafı ekleyin.<br/>
+                  • <strong class="text-amber-300">Çevrimdışı:</strong> İnternetiniz olmasa bile tüm özellikleri kullanmaya devam edebilirsiniz.
                 </p>
               </div>
             </div>
