@@ -665,21 +665,42 @@
             function getTripExpenses(tripName) {
                 if (!tripName) return [];
                 
+                // Kategori Haritası: Rezervasyon tipi -> Harcama kategorisi
+                const catMap = {
+                    'hotel': 'stay',
+                    'flight': 'transport',
+                    'transport': 'transport',
+                    'food': 'food',
+                    'activity': 'fun',
+                    'other': 'other'
+                };
+
                 // 1. Normal Harcamalar
                 const exps = state.exp.filter(x => x.trip === tripName && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
                 
-                // 2. Maliyeti olan Rezervasyonlar (Uçak, Otel vb.)
+                // 2. Maliyeti olan Rezervasyonlar
                 const ress = (state.res || [])
                     .filter(r => r.trip === tripName && !isNaN(Number(r.cost)) && Number(r.cost) > 0)
                     .map(r => ({
                         ...r,
-                        amt: r.cost, // Rapor motoru 'amt' bekliyor
-                        cat: r.type, // Kategori olarak rezervasyon tipini kullan (flight, hotel vb.)
-                        l: r.name,
+                        amt: r.cost,
+                        cat: catMap[r.type] || 'other', // Doğru kategori eşleşmesi
+                        l: r.name, // Mekan ismi olarak rezervasyon adını kullan
+                        loc: r.location, // Lokasyon bilgisi
                         isRes: true
                     }));
                 
-                return [...exps, ...ress];
+                const combined = [...exps, ...ress];
+                
+                // Tek kişilik seyahatlerde 'payer' verisi boşsa seyahat ismindeki ilk kişiyi ata
+                const currentTrip = (state.trips || []).find(t => t.name === tripName);
+                const firstPerson = currentTrip ? currentTrip.persons.split(',')[0].trim() : 'Ben';
+                
+                return combined.map(x => ({
+                    ...x,
+                    payer: x.payer || firstPerson, // Harcayan boşsa ilk kişiyi yaz
+                    l: x.l || x.loc || 'Bilinmeyen Yer' // Mekan ismi boş kalmasın
+                }));
             }
             // --- BORÇ HESAPLAMA YARDIMCISI ---
 
