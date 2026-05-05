@@ -5646,9 +5646,16 @@ function renderApp() {
 
                     const combined = state.exp.concat(resAsExp);
 
+                    const activeTripNames = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
                     const exp = combined.filter(x => {
                         if (state.tab === 'exp') {
-                            if (state.tripFilter && x.trip !== state.tripFilter) return false;
+                            // Sadece aktif seyahatleri göster (eğer özel bir filtre seçilmemişse)
+                            if (state.tripFilter) {
+                                if (x.trip !== state.tripFilter) return false;
+                            } else if (activeTripNames.length > 0) {
+                                if (!activeTripNames.includes(x.trip)) return false;
+                            }
+
                             if (state.catFilter && x.cat !== state.catFilter) return false;
                             if (state.typeFilter && x.type !== state.typeFilter) return false;
                             if (state.indFilter === 'individual' && x.isIndividual !== true) return false;
@@ -6126,12 +6133,13 @@ function renderApp() {
                 }
                 if (act === 'new') {
                     state.form = getEmptyForm();
+                    const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
+                    
                     if (state.tripFilter) {
                         state.form.trip = state.tripFilter;
                         const suggestedCur = getCurrencyForTrip(state.tripFilter);
                         state.form.cur = suggestedCur || (state.baseCurrency || BASE_CURRENCY);
                         
-                        // YENİ: Tek kişi varsa otomatik seç
                         const tripObj = state.trips.find(t => t.name === state.tripFilter);
                         if (tripObj && tripObj.persons) {
                             const pList = tripObj.persons.split(',').map(p => p.trim()).filter(Boolean);
@@ -6140,7 +6148,17 @@ function renderApp() {
                                 state.form.payer = pList[0];
                             }
                         }
-
+                    } else if (activeTrips.length === 1) {
+                        // Sadece 1 aktif seyahat varsa otomatik seç
+                        state.form.trip = activeTrips[0].name;
+                        const suggestedCur = getCurrencyForTrip(activeTrips[0].name);
+                        state.form.cur = suggestedCur || (state.baseCurrency || BASE_CURRENCY);
+                        
+                        const pList = (activeTrips[0].persons || '').split(',').map(p => p.trim()).filter(Boolean);
+                        if (pList.length === 1) {
+                            state.form.isIndividual = true;
+                            state.form.payer = pList[0];
+                        }
                     } else {
                         state.form.cur = state.baseCurrency || BASE_CURRENCY;
                     }
@@ -6164,6 +6182,9 @@ function renderApp() {
                         if (!state.quickExp.city && state.locationName && state.locationName !== 'Alınıyor...' && state.locationName !== 'Bilinmiyor') {
                             state.quickExp.city = state.locationName;
                         }
+                        
+                        const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
+                        
                         if (state.tripFilter) {
                             state.quickExp.trip = state.tripFilter;
                             const tcur = getCurrencyForTrip(state.tripFilter);
@@ -6173,6 +6194,14 @@ function renderApp() {
                             const persons = (tripObj && tripObj.persons)
                                 ? String(tripObj.persons).split(',').map(p => p.trim()).filter(Boolean)
                                 : [];
+                            state.quickExp.payer = persons.length ? (persons[0] || '') : '';
+                        } else if (activeTrips.length === 1) {
+                            // Sadece 1 aktif seyahat varsa otomatik seç
+                            state.quickExp.trip = activeTrips[0].name;
+                            const tcur = getCurrencyForTrip(activeTrips[0].name);
+                            state.quickExp.cur = tcur || baseCur;
+
+                            const persons = (activeTrips[0].persons || '').split(',').map(p => p.trim()).filter(Boolean);
                             state.quickExp.payer = persons.length ? (persons[0] || '') : '';
                         } else {
                             const tcur = getCurrencyForTrip(state.quickExp.trip || '');
@@ -6302,6 +6331,9 @@ function renderApp() {
                     state.resForm = getEmptyResForm();
                     // Rezervasyon formu açılırken listeyi kapat (Daha temiz UI)
                     state.helpersAccordion.reservations = false;
+                    
+                    const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
+                    
                     if (state.tripFilter) {
                         state.resForm.trip = state.tripFilter;
                         // YENİ: Tek kişi varsa otomatik 'bireysel' yap
@@ -6312,6 +6344,14 @@ function renderApp() {
                                 state.resForm.isIndividual = true;
                                 state.resForm.payer = pList[0];
                             }
+                        }
+                    } else if (activeTrips.length === 1) {
+                        // Sadece 1 aktif seyahat varsa otomatik seç
+                        state.resForm.trip = activeTrips[0].name;
+                        const pList = (activeTrips[0].persons || '').split(',').map(p => p.trim()).filter(Boolean);
+                        if (pList.length === 1) {
+                            state.resForm.isIndividual = true;
+                            state.resForm.payer = pList[0];
                         }
                     }
                     renderApp();
