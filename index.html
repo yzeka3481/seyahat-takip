@@ -5173,7 +5173,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                                 city: r.city || '',
                                 desc: r.notes || '',
                                 isReservation: true,
-                                cat: r.type === 'flight' ? 'transport' : 'other',
+                                cat: ({ flight: 'transport', hotel: 'stay', activity: 'activity', transport: 'transport' }[r.type]) || 'other',
                                 date: r.startDate || r.date || '',
                                 isIndividual: r.isIndividual || false,
                                 ppl: 1, // Rezervasyonlar varsayılan 1 kişi
@@ -5638,7 +5638,7 @@ function renderApp() {
                             city: r.location || '',
                             desc: r.notes || '',
                             isReservation: true,
-                            cat: r.type === 'flight' ? 'transport' : 'other',
+                            cat: ({ flight: 'transport', hotel: 'stay', activity: 'activity', transport: 'transport' }[r.type]) || 'other',
                             date: r.startDate || r.date || '',
                             isIndividual: r.isIndividual || false,
                             trip: r.trip || ''
@@ -5911,7 +5911,7 @@ function renderApp() {
                     state.view = 'list'; state.err = ''; renderApp(); return;
                 }
                 if (state.modals.resForm && t.classList.contains('form-modal-overlay')) {
-                    state.modals.resForm = false; state.err = ''; state.tab = 'other';
+                    state.modals.resForm = false; state.err = ''; state.tab = 'asistan';
                     state.helpersAccordion.reservations = true; // Geri dönünce rezervasyonlar açık kalsın
                     renderApp(); return;
                 }
@@ -5969,7 +5969,7 @@ function renderApp() {
                     if (val === 'resDetail' || val === 'resDetailOverlay' || val === 'resForm') {
                         state.modals.resDetail = false;
                         state.modals.resForm = false;
-                        state.tab = 'other';
+                        state.tab = 'asistan';
                         // Tüm accordion'ları kapat, sadece reservations'u aç
                         state.helpersAccordion = {
                             critical: false,
@@ -6452,7 +6452,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 if (act === 'cancel-res') {
                     state.modals.resForm = false;
                     state.err = '';
-                    state.tab = 'other';
+                    state.tab = 'asistan';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
                     state.helpersAccordion = {
                         critical: false,
