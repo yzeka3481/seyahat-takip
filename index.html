@@ -7639,14 +7639,49 @@ if (act === 'export-pdf') {
 
                     // 7) HTML raporu oluştur ve yeni sekmede aç
                     const html = buildReportHtml(payload);
-                    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    // Cache-busting: Her PDF için benzersiz pencere adı kullan
                     const windowName = `pdf_report_${Date.now()}`;
-                    const w = window.open(url, windowName);
-                    // Memory leak önleme: Blob URL'yi bir süre sonra serbest bırak
-                    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-                    if (!w) alert('Tarayıcı açılır pencereyi engelledi. PDF raporunu açmak için pop-up izni verin.');
+
+                    // Mobil (iOS / Android) pop-up engellerini ve Blob URL sınırlamalarını aşmak için
+                    // boş bir sekme açıp içeriği document.write ile yazıyoruz.
+                    // Eğer window.open engellenirse veya standalone PWA modundaysak doğrudan dosya indirmeye yönlendiriyoruz.
+                    let w = null;
+                    try {
+                        w = window.open('', windowName);
+                    } catch (e) {
+                        console.error('window.open failed', e);
+                    }
+
+                    if (w) {
+                        try {
+                            w.document.open();
+                            w.document.write(html);
+                            w.document.close();
+                        } catch (err) {
+                            console.error('document.write failed, falling back to download', err);
+                            try { w.close(); } catch (_) {}
+                            triggerDownload();
+                        }
+                    } else {
+                        triggerDownload();
+                    }
+
+                    function triggerDownload() {
+                        try {
+                            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = `${selectedTrip.replace(/[^a-zA-Z0-9çğıöşüÇĞİÖŞÜ]/g, '-')}-Raporu.html`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            setTimeout(() => URL.revokeObjectURL(url), 10_000);
+                        } catch (err) {
+                            console.error('Download failed', err);
+                            alert('Rapor oluşturulamadı. Tarayıcınızın pop-up veya dosya indirme izinlerini kontrol edin.');
+                        }
+                    }
 }
 
                 if (act === 'copy-json') {
