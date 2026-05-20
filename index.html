@@ -1794,6 +1794,7 @@
                     expandedCities: {},
                     lightbox: null,
                     err: '',
+                    formErr: '',
                     draggedItemId: null,
                     targetTimezone: prefTZ,
                     currentTime: formatTime(prefTZ).time,
@@ -2258,6 +2259,11 @@
             </div>
             
             <div class="space-y-3">
+              ${state.formErr ? `
+              <div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg border border-rose-500/30 text-xs flex items-center gap-2 font-bold animate-[fadeIn_0.3s]">
+                 ${ICONS.info} <span>${esc(state.formErr)}</span>
+              </div>
+              ` : ''}
               
               <!-- REZERVASYON TİPİ -->
               <div>
@@ -2529,6 +2535,11 @@
                         </div>
 
                         <div class="space-y-4">
+                            ${state.formErr ? `
+                            <div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg border border-rose-500/30 text-xs flex items-center gap-2 font-bold animate-[fadeIn_0.3s]">
+                               ${ICONS.info} <span>${esc(state.formErr)}</span>
+                            </div>
+                            ` : ''}
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Seyahat Adı</label>
                                 <div class="relative">
@@ -4996,6 +5007,11 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
           </div>
           
           <div class="space-y-3">
+            ${state.formErr ? `
+            <div class="bg-rose-500/20 text-rose-200 p-3 rounded-lg border border-rose-500/30 text-xs flex items-center gap-2 font-bold animate-[fadeIn_0.3s]">
+               ${ICONS.info} <span>${esc(state.formErr)}</span>
+            </div>
+            ` : ''}
             
             <div>
                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Seyahat</label>
@@ -5932,10 +5948,10 @@ function renderApp() {
 
                 // Modal dışına tıklayınca kapatma (Overlay kontrolü)
                 if (state.view === 'form' && t.classList.contains('form-modal-overlay')) {
-                    state.view = 'list'; state.err = ''; renderApp(); return;
+                    state.view = 'list'; state.formErr = ''; renderApp(); return;
                 }
                 if (state.modals.resForm && t.classList.contains('form-modal-overlay')) {
-                    state.modals.resForm = false; state.err = ''; state.tab = 'asistan';
+                    state.modals.resForm = false; state.formErr = ''; state.tab = 'asistan';
                     state.helpersAccordion.reservations = true; // Geri dönünce rezervasyonlar açık kalsın
                     renderApp(); return;
                 }
@@ -6149,6 +6165,7 @@ function renderApp() {
                     renderApp();
                 }
                 if (act === 'new') {
+                    state.formErr = '';
                     state.form = getEmptyForm();
                     const activeTrips = (state.trips || []).filter(t => t.status !== 'completed');
                     
@@ -6339,11 +6356,12 @@ function renderApp() {
                 if (act === 'cancel') {
                     state.view = 'list';
                     if (!state.tab) state.tab = 'sum'; // Güvenlik önlemi
-                    state.err = '';
+                    state.formErr = '';
                     renderApp();
                 }
 
                 if (act === 'new-res') {
+                    state.formErr = '';
                     state.modals.resForm = true;
                     state.resForm = getEmptyResForm();
                     // Rezervasyon formu açılırken listeyi kapat (Daha temiz UI)
@@ -6376,6 +6394,7 @@ function renderApp() {
 
                 // YENİ: Seyahat Yönetimi popup'ından yeni seyahat ekleme
                 if (act === 'new-trip') {
+                    state.formErr = '';
                     state.tripForm = getEmptyTripForm();
                     state.modals.tripForm = true;
                     // window.location.hash = '#'; // Helper menüyü KAPATMA (Scroll pozisyonunu koru)
@@ -6508,7 +6527,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 }
                 if (act === 'cancel-res') {
                     state.modals.resForm = false;
-                    state.err = '';
+                    state.formErr = '';
                     state.tab = 'asistan';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
                     state.helpersAccordion = {
@@ -7036,7 +7055,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
 
                     if (!f.city || !f.place || !f.amt || !f.cat) {
-                        state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).';
+                        state.formErr = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).';
                         renderApp();
                         return;
                     }
@@ -7045,14 +7064,14 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (!f.isIndividual && f.trip) {
                         const tripObj = state.trips.find(t => t.name === f.trip);
                         if (tripObj && tripObj.persons && !f.payer) {
-                            state.err = 'Ortak harcamalarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin.';
+                            state.formErr = 'Ortak harcamalarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin.';
                             renderApp();
                             return;
                         }
                     }
 
                     if (isFuelActive && (!f.startKm || !f.endKm || !f.fuelAmount)) {
-                        state.err = 'Yakıt harcaması için Başlangıç Km, Bitiş Km ve Yakıt Miktarı alanları zorunludur.';
+                        state.formErr = 'Yakıt harcaması için Başlangıç Km, Bitiş Km ve Yakıt Miktarı alanları zorunludur.';
                         renderApp();
                         return;
                     }
@@ -7065,7 +7084,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                         // 1) En fazla 2 seyahat
                         if (isNewRecord && guestTripLimitExceeded(newTripName)) {
-                            state.err = 'Giriş yapmadan en fazla 2 seyahat ekleyebilirsiniz. Lütfen giriş yapın veya mevcut seyahatlerden birini kullanın.';
+                            state.formErr = 'Giriş yapmadan en fazla 2 seyahat ekleyebilirsiniz. Lütfen giriş yapın veya mevcut seyahatlerden birini kullanın.';
                             openLoginModal('En fazla 2 seyahat eklemek için giriş yapmanız gerekir.');
                             renderApp();
                             return;
@@ -7073,7 +7092,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                         // 2) Bir seyahat için en fazla 3 harcama
                         if (isNewRecord && newTripName && guestExpenseLimitExceeded(newTripName)) {
-                            state.err = 'Giriş yapmadan bir seyahat için en fazla 3 harcama ekleyebilirsiniz. Lütfen giriş yapın.';
+                            state.formErr = 'Giriş yapmadan bir seyahat için en fazla 3 harcama ekleyebilirsiniz. Lütfen giriş yapın.';
                             openLoginModal('Bir seyahat için 3\'ten fazla harcama eklemek için giriş yapmanız gerekir.');
                             renderApp();
                             return;
@@ -7088,7 +7107,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         rec.fuelAmount = String(rec.fuelAmount).replace(/[^0-9.]/g, '');
 
                         if (Number(rec.endKm) < Number(rec.startKm)) {
-                            state.err = 'Bitiş Kilometresi, Başlangıç Kilometresinden küçük olamaz.';
+                            state.formErr = 'Bitiş Kilometresi, Başlangıç Kilometresinden küçük olamaz.';
                             renderApp();
                             return;
                         }
@@ -7104,7 +7123,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     state.expandedCities[rec.city] = true;
                     save();
-                    state.err = '';
+                    state.formErr = '';
                     state.view = 'list';
                     renderApp();
                 }
@@ -7149,7 +7168,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     f.cost = f.cost.replace(',', '.').replace(/[^0-9.]/g, '');
 
                     if (!f.name || !f.location || !f.startDate || !f.trip) {
-                        state.err = 'Rezervasyon Adı, Konum, Tarih ve Seyahat alanları zorunludur.';
+                        state.formErr = 'Rezervasyon Adı, Konum, Tarih ve Seyahat alanları zorunludur.';
                         renderApp();
                         return;
                     }
@@ -7158,7 +7177,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (!f.isIndividual && f.trip && f.cost && Number(f.cost) > 0) {
                         const tripObj = state.trips.find(t => t.name === f.trip);
                         if (tripObj && tripObj.persons && !f.payer && !f.isSettled) {
-                            state.err = 'Ortak rezervasyonlarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin veya "Ödendi/Settled" işaretleyin.';
+                            state.formErr = 'Ortak rezervasyonlarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin veya "Ödendi/Settled" işaretleyin.';
                             renderApp();
                             return;
                         }
@@ -7169,7 +7188,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                         const newTripName = titleCase(f.trip || '');
                         const isNewRecord = !f.id;
                         if (isNewRecord && guestTripLimitExceeded(newTripName)) {
-                            state.err = 'Giriş yapmadan en fazla 2 seyahat ekleyebilirsiniz. Lütfen giriş yapın veya mevcut seyahatlerden birini kullanın.';
+                            state.formErr = 'Giriş yapmadan en fazla 2 seyahat ekleyebilirsiniz. Lütfen giriş yapın veya mevcut seyahatlerden birini kullanın.';
                             openLoginModal('En fazla 2 seyahat eklemek için giriş yapmanız gerekir.');
                             renderApp();
                             return;
@@ -7194,7 +7213,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
 
 
-                    state.err = '';
+                    state.formErr = '';
                     state.modals.resForm = false;
                     state.tab = 'asistan';
                     // Tüm accordion'ları kapat, sadece reservations'u aç
@@ -7265,6 +7284,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     return;
                 }
                 if (act === 'edit-res') {
+                    state.err = '';
                     const resId = id || state.selRes;
                     const r = state.res.find(res => res.id === resId);
                     if (r) {
@@ -7304,7 +7324,7 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     state.form = { ...x };
                     state.view = 'form';
                     state.modals.detail = false;
-                    state.err = '';
+                    state.formErr = '';
                     renderApp();
                     return;
                 }
@@ -7932,6 +7952,20 @@ if (act === 'export-pdf') {
                 updateClock();
                 timeInterval = setInterval(updateClock, 1000);
             };
+
+            window.addEventListener('error', function (e) {
+                const div = document.createElement('div');
+                div.className = 'fixed top-0 left-0 right-0 bg-red-600 text-white p-4 z-[9999] text-xs font-mono';
+                div.textContent = 'Unhandled Error: ' + e.message + ' at ' + e.filename + ':' + e.lineno;
+                document.body.appendChild(div);
+            });
+
+            window.addEventListener('unhandledrejection', function (e) {
+                const div = document.createElement('div');
+                div.className = 'fixed top-0 left-0 right-0 bg-red-600 text-white p-4 z-[9999] text-xs font-mono';
+                div.textContent = 'Unhandled Rejection: ' + e.reason;
+                document.body.appendChild(div);
+            });
 
             window.onload = function () {
                 try {
