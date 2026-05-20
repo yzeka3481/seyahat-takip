@@ -1,0 +1,312 @@
+﻿        /* --- PROFESYONEL VE TEMİZ STİLLER --- */
+        body {
+            font-family: 'Inter', sans-serif
+        }
+
+        /* KRİTİK DÜZELTME: Sayfa kaymasını kesinlikle engeller */
+        html,
+        body {
+            overflow-x: hidden !important;
+            width: 100%;
+            max-width: 100vw;
+            min-height: 100%;
+            overscroll-behavior: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+        }
+        input, textarea, select { user-select: text; -webkit-user-select: text; }
+
+        #app-root {
+            width: 100%;
+            max-width: 100%;
+            margin-top: 0;
+        }
+
+        /* Scrollbar */
+        .scrl::-webkit-scrollbar {
+            width: 6px;
+            height: 6px
+        }
+
+        .scrl::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 99px
+        }
+
+        .scrl::-webkit-scrollbar-track {
+            background: transparent
+        }
+
+        /* Checkbox custom style (Daha az parlak, daha mat yeşil) */
+        .custom-checkbox:checked {
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg>");
+            border-color: transparent;
+            background-color: #059669;
+        }
+
+        /* Daha az opak, daha az belirgin bir cam efekti */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* HARCAMA DETAYI MODAL BAŞLIĞI: Sade ve Profesyonel Mavi-Menekşe */
+        .fixed-gradient-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%);
+            position: relative;
+            overflow: hidden;
+            /* Hafif, soft gölge */
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* YENİ KAYIT EKRANI İÇİN MODAL SARIYICI */
+        .form-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 300;
+            background-color: rgba(0, 0, 0, 0.85);
+            /* Daha koyu arka plan */
+            backdrop-filter: blur(8px);
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            /* Mobil klavye açıldığında doğru çalışması için */
+            align-items: flex-start;
+            padding: 0.5rem;
+            /* dvh: dinamik viewport yüksekliği - klavye açılınca güncellenir */
+            height: 100dvh;
+            height: 100vh; /* fallback */
+        }
+        @supports (height: 100dvh) {
+            .form-modal-overlay { height: 100dvh; }
+        }
+
+        /* Form içeriği için max-height ayarı */
+        .form-content-box {
+            display: flex;
+            flex-direction: column;
+            /* dvh ile mobil klavye uyumlu */
+            max-height: calc(100dvh - 1rem);
+            overflow: hidden;
+            width: 100%;
+        }
+        @supports not (height: 100dvh) {
+            .form-content-box { max-height: calc(100vh - 1rem); }
+        }
+        .form-content-body {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Harcama listesindeki şehir başlığı için yeni stil */
+        .city-header-gradient {
+            background: linear-gradient(90deg, #1e293b 0%, #1f2937 80%, rgba(30, 41, 59, 0) 100%);
+        }
+
+        /* Ana menü butonu stili */
+        .menu-btn-base {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 0.2rem;
+            border-radius: 0.75rem;
+            transition: all 0.3s;
+            border-width: 1px;
+        }
+
+        .menu-btn-icon-box {
+            width: 2.2rem;
+            height: 2.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        /* KRİTİK DÜZELTME İÇİN EK STİL: Inputların dikeyde tam doldurmasını sağlamak için */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            /* Etiket ve input arasına boşluk */
+        }
+
+        /* ASİSTAN SEKME KART MODAL STİLLERİ */
+        .helper-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+        }
+
+        .helper-modal:target, .helper-modal.active {
+            display: flex;
+        }
+
+        /* --- PREMIUM AUTH MODAL ANIMATION --- */
+        #auth-login-modal {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        #auth-login-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+        #auth-login-modal.active > div {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+        #auth-login-modal > div {
+            transform: scale(0.9) translateY(20px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .helper-modal-inner {
+            background-color: #020617;
+            /* slate-950 */
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            padding: 1.25rem;
+            max-width: 42rem;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .helper-modal-close {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+        }
+
+        /* --- PREMIUM ASSISTANT TAB ANIMATIONS --- */
+        @keyframes ast-float1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(12px,-18px) scale(1.15)} }
+        @keyframes ast-float2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-15px,12px) scale(1.1)} }
+        @keyframes ast-float3 { 0%,100%{transform:translate(0,0) scale(1.05)} 50%{transform:translate(8px,15px) scale(0.95)} }
+        @keyframes ast-shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes ast-pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.08)} }
+        @keyframes ast-breathe { 0%,100%{box-shadow:0 0 20px rgba(139,92,246,0.15)} 50%{box-shadow:0 0 35px rgba(139,92,246,0.3)} }
+
+        .ast-orb1 { animation: ast-float1 8s ease-in-out infinite; }
+        .ast-orb2 { animation: ast-float2 10s ease-in-out infinite; }
+        .ast-orb3 { animation: ast-float3 12s ease-in-out infinite; }
+
+        .ast-hero { animation: ast-breathe 4s ease-in-out infinite; }
+
+        .ast-shimmer-line {
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.04) 60%, transparent 100%);
+            background-size: 200% 100%;
+            animation: ast-shimmer 4s linear infinite;
+        }
+
+        .ast-featured-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .ast-featured-card:hover { transform: translateY(-3px); }
+        .ast-featured-card:active { transform: scale(0.97); }
+
+        .ast-grid-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .ast-grid-card:hover { transform: translateY(-2px) scale(1.02); }
+        .ast-grid-card:active { transform: scale(0.96); }
+
+        .ast-section-label {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            color: white;
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .ast-premium-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-radius: 24px;
+            padding: 20px;
+            min-height: 140px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .ast-premium-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            filter: brightness(1.1);
+        }
+
+        .ast-premium-card:active {
+            transform: scale(0.96);
+        }
+
+        .ast-card-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+            max-width: 60%;
+            line-height: 1.2;
+            z-index: 10;
+        }
+
+        .ast-card-icon {
+            position: absolute;
+            right: -10px;
+            bottom: -5px;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            opacity: 0.9;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+            z-index: 5;
+            transition: transform 0.3s ease;
+        }
+
+        .ast-premium-card:hover .ast-card-icon {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        /* Card Colors */
+        .ast-bg-pink { background: #d81b60; }
+        .ast-bg-teal { background: #00acc1; }
+        .ast-bg-purple { background: #5e35b1; }
+        .ast-bg-orange { background: #f4511e; }
+        .ast-bg-magenta { background: #8e24aa; }
+        .ast-bg-yellow { background: #fdd835; color: #1e293b; }
+        .ast-bg-yellow .ast-card-title { color: #1e293b; }
+        .ast-bg-indigo { background: #3949ab; }
+        .ast-bg-cyan { background: #0097a7; }
+        .ast-bg-emerald { background: #059669; }
+        .ast-bg-blue { background: #2563eb; }
