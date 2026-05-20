@@ -7470,6 +7470,7 @@ if (act === 'export-pdf') {
                     const normCat = (v) => String(v || '').trim();
 
                     const filteredExpenses = allExpenses.filter(x => {
+                        if (x.isRes) return false; // Exclude mapped reservations to avoid double counting and listing duplication
                         if (scope === 'individual' && x.isIndividual !== true) return false;
                         if (scope === 'shared' && x.isIndividual !== false) return false;
 
