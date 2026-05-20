@@ -7457,10 +7457,12 @@ if (act === 'export-pdf') {
                     const reportCur = state.reportCurrency || state.baseCurrency || BASE_CURRENCY;
                     const scope = state.indFilter || 'all';
 
-                    // 2) Bu seyahate ait harcamaları al (mevcut helper)
-                    const allExpenses = getTripExpenses(selectedTrip) || [];
+                    // 2) Bu seyahate ait harcamaları al
+                    // KRİTİK DÜZELTME: getTripExpenses rezervasyonları da içerdiği için çifte sayıma neden oluyordu.
+                    // Burada sadece saf harcamaları alıyoruz.
+                    const allExpenses = (state.exp || []).filter(x => x.trip === selectedTrip && !isNaN(Number(x.amt)) && Number(x.amt) > 0);
 
-                    // Bireysel / Ortak filtresini uygula + (YENİ) PDF kategori filtresi
+                    // Bireysel / Ortak filtresini uygula + PDF kategori filtresi
                     const pdfCat = (state.reportPdfCat || '').trim();
                     const normCat = (v) => String(v || '').trim();
 
@@ -7492,16 +7494,24 @@ if (act === 'export-pdf') {
                         return true;
                     });
 
-                    // 4) Tarih aralığı çıkar (min/max tarih)
-                    const allDates = [];
-                    filteredExpenses.forEach(x => { if (x.date) allDates.push(x.date); });
-                    filteredReservations.forEach(r => {
-                        if (r.startDate) allDates.push(r.startDate);
-                        if (r.endDate) allDates.push(r.endDate);
-                    });
-                    allDates.sort();
-                    const dateFrom = allDates[0] || '';
-                    const dateTo = allDates[allDates.length - 1] || '';
+                    // 4) Tarih aralığı çıkar (Kullanıcı isteği: Seyahat tarihleri)
+                    let dateFrom = '';
+                    let dateTo = '';
+                    const tripObjForDate = (state.trips || []).find(t => t.name === selectedTrip);
+                    if (tripObjForDate && tripObjForDate.startDate) {
+                        dateFrom = tripObjForDate.startDate;
+                        dateTo = tripObjForDate.endDate || tripObjForDate.startDate;
+                    } else {
+                        const allDates = [];
+                        filteredExpenses.forEach(x => { if (x.date) allDates.push(x.date); });
+                        filteredReservations.forEach(r => {
+                            if (r.startDate) allDates.push(r.startDate);
+                            if (r.endDate) allDates.push(r.endDate);
+                        });
+                        allDates.sort();
+                        dateFrom = allDates[0] || '';
+                        dateTo = allDates[allDates.length - 1] || '';
+                    }
 
                     // 5) Özet tutarları rapor para biriminde hesapla
                     let totalExpReport = 0;
