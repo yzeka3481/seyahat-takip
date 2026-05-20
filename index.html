@@ -437,6 +437,29 @@
                                 loadUserDataFromCloud();
                             }
                         });
+
+                        // Handle redirect result for mobile/redirect logins (only on http/https/chrome-extension protocols)
+                        const isSupportedProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:' || window.location.protocol === 'chrome-extension:';
+                        if (isSupportedProtocol) {
+                            auth.getRedirectResult()
+                                .then((result) => {
+                                    if (result && result.user) {
+                                        console.log('Redirect ile giriş başarılı:', result.user);
+                                    }
+                                })
+                                .catch((err) => {
+                                    console.error('Redirect ile giriş hatası:', err);
+                                    const errMsg = String(err && err.message ? err.message : err);
+                                    const errCode = String(err && err.code ? err.code : '');
+                                    if (
+                                        errCode !== 'auth/cancelled-popup-request' && 
+                                        errCode !== 'auth/operation-not-supported-in-this-environment' &&
+                                        !errMsg.includes('operation-not-supported-in-this-environment')
+                                    ) {
+                                        alert('Google ile giriş yapılamadı: ' + errMsg);
+                                    }
+                                });
+                        }
                     } else {
                         console.warn('Firebase yüklü değil');
                     }
@@ -1828,6 +1851,7 @@
                     quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
                     quickExpOpen: false,
                     undo: null,
+                    authInProgress: false,
                 };
 
                 state.openChkCats = {};
@@ -6042,37 +6066,66 @@ function renderApp() {
                 }
 
                 if (act === 'auth-google') {
+                    const isSupportedProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:' || window.location.protocol === 'chrome-extension:';
+                    if (!isSupportedProtocol) {
+                        alert('Google ile Giriş özelliği yerel dosya protokolünde (file://, content:// vb.) çalışmamaktadır.\n\nBulut senkronizasyonu ve PDF dökümü gibi özellikleri kullanabilmek için uygulamayı bir web sunucusu (http:// veya https://) üzerinden açmalısınız.');
+                        return;
+                    }
+                    if (state.authInProgress) {
+                        console.warn('Giriş işlemi zaten devam ediyor...');
+                        return;
+                    }
                     if (!auth) {
                         initFirebaseAuth();
                     }
                     if (auth && firebase && firebase.auth) {
+                        state.authInProgress = true;
                         const provider = new firebase.auth.GoogleAuthProvider();
                         // Her girişte hesap seçme ekranını göster
                         provider.setCustomParameters({ prompt: 'select_account' });
 
-                        auth.signInWithPopup(provider)
-                            .then((result) => {
-                                console.log('Google ile giriş başarılı:', result && result.user);
+                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                        const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-                                if (result && result.user) {
-                                    currentUser = result.user;
-                                } else if (auth.currentUser) {
-                                    currentUser = auth.currentUser;
-                                }
+                        if (isMobile || isStandalone) {
+                            // Mobilde veya PWA modunda popup engellerini aşmak için yönlendirme (redirect) kullanıyoruz
+                            auth.signInWithRedirect(provider)
+                                .catch(err => {
+                                    state.authInProgress = false;
+                                    console.error('Google Redirect başlatma hatası', err);
+                                    if (err && err.code !== 'auth/cancelled-popup-request') {
+                                        alert('Giriş yönlendirmesi başlatılamadı: ' + (err.message || err));
+                                    }
+                                });
+                        } else {
+                            auth.signInWithPopup(provider)
+                                .then((result) => {
+                                    state.authInProgress = false;
+                                    console.log('Google ile giriş başarılı:', result && result.user);
 
-                                updateAuthUi();
-                                if (currentUser) {
-                                    loadUserDataFromCloud();
-                                }
+                                    if (result && result.user) {
+                                        currentUser = result.user;
+                                    } else if (auth.currentUser) {
+                                        currentUser = auth.currentUser;
+                                    }
 
-                                // Login modali kapanır, kullanıcı menüsü varsa gizlenir
-                                closeLoginModal();
-                                toggleUserMenu(true);
-                            })
-                            .catch(err => {
-                                console.error('Google ile giriş hatası', err);
-                                alert('Google ile giriş yapılamadı: ' + (err && err.message ? err.message : err));
-                            });
+                                    updateAuthUi();
+                                    if (currentUser) {
+                                        loadUserDataFromCloud();
+                                    }
+
+                                    // Login modali kapanır, kullanıcı menüsü varsa gizlenir
+                                    closeLoginModal();
+                                    toggleUserMenu(true);
+                                })
+                                .catch(err => {
+                                    state.authInProgress = false;
+                                    console.error('Google ile giriş hatası', err);
+                                    if (err && err.code !== 'auth/cancelled-popup-request') {
+                                        alert('Google ile giriş yapılamadı: ' + (err && err.message ? err.message : err));
+                                    }
+                                });
+                        }
                     }
                     return;
                 }
