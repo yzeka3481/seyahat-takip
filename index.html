@@ -7027,8 +7027,21 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const descInput = document.getElementById('i-desc');
                     if (descInput) f.desc = descInput.value;
 
+                    const currentTripObj = state.trips.find(t => t.name === f.trip);
+                    const tripPersons = currentTripObj && currentTripObj.persons
+                        ? currentTripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
+                        : [];
+
                     const isIndividualInput = document.getElementById('i-isIndividual');
-                    f.isIndividual = isIndividualInput ? isIndividualInput.checked : false;
+                    if (isIndividualInput) {
+                        f.isIndividual = isIndividualInput.checked;
+                    } else {
+                        f.isIndividual = true;
+                    }
+
+                    if (tripPersons.length <= 1) {
+                        f.isIndividual = true;
+                    }
 
                     const addToRouteInput = document.getElementById('i-addToRoute');
                     f.addToRoute = addToRouteInput ? !!addToRouteInput.checked : false;
@@ -7061,9 +7074,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
 
                     // YENİ VALIDASYON: Ortak harcamalarda payer zorunlu
-                    if (!f.isIndividual && f.trip) {
-                        const tripObj = state.trips.find(t => t.name === f.trip);
-                        if (tripObj && tripObj.persons && !f.payer) {
+                    if (!f.isIndividual && f.trip && tripPersons.length > 1) {
+                        if (currentTripObj && currentTripObj.persons && !f.payer) {
                             state.formErr = 'Ortak harcamalarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin.';
                             renderApp();
                             return;
@@ -7154,15 +7166,21 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     f.cur = document.getElementById('i-res-cur').value;
                     f.notes = document.getElementById('i-res-notes').value;
 
+                    // Seyahatteki kişi sayısını kontrol et
+                    const currentTripObj = state.trips.find(t => t.name === f.trip);
+                    const tripPersons = currentTripObj && currentTripObj.persons
+                        ? currentTripObj.persons.split(',').map(p => p.trim()).filter(Boolean)
+                        : [];
+
+                    if (tripPersons.length <= 1) {
+                        f.isIndividual = true;
+                    }
+
                     // Payer ve Settled bilgisini al
                     const payerInput = document.getElementById('i-res-payer');
                     f.payer = (payerInput && !f.isIndividual) ? payerInput.value : '';
                     const settledInput = document.getElementById('i-res-settled');
                     f.isSettled = settledInput ? settledInput.checked : false;
-
-
-
-
 
                     // Maliyet alanını temizle ve state'e kaydet (input eventinde bu işlem yapılmadığı için)
                     f.cost = f.cost.replace(',', '.').replace(/[^0-9.]/g, '');
@@ -7174,9 +7192,8 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
 
                     // YENİ VALIDASYON: Ortak rezervasyonlarda payer zorunlu
-                    if (!f.isIndividual && f.trip && f.cost && Number(f.cost) > 0) {
-                        const tripObj = state.trips.find(t => t.name === f.trip);
-                        if (tripObj && tripObj.persons && !f.payer && !f.isSettled) {
+                    if (!f.isIndividual && f.trip && f.cost && Number(f.cost) > 0 && tripPersons.length > 1) {
+                        if (currentTripObj && currentTripObj.persons && !f.payer && !f.isSettled) {
                             state.formErr = 'Ortak rezervasyonlarda "Ödeyen" alanı zorunludur. Lütfen ödemeyi yapan kişiyi seçin veya "Ödendi/Settled" işaretleyin.';
                             renderApp();
                             return;
