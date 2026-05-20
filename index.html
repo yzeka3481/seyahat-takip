@@ -1841,7 +1841,6 @@
                     quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
                     quickExpOpen: false,
                     undo: null,
-                    showArchive: false, // Performans: Tamamlanmış seyahatler varsayılan gizli
                     expPageLimits: {}, // Lazy loading: şehir başına gösterilen limit
                 };
 
@@ -3557,7 +3556,7 @@
                     }
                 }
 
-                // Son 3 Harcama (Harcamalar + Rezervasyonlar, sadece aktif seyahatlere ait)
+                // Son 3 Harcama (Harcamalar + Rezervasyonlar — en son eklenenler)
                 const combinedForLatest = state.exp.concat(state.res.map(r => ({
                     ...r,
                     amt: r.cost,
@@ -3568,11 +3567,7 @@
                 })));
 
                 const latestExpenses = combinedForLatest
-                    .filter(x => {
-                        if (completedTripNames.includes(x.trip)) return false;
-                        return true;
-                    })
-                    .sort((a, b) => (b.date || '').localeCompare(a.date) || (b.id.localeCompare(a.id)))
+                    .sort((a, b) => (b.id || '').localeCompare(a.id || ''))
                     .slice(0, 3);
 
                 const currencyOptions = AVAILABLE_CURRENCIES.map(c =>
@@ -3942,20 +3937,11 @@
                     class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
                     ${(() => {
                         const activeTrips = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
-                        const completedTrips = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
                         const options = activeTrips.map(t => `
                             <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
                         `);
                         if (activeTrips.length > 1 || activeTrips.length === 0) {
                             options.unshift(`<option value="" ${!state.tripFilter ? 'selected' : ''}>Tüm Seyahatler</option>`);
-                        }
-                        // Arşiv modu açıksa tamamlanmış seyahatleri de göster
-                        if (state.showArchive && completedTrips.length > 0) {
-                            options.push(`<optgroup label="📦 Arşiv">`);
-                            completedTrips.forEach(t => {
-                                options.push(`<option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>📦 ${esc(t)}</option>`);
-                            });
-                            options.push(`</optgroup>`);
                         }
                         return options.join('');
                     })()}
@@ -3964,13 +3950,6 @@
                     ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
                 </div>
                 </div>
-                <!-- Arşiv Toggle -->
-                ${(state.trips || []).some(t => t.status === 'completed') ? `
-                <button data-act="tog-archive" class="mt-1 text-[9px] font-semibold px-2 py-1 rounded-lg border transition ${state.showArchive 
-                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' 
-                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:text-slate-300'}">
-                    📦 ${state.showArchive ? 'Arşivi Gizle' : 'Arşiv (' + (state.trips || []).filter(t => t.status === 'completed').length + ')'}
-                </button>` : ''}
             </div>
 
           </div>
@@ -5623,14 +5602,15 @@ function renderApp() {
 
                     const combined = state.exp.concat(resAsExp);
 
-                    const activeTripNames = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
+                    // Tamamlanmış seyahat adları (harcama listesinde gizlenecek)
+                    const completedTripNames = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
+
                     const exp = combined.filter(x => {
                         if (state.tab === 'exp') {
-                            // Sadece aktif seyahatleri göster (eğer özel bir filtre seçilmemişse)
+                            // Tamamlanmış seyahatleri harcama listesinden gizle
+                            if (completedTripNames.includes(x.trip)) return false;
                             if (state.tripFilter) {
                                 if (x.trip !== state.tripFilter) return false;
-                            } else if (activeTripNames.length > 0) {
-                                if (!activeTripNames.includes(x.trip)) return false;
                             }
 
                             if (state.catFilter && x.cat !== state.catFilter) return false;
@@ -7260,11 +7240,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const city = val;
                     if (!state.expPageLimits) state.expPageLimits = {};
                     state.expPageLimits[city] = (state.expPageLimits[city] || 20) + 20;
-                    renderApp();
-                }
-                // ARŞİV MODU: Tamamlanmış seyahatleri göster/gizle
-                if (act === 'tog-archive') {
-                    state.showArchive = !state.showArchive;
                     renderApp();
                 }
                 if (act === 'detail') {
