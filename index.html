@@ -580,9 +580,6 @@
             const K = { EXP: 'travel_expenses', LIST: 'travel_checklist', BUD: 'travel_budget', PREF: 'travel_pref', NOTES: 'travel_notes', RES: 'travel_reservations', TRIPS: 'travel_trips', TRANS: 'travel_transfers' };
             const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD'];
 
-            // YENİ FOTOĞRAF SABİTLERİ
-            const MAX_IMAGES = 3;
-            const MAX_IMAGE_WIDTH = 800;
 
             let EXCHANGE_RATES = {
                 TRY: 1.0,
@@ -1621,7 +1618,7 @@
                 cat: '',
                 desc: '',
                 ppl: '1',
-                imgs: [],
+
                 isFuel: false,
                 startKm: '',
                 endKm: '',
@@ -1749,7 +1746,6 @@
                 e = e.map(item => {
                     const updated = {
                         ...item,
-                        imgs: item.imgs || [],
                         isFuel: item.cat === 'fuel',
                         startKm: item.startKm || '',
                         endKm: item.endKm || '',
@@ -1760,6 +1756,7 @@
                     };
                     delete updated.fuelLocation;
                     delete updated.tripRoute;
+                    delete updated.imgs; // Fotoğraf verilerini temizle (localStorage tasarrufu)
                     return updated;
                 });
 
@@ -1812,7 +1809,6 @@
                     tripForm: getEmptyTripForm(), // Yeni: Seyahat formu state'i
                     trips: t, // Yeni: Kayıtlı Seyahatler
                     expandedCities: {},
-                    lightbox: null,
                     err: '',
                     draggedItemId: null,
                     targetTimezone: prefTZ,
@@ -1845,13 +1841,26 @@
                     quickExp: { trip: '', cat: 'food', amt: '', cur: preferredBaseCurrency },
                     quickExpOpen: false,
                     undo: null,
+                    showArchive: false, // Performans: Tamamlanmış seyahatler varsayılan gizli
+                    expPageLimits: {}, // Lazy loading: şehir başına gösterilen limit
                 };
 
                 state.openChkCats = {};
                 (state.chk.cats || []).forEach(x => state.openChkCats[x.id] = false);
             }
 
-            function setState(p) { state = { ...state, ...p }; renderApp(); }
+            // --- RENDER THROTTLING (PERFORMANS) ---
+            let _renderPending = false;
+            function scheduleRender() {
+                if (_renderPending) return;
+                _renderPending = true;
+                requestAnimationFrame(() => {
+                    _renderPending = false;
+                    renderApp();
+                });
+            }
+
+            function setState(p) { state = { ...state, ...p }; scheduleRender(); }
 
             function save() {
                 try {
@@ -1929,11 +1938,7 @@
                             if (Array.isArray(u.res) && u.res.length) state.res.push(...u.res);
                             if (Array.isArray(u.notes) && u.notes.length) state.criticalNotes.push(...u.notes);
                             break;
-                        case 'img':
-                            if (typeof u.index === 'number' && u.data) {
-                                state.form.imgs.splice(u.index, 0, u.data);
-                            }
-                            break;
+
                         default:
                             break;
                     }
@@ -2042,48 +2047,7 @@
                     });
             }
 
-            // --- RESİM YENİDEN BOYUTLANDIRMA VE BASE64'E DÖNÜŞTÜRME YARDIMCISI ---
-            const resizeAndConvertImage = (file) => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = (readerEvent) => {
-                        const image = new Image();
-                        image.onload = (imageEvent) => {
-                            let canvas = document.createElement('canvas'),
-                                max_size = MAX_IMAGE_WIDTH,
-                                width = image.width,
-                                height = image.height;
 
-                            if (width > height) {
-                                if (width > max_size) {
-                                    height *= max_size / width;
-                                    width = max_size;
-                                }
-                            } else {
-                                if (height > max_size) {
-                                    width *= max_size / height;
-                                    height = max_size;
-                                }
-                            }
-
-                            canvas.width = width;
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(image, 0, 0, width, height);
-
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                            resolve(dataUrl);
-                        };
-                        image.onerror = () => {
-                            reject(new Error("Resim formatı desteklenmiyor veya bozuk."));
-                        };
-                        image.src = readerEvent.target.result;
-                    };
-                    reader.onerror = () => {
-                        reject(new Error("Dosya okuma hatası. Dosya bozuk olabilir."));
-                    };
-                    reader.readAsDataURL(file);
-                });
-            };
 
             // --- KONUM YÖNETİMİ ---
             const handleGeolocation = () => {
@@ -2979,21 +2943,7 @@
               `;
                     }).join('');
 
-                const allImages = tripExpenses
-                    .flatMap(x => x.imgs || [])
-                    .filter(Boolean);
 
-                const uniqueImages = [...new Set(allImages)].slice(0, 10);
-
-                const imagePreview = uniqueImages.length > 0 ? `
-          <div class="grid grid-cols-5 gap-2">
-              ${uniqueImages.map(img => `
-                  <div class="aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
-                      <img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300">
-                  </div>
-              `).join('')}
-          </div>
-      ` : '<p class="text-sm text-slate-500 italic">Bu seyahatte eklenmiş fotoğraf bulunmamaktadır.</p>';
 
                 const notesForTrip = state.criticalNotes
                     .filter(n => n.trip === selectedTrip)
@@ -3281,14 +3231,7 @@
                   </ul>
               </div>
 
-              <!-- 4. Fotoğraf Önizlemesi -->
-              <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                  <h4 class="text-sm font-bold text-slate-300 uppercase flex items-center gap-2">
-                     📸 Eklenen Fotoğraflar (İlk 10)
-                  </h4>
-                  ${imagePreview}
-              </div>
-              
+
               <!-- YENİ: RAPOR NOTLARI VE AÇIKLAMALAR -->
               <div class="bg-gradient-to-br from-amber-900/20 via-slate-800/50 to-orange-900/20 border border-amber-600/30 rounded-xl p-5 space-y-3">
                   <h4 class="text-base font-bold text-amber-200 uppercase flex items-center gap-2">
@@ -3999,11 +3942,20 @@
                     class="w-full rounded-xl border border-cyan-400/60 bg-slate-950/40 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/80 appearance-none cursor-pointer backdrop-blur-sm">
                     ${(() => {
                         const activeTrips = (state.trips || []).filter(t => t.status !== 'completed').map(t => t.name);
+                        const completedTrips = (state.trips || []).filter(t => t.status === 'completed').map(t => t.name);
                         const options = activeTrips.map(t => `
                             <option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>${esc(t)}</option>
                         `);
                         if (activeTrips.length > 1 || activeTrips.length === 0) {
                             options.unshift(`<option value="" ${!state.tripFilter ? 'selected' : ''}>Tüm Seyahatler</option>`);
+                        }
+                        // Arşiv modu açıksa tamamlanmış seyahatleri de göster
+                        if (state.showArchive && completedTrips.length > 0) {
+                            options.push(`<optgroup label="📦 Arşiv">`);
+                            completedTrips.forEach(t => {
+                                options.push(`<option value="${esc(t)}" ${state.tripFilter === t ? 'selected' : ''}>📦 ${esc(t)}</option>`);
+                            });
+                            options.push(`</optgroup>`);
                         }
                         return options.join('');
                     })()}
@@ -4012,6 +3964,13 @@
                     ${ICONS.down.replace('w-4 h-4', 'w-3.5 h-3.5')}
                 </div>
                 </div>
+                <!-- Arşiv Toggle -->
+                ${(state.trips || []).some(t => t.status === 'completed') ? `
+                <button data-act="tog-archive" class="mt-1 text-[9px] font-semibold px-2 py-1 rounded-lg border transition ${state.showArchive 
+                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' 
+                    : 'bg-slate-800/40 border-slate-700/50 text-slate-500 hover:text-slate-300'}">
+                    📦 ${state.showArchive ? 'Arşivi Gizle' : 'Arşiv (' + (state.trips || []).filter(t => t.status === 'completed').length + ')'}
+                </button>` : ''}
             </div>
 
           </div>
@@ -4128,6 +4087,7 @@
             function renderExpenseList(exp) {
                 if (!exp.length) return `<div class="text-center py-8 text-slate-500 text-sm border border-dashed border-slate-800 rounded-xl">Kayıt bulunamadı.</div>`;
 
+                const ITEMS_PER_PAGE = 20; // Lazy loading: şehir başına gösterilen harcama limiti
                 const grp = {}; exp.forEach(x => { const c = x.city || 'Genel'; if (!grp[c]) grp[c] = []; grp[c].push(x) });
 
                 return `<div class="space-y-3 pb-24">${Object.keys(grp).sort().map(city => {
@@ -4141,6 +4101,12 @@
                     const sumTxt = fmtNum(sumInBase) + ' ' + state.baseCurrency;
 
                     const cityColor = getCityColor(city);
+
+                    // Lazy Loading: Şehir başına limit
+                    const pageLimit = (state.expPageLimits && state.expPageLimits[city]) || ITEMS_PER_PAGE;
+                    const visibleItems = lst.slice(0, pageLimit);
+                    const hasMore = lst.length > pageLimit;
+                    const remaining = lst.length - pageLimit;
 
                     return `
         <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl overflow-hidden relative group">
@@ -4162,10 +4128,10 @@
           </div>
           
           <div class="bg-slate-100 border-t border-slate-300 ${expd ? 'rounded-b-2xl' : ''}">
-            ${expd ? lst.map((x, index) => {
+            ${expd ? visibleItems.map((x, index) => {
                         const catInfo = CATS[x.cat] || CATS.other;
                         const typeInfo = EXPENSE_TYPES.find(t => t.id === x.type) || EXPENSE_TYPES[0];
-                        const isLast = index === lst.length - 1;
+                        const isLast = index === visibleItems.length - 1 && !hasMore;
                         const separatorClass = isLast ? '' : 'border-b border-slate-200';
 
                         return `
@@ -4195,7 +4161,10 @@
                       <div class="text-[10px] text-slate-600">${state.baseCurrency}</div>
                    </div>
                 </div>`;
-                    }).join('') : ''}
+                    }).join('') + (hasMore ? `
+                <button data-act="load-more-exp" data-val="${esc(city)}" class="w-full p-3 text-center text-xs font-bold text-blue-400 hover:text-blue-300 hover:bg-slate-200/50 transition border-t border-slate-200">
+                    Daha fazla göster (+${remaining} harcama)
+                </button>` : '') : ''}
           </div>
         </div>`;
                 }).join('')}</div>`;
@@ -4859,8 +4828,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                   <br/><br/>
                   • <strong class="text-white">Seyahat:</strong> Hangi seyahate ait olduğunu seçin<br/>
                   • <strong class="text-white">Tutar:</strong> Harcama miktarını ve para birimini girin<br/>
-                  • <strong class="text-white">Kategori:</strong> Yemek, ulaşım, konaklama vb. seçin<br/>
-                  • <strong class="text-white">Fotoğraf:</strong> Fiş/fatura fotoğrafı ekleyebilirsiniz
+                  • <strong class="text-white">Kategori:</strong> Yemek, ulaşım, konaklama vb. seçin
                 </p>
               </div>
             </div>
@@ -4954,7 +4922,6 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 </div>
                 <p class="text-xs text-slate-300 leading-relaxed">
                   • <strong class="text-cyan-300">Hızlı Ekle:</strong> Özet ekranındaki kısayol butonuyla anında harcama girin.<br/>
-                  • <strong class="text-emerald-300">Fotoğraflar:</strong> Harcama detayına tıklayarak fiş/fatura fotoğrafı ekleyin.<br/>
                   • <strong class="text-amber-300">Çevrimdışı:</strong> İnternetiniz olmasa bile tüm özellikleri kullanmaya devam edebilirsiniz.
                 </p>
               </div>
@@ -4973,8 +4940,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                 const currentTripObj = (state.trips || []).find(t => t.name === f.trip);
                 const tripPersons = currentTripObj ? currentTripObj.persons.split(',').map(p => p.trim()).filter(Boolean) : [];
 
-                const imagesCount = f.imgs ? f.imgs.length : 0;
-                const isImageLimitReached = imagesCount >= MAX_IMAGES;
+
 
                 const isFuelActive = f.cat === 'fuel';
                 const isTransportActive = f.cat === 'transport';
@@ -5139,24 +5105,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
             </div>
 
             <textarea id="i-desc" rows="1" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 outline-none resize-none" placeholder="Not ekle...">${esc(f.desc)}</textarea>
-
-             <div class="flex flex-col gap-2">
-              <label class="cursor-pointer bg-slate-800 ${isImageLimitReached ? 'opacity-50' : 'hover:bg-slate-700'} border border-slate-700 text-slate-300 text-[10px] py-2 rounded-lg transition text-center">
-                  ${isImageLimitReached ? `Limit (${MAX_IMAGES})` : `+ Fotoğraf (${imagesCount}/${MAX_IMAGES})`}
-                  <input type="file" data-act="img-upload" id="i-img" hidden accept="image/*" multiple ${isImageLimitReached ? 'disabled' : ''}>
-              </label>
-              
-              ${imagesCount > 0 ? `
-              <div class="flex gap-2 overflow-x-auto">
-                ${f.imgs.map((s, i) => `
-                  <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0 group">
-                    <img src="${s}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in">
-                    <button type="button" data-act="del-img" data-val="${i}" class="absolute inset-0 bg-black/50 text-white flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition">X</button>
-                  </div>
-                `).join('')}
-              </div>` : ''}
-            </div>
-          </div>
+           </div>
           </div>
 
           <!-- Sabit Kaydet Butonu -->
@@ -5383,13 +5332,7 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                  <p class="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">${esc(x.desc) || '<span class="italic text-slate-600">Not eklenmemiş.</span>'}</p>
                </div>
 
-               ${x.imgs && x.imgs.length ? `
-               <div>
-                  <div class="text-xs font-bold text-slate-500 mb-2 uppercase">Fotoğraflar (${x.imgs.length})</div>
-                  <div class="grid grid-cols-3 gap-2">
-                    ${x.imgs.map(img => `<div class="aspect-square rounded-lg overflow-hidden border border-slate-700 bg-slate-800"><img src="${img}" data-act="lb" class="w-full h-full object-cover cursor-zoom-in hover:scale-110 transition duration-300"></div>`).join('')}
-                  </div>
-               </div>` : ''}
+
 
                 <div class="flex flex-col gap-2 pt-2">
                    ${x.isReservation ? `
@@ -5758,7 +5701,6 @@ function renderApp() {
                     if (state.modals.tripForm) h += renderTripForm(); // Trip Formu Eklendi
                     if (state.modals.tripComplete) h += renderModal('trip-complete'); // Trip Tamamlama Modalı Eklendi
 
-                    if (state.lightbox) h += `<div class="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-2 backdrop-blur-xl" data-act="close-lb"><img src="${state.lightbox}" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"></div>`;
 
                     h += renderAssistantModals();
                     h += renderUndoBar();
@@ -6352,7 +6294,7 @@ function renderApp() {
                         cur,
                         date: dateStr,
                         time: timeStr,
-                        imgs: [],
+
                         isFuel: false,
                         startKm: '',
                         endKm: '',
@@ -6992,15 +6934,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     renderApp();
                 }
 
-                if (act === 'del-img') {
-                    e.stopPropagation(); // Güvenlik: Tıklama yayılımını durdur
-                    e.preventDefault(); // KRİTİK DÜZELTME: Varsayılan davranışı engelle
-                    const idx = Number(val);
-                    const deleted = state.form.imgs[idx];
-                    if (!Number.isNaN(idx) && deleted) setUndo({ kind: 'img', index: idx, data: deleted, message: 'Fotoğraf kaldırıldı. (Geri alınabilir)' });
-                    state.form.imgs.splice(idx, 1);
-                    renderApp();
-                }
 
                 if (act === 'save') {
                     const f = state.form;
@@ -7322,6 +7255,18 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (e.target.closest('[data-act="del-city"]')) return;
                     state.expandedCities[val] = !state.expandedCities[val]; renderApp();
                 }
+                // LAZY LOADING: Daha fazla harcama göster
+                if (act === 'load-more-exp') {
+                    const city = val;
+                    if (!state.expPageLimits) state.expPageLimits = {};
+                    state.expPageLimits[city] = (state.expPageLimits[city] || 20) + 20;
+                    renderApp();
+                }
+                // ARŞİV MODU: Tamamlanmış seyahatleri göster/gizle
+                if (act === 'tog-archive') {
+                    state.showArchive = !state.showArchive;
+                    renderApp();
+                }
                 if (act === 'detail') {
                     // Detay modali aç
                     state.selExp = id;
@@ -7398,8 +7343,6 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     }
                 }
 
-                if (act === 'lb') { state.lightbox = e.target.src; renderApp(); }
-                if (act === 'close-lb') { state.lightbox = null; renderApp(); }
                 if (act === 'open-chart') { state.modals.chart = true; renderApp(); }
 
                 if (act === 'imp') {
@@ -7783,65 +7726,8 @@ if (act === 'export-pdf') {
 
 
 
-                // FOTOĞRAF YÜKLEME İŞLEYİCİSİ
-                if (t.dataset.act === 'img-upload') {
-                    const files = t.files;
-                    const currentCount = state.form.imgs.length;
-                    const newFiles = Array.from(files).slice(0, MAX_IMAGES - currentCount);
-
-                    if (newFiles.length === 0 && files.length > 0) {
-                        setState({ err: `Maksimum ${MAX_IMAGES} fotoğraf ekleme limitine ulaşıldı.` });
-                        t.value = '';
-                        return;
-                    }
-
-                    if (newFiles.length > 0) {
-
-                        setState({ err: 'Resimler işleniyor ve optimize ediliyor... Lütfen bekleyiniz.' });
-
-                        const errorMessages = [];
-
-                        const readerPromises = newFiles.map(file => {
-                            return resizeAndConvertImage(file)
-                                .catch(error => {
-                                    errorMessages.push(`Hata (${file.name}): ${error.message}`);
-                                    return null;
-                                });
-                        });
-
-                        Promise.all(readerPromises)
-                            .then(processedImages => {
-                                const validImages = processedImages.filter(img => img !== null);
-
-                                if (validImages.length > 0) {
-                                    const updatedImgs = [...state.form.imgs, ...validImages];
-                                    state.form.imgs = updatedImgs.slice(0, MAX_IMAGES);
-                                }
-
-                                let finalError = '';
-                                if (errorMessages.length > 0) {
-                                    finalError = `Yükleme Hataları (${errorMessages.length} dosya): ${errorMessages.join(' | ')}`;
-                                } else if (validImages.length === 0 && files.length > 0) {
-                                    finalError = 'Hiç resim yüklenemedi (Desteklenmeyen dosya formatı veya bilinmeyen hata).';
-                                } else {
-                                    finalError = '';
-                                }
-
-                                t.value = '';
-                                setState({ err: finalError });
-
-                            })
-                            .catch(error => {
-                                console.error("Resim işlenirken beklenmeyen genel genel hata oluştu:", error);
-                                state.err = "Resim yüklenirken beklenmeyen genel bir hata oluştu.";
-                                t.value = '';
-                                renderApp();
-                            });
-                    } else {
-                        t.value = '';
-                    }
-                }
             });
+
 
             document.addEventListener('input', e => {
                 const t = e.target;
