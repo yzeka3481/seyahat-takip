@@ -5076,6 +5076,23 @@ ${allTripsForNotes.map(t => `<option value="${esc(t)}" ${t === selectedTripForNo
                </div>
             </div>
 
+            ${isFuelActive ? `
+            <div class="grid grid-cols-3 gap-3 animate-[fadeIn_0.3s]">
+               <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Başlangıç Km</label>
+                  <input id="i-start-km" type="text" inputmode="numeric" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0" value="${esc(f.startKm || '')}">
+               </div>
+               <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Bitiş Km</label>
+                  <input id="i-end-km" type="text" inputmode="numeric" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0" value="${esc(f.endKm || '')}">
+               </div>
+               <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Yakıt (Litre)</label>
+                  <input id="i-fuel-amount" type="text" inputmode="decimal" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-slate-200 outline-none focus:border-blue-500 font-mono" placeholder="0.00" value="${esc(f.fuelAmount || '')}">
+               </div>
+            </div>
+            ` : ''}
+
             <div class="flex items-center gap-2 bg-slate-800/40 border border-slate-700/50 rounded-lg px-3 py-2 hover:bg-slate-800/60 transition group cursor-pointer" onclick="const cb = this.querySelector('#i-addToRoute'); cb.checked = !cb.checked;">
                 <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400">
                     ${ICONS.location.replace('w-4 h-4', 'w-4 h-4')}
@@ -6913,6 +6930,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     const iType = document.getElementById('i-type');
                     const iCur = document.getElementById('i-cur');
                     const iPpl = document.getElementById('i-ppl');
+                    const iStartKm = document.getElementById('i-start-km');
+                    const iEndKm = document.getElementById('i-end-km');
+                    const iFuelAmt = document.getElementById('i-fuel-amount');
 
                     if (iTrip) state.form.trip = iTrip.value;
                     if (iCity) state.form.city = iCity.value;
@@ -6923,6 +6943,9 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                     if (iType) state.form.type = iType.value;
                     if (iCur) state.form.cur = iCur.value;
                     if (iPpl) state.form.ppl = iPpl.value;
+                    if (iStartKm) state.form.startKm = iStartKm.value.replace(/[^0-9]/g, '');
+                    if (iEndKm) state.form.endKm = iEndKm.value.replace(/[^0-9]/g, '');
+                    if (iFuelAmt) state.form.fuelAmount = iFuelAmt.value.replace(',', '.').replace(/[^0-9.]/g, '');
 
                     state.form.cat = val;
                     const isFuelSelected = (val === 'fuel');
@@ -6956,6 +6979,35 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
                 if (act === 'save') {
                     const f = state.form;
 
+                    // KRİTİK DÜZELTME: Kaydetmeden önce tüm form değerlerini DOM'dan çek.
+                    // Bu, input eventlerinin tetiklenmeme (örn: select) veya gecikme sorunlarını çözer.
+                    const tripInput = document.getElementById('i-trip');
+                    if (tripInput) f.trip = tripInput.value;
+
+                    const dateInput = document.getElementById('i-date');
+                    if (dateInput) f.date = dateInput.value;
+
+                    const typeSelect = document.getElementById('i-type');
+                    if (typeSelect) f.type = typeSelect.value;
+
+                    const cityInput = document.getElementById('i-city');
+                    if (cityInput) f.city = cityInput.value;
+
+                    const placeInput = document.getElementById('i-place');
+                    if (placeInput) f.place = placeInput.value;
+
+                    const amtInput = document.getElementById('i-amt');
+                    if (amtInput) f.amt = amtInput.value.replace(',', '.').replace(/[^0-9.]/g, '');
+
+                    const curSelect = document.getElementById('i-cur');
+                    if (curSelect) f.cur = curSelect.value;
+
+                    const pplInput = document.getElementById('i-ppl');
+                    if (pplInput) f.ppl = pplInput.value;
+
+                    const descInput = document.getElementById('i-desc');
+                    if (descInput) f.desc = descInput.value;
+
                     const isIndividualInput = document.getElementById('i-isIndividual');
                     f.isIndividual = isIndividualInput ? isIndividualInput.checked : false;
 
@@ -6971,6 +7023,17 @@ state.trips = state.trips.filter(t => String(t.id) !== tripIdToDelete);
 
                     const isFuelActive = f.cat === 'fuel';
                     f.isFuel = isFuelActive;
+
+                    if (isFuelActive) {
+                        const startKmInput = document.getElementById('i-start-km');
+                        if (startKmInput) f.startKm = startKmInput.value.replace(/[^0-9]/g, '');
+
+                        const endKmInput = document.getElementById('i-end-km');
+                        if (endKmInput) f.endKm = endKmInput.value.replace(/[^0-9]/g, '');
+
+                        const fuelAmountInput = document.getElementById('i-fuel-amount');
+                        if (fuelAmountInput) f.fuelAmount = fuelAmountInput.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                    }
 
                     if (!f.city || !f.place || !f.amt || !f.cat) {
                         state.err = 'Zorunlu alanları doldurunuz (Şehir, Mekan, Tutar, Kategori).';
@@ -7760,7 +7823,8 @@ if (act === 'export-pdf') {
 
                 // Harcama formu inputları
                 const formOverlay = t.closest('.form-modal-overlay');
-                if (formOverlay && !t.closest('[data-act="save-res"]')) { 
+                const isExpenseInput = t.id && t.id.startsWith('i-') && !t.id.startsWith('i-res-') && !t.id.startsWith('i-trip-');
+                if (isExpenseInput && formOverlay) { 
                     const fExp = state.form;
                     let shouldRender = false;
 
