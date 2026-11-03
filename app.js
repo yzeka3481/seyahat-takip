@@ -1,4 +1,4 @@
-﻿        (() => {
+        (() => {
             // --- Firebase Auth + Misafir Limitleri ---
             const firebaseConfig = {
                 apiKey: "AIzaSyDiZ7KZBF1bPb185duB0iIXvtqrdfJ91e8",
@@ -12,6 +12,7 @@
 
             let auth = null;
             let currentUser = null;
+            let activeUserUid = null;
             let db = null;
             let isCloudLoading = false;
             let isCloudSaving = false;
@@ -28,10 +29,25 @@
                         }
                         auth.onAuthStateChanged(user => {
                             console.log('onAuthStateChanged, user:', user);
+                            const prevOwnerUid = activeUserUid || localStorage.getItem(K.OWNER);
                             currentUser = user;
                             updateAuthUi();
                             if (currentUser) {
-                                loadUserDataFromCloud();
+                                if (prevOwnerUid && prevOwnerUid !== currentUser.uid) {
+                                    clearLocalUserData();
+                                    initState();
+                                    renderApp();
+                                }
+                                activeUserUid = currentUser.uid;
+                                try { localStorage.setItem(K.OWNER, currentUser.uid); } catch (e) {}
+                                loadUserDataFromCloud(prevOwnerUid);
+                            } else {
+                                if (prevOwnerUid) {
+                                    clearLocalUserData();
+                                    initState();
+                                    renderApp();
+                                }
+                                activeUserUid = null;
                             }
                         });
                     } else {
@@ -151,7 +167,7 @@
             }
 
             // --- Sabitler ---
-            const K = { EXP: 'travel_expenses', LIST: 'travel_checklist', BUD: 'travel_budget', PREF: 'travel_pref', NOTES: 'travel_notes', RES: 'travel_reservations', TRIPS: 'travel_trips', TRANS: 'travel_transfers' };
+            const K = { EXP: 'travel_expenses', LIST: 'travel_checklist', BUD: 'travel_budget', PREF: 'travel_pref', NOTES: 'travel_notes', RES: 'travel_reservations', TRIPS: 'travel_trips', TRANS: 'travel_transfers', OWNER: 'travel_owner_uid' };
             const AVAILABLE_CURRENCIES = ['TRY', 'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD'];
 
             let EXCHANGE_RATES = {
@@ -1421,7 +1437,48 @@
 
             function setState(p) { state = { ...state, ...p }; scheduleRender(); }
 
-            function save() {
+            function clearLocalUserData() {
+                try {
+                    localStorage.removeItem(K.EXP);
+                    localStorage.removeItem(K.LIST);
+                    localStorage.removeItem(K.BUD);
+                    localStorage.removeItem(K.NOTES);
+                    localStorage.removeItem(K.RES);
+                    localStorage.removeItem(K.TRIPS);
+                    localStorage.removeItem(K.TRANS);
+                    localStorage.removeItem(K.OWNER);
+                } catch (e) {
+                    console.error('Yerel veriler temizlenirken hata:', e);
+                }
+            }
+
+            function syncTripSelectionsAfterLoad() {
+                const allTrips = [...new Set((state.exp || []).map(x => x.trip).filter(Boolean).concat((state.res || []).map(x => x.trip).filter(Boolean)))].sort();
+                let defaultTrip = '';
+                const activeTrips = (state.trips || []).filter(trip => trip.status !== 'completed');
+                if (activeTrips.length > 0) {
+                    activeTrips.sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+                    defaultTrip = activeTrips[0].name;
+                }
+                let selectedNoteTrip = 'Genel';
+                if (defaultTrip) {
+                    selectedNoteTrip = defaultTrip;
+                } else if (allTrips.length > 0) {
+                    selectedNoteTrip = allTrips[0];
+                }
+                state.tripFilter = defaultTrip;
+                state.selectedNoteTrip = selectedNoteTrip;
+                state.selectedReportTrip = selectedNoteTrip;
+                state.routeTrip = '';
+                state.selExp = null;
+                state.selRes = null;
+                state.expandedCities = {};
+                if (state.quickExp) {
+                    state.quickExp.trip = '';
+                }
+            }
+
+            function save(skipCloud = false) {
                 try {
                     localStorage.setItem(K.EXP, JSON.stringify(state.exp));
                     localStorage.setItem(K.LIST, JSON.stringify(state.chk));
@@ -1432,6 +1489,9 @@
                     localStorage.setItem(K.PREF + '_report_pdf_cat', state.reportPdfCat || '');
                     localStorage.setItem(K.TRIPS, JSON.stringify(state.trips));
                     localStorage.setItem(K.TRANS, JSON.stringify(state.transfers || []));
+                    if (currentUser && currentUser.uid) {
+                        localStorage.setItem(K.OWNER, currentUser.uid);
+                    }
                 } catch (e) {
                     if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
                         console.error('Yerel depolama alanı doldu! Bazı veriler cihaza kaydedilemedi.', e);
@@ -1441,7 +1501,7 @@
                     }
                 }
 
-                if (!isGuest()) {
+                if (!skipCloud && !isGuest()) {
                     saveStateToCloud();
                 }
             };
@@ -1524,31 +1584,39 @@
                 return db.collection('users').doc(currentUser.uid);
             }
 
-            function loadUserDataFromCloud() {
-                if (!db || !currentUser || isCloudLoading) return;
+            function loadUserDataFromCloud(prevOwnerUid) {
+                if (!db || !currentUser) return;
+                const targetUid = currentUser.uid;
                 const ref = getUserDocRef();
                 if (!ref) return;
                 isCloudLoading = true;
                 ref.get()
                     .then(snap => {
+                        if (!currentUser || currentUser.uid !== targetUid) return;
                         if (!snap.exists) {
+                            clearLocalUserData();
+                            initState();
+                            try { localStorage.setItem(K.OWNER, targetUid); } catch (e) {}
                             saveStateToCloud();
+                            renderApp();
                             return;
                         }
                         const data = snap.data() || {};
                         try {
-                            if (Array.isArray(data.exp)) {
-                                state.exp = data.exp;
+                            state.exp = Array.isArray(data.exp) ? data.exp : [];
+                            state.res = Array.isArray(data.res) ? data.res : [];
+                            if (data.chk && typeof data.chk === 'object') {
+                                state.chk = {
+                                    cats: Array.isArray(data.chk.cats) && data.chk.cats.length ? data.chk.cats : [...DEF_CATS],
+                                    items: Array.isArray(data.chk.items) ? data.chk.items : []
+                                };
+                            } else {
+                                state.chk = {
+                                    cats: [...DEF_CATS],
+                                    items: DEF_ITEMS.map(i => ({ id: genId(), cat: i.cat, val: i.val, done: false, date: i.date || '' }))
+                                };
                             }
-                            if (Array.isArray(data.res)) {
-                                state.res = data.res;
-                            }
-                            if (data.chk) {
-                                state.chk = data.chk;
-                            }
-                            if (Array.isArray(data.criticalNotes)) {
-                                state.criticalNotes = data.criticalNotes;
-                            }
+                            state.criticalNotes = Array.isArray(data.criticalNotes) ? data.criticalNotes : [];
                             if (data.targetTimezone) {
                                 state.targetTimezone = data.targetTimezone;
                             }
@@ -1556,15 +1624,17 @@
                                 state.baseCurrency = data.baseCurrency;
                                 state.reportCurrency = data.baseCurrency;
                                 state.chartCurrency = data.baseCurrency;
+                                BASE_CURRENCY = data.baseCurrency;
                             }
-                            if (Array.isArray(data.trips)) {
-                                state.trips = data.trips;
-                            }
-                            if (Array.isArray(data.transfers)) {
-                                state.transfers = data.transfers;
-                            }
-                            // LocalStorage'i de güncelle
-                            save();
+                            state.trips = Array.isArray(data.trips) ? data.trips : [];
+                            state.transfers = Array.isArray(data.transfers) ? data.transfers : [];
+
+                            state.openChkCats = {};
+                            (state.chk.cats || []).forEach(x => state.openChkCats[x.id] = false);
+                            syncTripSelectionsAfterLoad();
+
+                            // Sadece LocalStorage'i güncelle
+                            save(true);
                             renderApp();
                         } catch (err) {
                             console.error('Bulut verisi state\'e uygulanırken hata oluştu', err);
@@ -5451,13 +5521,17 @@ function renderApp() {
                     return;
                 }
                 if (act === 'auth-logout') {
+                    currentUser = null;
+                    activeUserUid = null;
+                    clearLocalUserData();
+                    initState();
+                    updateAuthUi();
+                    renderApp();
+                    closeLoginModal();
+                    toggleUserMenu(true);
                     if (auth) {
                         auth.signOut().catch(err => console.error('Çıkış hatası', err));
                     }
-                    currentUser = null;
-                    updateAuthUi();
-                    closeLoginModal();
-                    toggleUserMenu(true);
                     return;
                 }
 
@@ -5508,17 +5582,22 @@ function renderApp() {
                         auth.signInWithPopup(provider)
                             .then((result) => {
                                 console.log('Google ile giriş başarılı:', result && result.user);
+                                const prevOwnerUid = activeUserUid || localStorage.getItem(K.OWNER);
+                                const signedInUser = (result && result.user) ? result.user : auth.currentUser;
 
-                                if (result && result.user) {
-                                    currentUser = result.user;
-                                } else if (auth.currentUser) {
-                                    currentUser = auth.currentUser;
+                                if (signedInUser) {
+                                    currentUser = signedInUser;
+                                    if (prevOwnerUid && prevOwnerUid !== currentUser.uid) {
+                                        clearLocalUserData();
+                                        initState();
+                                        renderApp();
+                                    }
+                                    activeUserUid = currentUser.uid;
+                                    try { localStorage.setItem(K.OWNER, currentUser.uid); } catch (e) {}
+                                    loadUserDataFromCloud(prevOwnerUid);
                                 }
 
                                 updateAuthUi();
-                                if (currentUser) {
-                                    loadUserDataFromCloud();
-                                }
 
                                 // Login modali kapanır, kullanıcı menüsü varsa gizlenir
                                 closeLoginModal();
